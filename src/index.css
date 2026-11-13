@@ -1,0 +1,150 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "./styles/tokens.css";
+
+@theme {
+  --font-sans: var(--st-font-sans);
+  --font-mono: var(--st-font-mono);
+
+  /* Override Tailwind text scale to ensure even px across all utilities */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 14px;
+  --text-sm--line-height: 20px;
+  --text-base: 16px;
+  --text-base--line-height: 24px;
+  --text-lg: 18px;
+  --text-lg--line-height: 26px;
+  --text-xl: 20px;
+  --text-xl--line-height: 28px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--st-bg-canvas);
+  color: var(--st-text-primary);
+  font-family: var(--st-font-sans);
+  font-size: var(--st-text-sm);
+  line-height: var(--st-leading-sm);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle telemetry scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.20);
+  border-radius: var(--st-radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.34);
+}
+
+/* Read-only Markdown styling using strictly even px tokens */
+.st-markdown {
+  color: var(--st-text-secondary);
+  font-size: var(--st-text-sm);
+  line-height: var(--st-leading-sm);
+}
+
+.st-markdown h1,
+.st-markdown h2,
+.st-markdown h3 {
+  color: var(--st-text-primary);
+  font-weight: 600;
+  margin-top: var(--st-space-16);
+  margin-bottom: var(--st-space-8);
+}
+
+.st-markdown h1 {
+  font-size: var(--st-text-xl);
+  line-height: var(--st-leading-xl);
+}
+
+.st-markdown h2 {
+  font-size: var(--st-text-lg);
+  line-height: var(--st-leading-lg);
+}
+
+.st-markdown h3 {
+  font-size: var(--st-text-base);
+  line-height: var(--st-leading-base);
+}
+
+.st-markdown h1:first-child,
+.st-markdown h2:first-child,
+.st-markdown h3:first-child {
+  margin-top: var(--st-space-0);
+}
+
+.st-markdown p {
+  margin-top: var(--st-space-0);
+  margin-bottom: var(--st-space-12);
+}
+
+.st-markdown ul,
+.st-markdown ol {
+  margin-top: var(--st-space-0);
+  margin-bottom: var(--st-space-12);
+  padding-left: var(--st-space-20);
+}
+
+.st-markdown li {
+  margin-bottom: var(--st-space-4);
+}
+
+.st-markdown code {
+  font-family: var(--st-font-mono);
+  font-size: var(--st-text-xs);
+  line-height: var(--st-leading-xs);
+  background-color: var(--st-bg-terminal);
+  color: var(--st-accent-text);
+  padding: var(--st-space-2) var(--st-space-6);
+  border-radius: var(--st-radius-sm);
+}
+
+.st-markdown pre {
+  background-color: var(--st-bg-terminal);
+  border: var(--st-border-w) solid var(--st-border-subtle);
+  border-radius: var(--st-radius-md);
+  padding: var(--st-space-12);
+  overflow-x: auto;
+  margin-bottom: var(--st-space-12);
+}
+
+.st-markdown pre code {
+  background: transparent;
+  padding: var(--st-space-0);
+  color: var(--st-text-primary);
+}
+
+.st-markdown blockquote {
+  border-left: var(--st-space-4) solid var(--st-border-accent);
+  padding-left: var(--st-space-12);
+  margin: var(--st-space-0) var(--st-space-0) var(--st-space-12) var(--st-space-0);
+  color: var(--st-text-muted);
+}
