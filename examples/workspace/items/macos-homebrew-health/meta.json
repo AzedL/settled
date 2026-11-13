@@ -1,0 +1,26 @@
+{
+  "name": "macOS Homebrew Health",
+  "description": "Verify Homebrew installation and run brew doctor on macOS.",
+  "createAt": "2026-11-14T03:15:00+08:00",
+  "tags": ["macos", "toolchain", "init"],
+  "platforms": ["macos"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Homebrew installed",
+        "description": "Check brew executable is on PATH",
+        "run": "command -v brew && brew --version"
+      },
+      {
+        "name": "brew doctor",
+        "description": "Run Homebrew self-diagnostic checks",
+        "run": "brew doctor"
+      }
+    ],
+    "fix": {
+      "name": "Update Homebrew formulae",
+      "description": "Refresh Homebrew formulae and cleanup outdated caches",
+      "run": "brew update && brew cleanup"
+    }
+  }
+}

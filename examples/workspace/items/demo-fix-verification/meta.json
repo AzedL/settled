@@ -1,0 +1,29 @@
+{
+  "name": "Demo Fix -> Verify Loop",
+  "description": "Safe sandboxed demo showing red check -> fix with confirmation -> automatic re-check turning green.",
+  "createAt": "2026-11-14T03:25:00+08:00",
+  "tags": ["demo", "workflow"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Temp marker flag present",
+        "description": "Checks for a harmless marker file inside your OS temp directory",
+        "run": "node @script/demo-flag.mjs check"
+      }
+    ],
+    "fix": [
+      {
+        "name": "Create temp marker flag",
+        "description": "Creates the harmless marker file so check turns green automatically",
+        "run": "node @script/demo-flag.mjs fix"
+      }
+    ],
+    "reset-demo": [
+      {
+        "name": "Remove temp marker flag",
+        "description": "Deletes the marker file to reset the demo back to red",
+        "run": "node @script/demo-flag.mjs reset"
+      }
+    ]
+  }
+}
