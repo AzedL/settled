@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/settled-core",
+  "crates/settled-cli",
   "src-tauri",
 ]
 resolver = "2"
