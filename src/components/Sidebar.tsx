@@ -1,6 +1,5 @@
 import {
   AlertCircle,
-  Ban,
   Play,
   RotateCcw,
   Search,
@@ -223,66 +222,44 @@ export function Sidebar({
                 }`}
               >
                 <div className="flex items-center justify-between gap-[var(--st-space-8)]">
-                  <div className="flex items-center gap-[var(--st-space-8)] min-w-0 flex-1">
-                    <span
-                      className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0"
-                      style={{
-                        color: item.applicable
-                          ? "var(--st-text-primary)"
-                          : "var(--st-text-muted)",
-                      }}
-                    >
-                      {item.name}
-                    </span>
+                  <span
+                    className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0 flex-1"
+                    style={{
+                      color: item.applicable
+                        ? "var(--st-text-primary)"
+                        : "var(--st-text-disabled)",
+                    }}
+                  >
+                    {item.name}
+                  </span>
 
-                    {displayedCheckCommands.length > 0 && (
-                      <div className="flex items-center gap-[var(--st-space-6)] shrink-0">
-                        {displayedCheckCommands.map((cmd) => {
-                          const effectiveApplicable =
-                            item.applicable && cmd.applicable;
-                          const status: RunStatus | "disabled" =
-                            effectiveApplicable
-                              ? getCommandRuntime(runtimeMap, cmd.commandId).status
-                              : "disabled";
-                          const tooltipPlatforms =
-                            cmd.platforms.length > 0
-                              ? cmd.platforms
-                              : item.platforms;
-                          const title = effectiveApplicable
-                            ? `${cmd.name}: ${lang.status.label(
-                                getCommandRuntime(runtimeMap, cmd.commandId).status
-                              )}`
-                            : lang.sidebar.disabledCommandTooltip(
-                                cmd.name,
-                                tooltipPlatforms
-                              );
+                  {(displayedCheckCommands.length > 0 || item.parseError) && (
+                    <div className="flex items-center gap-[var(--st-space-6)] shrink-0">
+                      {displayedCheckCommands.length > 0 && (
+                        <div className="flex items-center gap-[var(--st-space-6)]">
+                          {displayedCheckCommands.map((cmd) => {
+                            const effectiveApplicable =
+                              item.applicable && cmd.applicable;
+                            const status: RunStatus | "disabled" =
+                              effectiveApplicable
+                                ? getCommandRuntime(runtimeMap, cmd.commandId).status
+                                : "disabled";
+                            const title = effectiveApplicable
+                              ? `${cmd.name}: ${lang.status.label(
+                                  getCommandRuntime(runtimeMap, cmd.commandId).status
+                                )}`
+                              : `${cmd.name}: ${lang.status.disabled}`;
 
-                          return (
-                            <TrafficLed
-                              key={cmd.commandId}
-                              status={status}
-                              size="sm"
-                              title={title}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {(!item.applicable || item.parseError) && (
-                    <div className="flex items-center gap-[var(--st-space-4)] shrink-0">
-                      {!item.applicable && (
-                        <span
-                          className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                          style={{
-                            backgroundColor: "var(--st-status-disabled-soft)",
-                            color: "var(--st-status-disabled-text)",
-                          }}
-                        >
-                          <Ban className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-                          <span>{lang.sidebar.disabledOsBadge}</span>
-                        </span>
+                            return (
+                              <TrafficLed
+                                key={cmd.commandId}
+                                status={status}
+                                size="sm"
+                                title={title}
+                              />
+                            );
+                          })}
+                        </div>
                       )}
 
                       {item.parseError && (

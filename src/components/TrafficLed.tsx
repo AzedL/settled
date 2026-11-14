@@ -33,7 +33,10 @@ export function TrafficLed({ status, size = "md", title }: TrafficLedProps) {
       backgroundColor: "var(--st-status-idle)",
     },
     disabled: {
-      backgroundColor: "var(--st-status-disabled)",
+      backgroundColor: "transparent",
+      borderWidth: "var(--st-space-2)",
+      borderStyle: "solid",
+      borderColor: "var(--st-status-disabled)",
     },
   };
 

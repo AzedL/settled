@@ -23,12 +23,10 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
     }
   }, [runtime.status]);
 
-  const statusPillStyle: React.CSSProperties = !command.applicable
-    ? {
-        backgroundColor: "var(--st-status-disabled-soft)",
-        color: "var(--st-status-disabled-text)",
-      }
-    : runtime.status === "pass"
+  const showStatusPill = command.applicable && runtime.status !== "idle";
+
+  const statusPillStyle: React.CSSProperties =
+    runtime.status === "pass"
       ? {
           backgroundColor: "var(--st-status-pass-soft)",
           color: "var(--st-status-pass-text)",
@@ -43,19 +41,16 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               backgroundColor: "var(--st-status-running-soft)",
               color: "var(--st-status-running-text)",
             }
-          : runtime.status === "canceled"
-            ? {
-                backgroundColor: "var(--st-status-canceled-soft)",
-                color: "var(--st-status-canceled-text)",
-              }
-            : {
-                backgroundColor: "var(--st-status-idle-soft)",
-                color: "var(--st-status-idle-text)",
-              };
+          : {
+              backgroundColor: "var(--st-status-canceled-soft)",
+              color: "var(--st-status-canceled-text)",
+            };
 
   return (
     <div
-      className="rounded-[var(--st-radius-md)] border transition-colors"
+      className={`rounded-[var(--st-radius-md)] border transition-colors ${
+        !command.applicable ? "border-dashed opacity-65 select-none" : ""
+      }`}
       style={{
         backgroundColor: command.applicable
           ? "var(--st-bg-surface)"
@@ -67,7 +62,6 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
             : runtime.status === "running"
               ? "var(--st-border-running)"
               : "var(--st-border-subtle)",
-        opacity: command.applicable ? 1 : 0.65,
       }}
     >
       <div className="p-[var(--st-space-12)] flex items-start justify-between gap-[var(--st-space-12)]">
@@ -116,21 +110,23 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
                 )}
               </div>
 
-              <span
-                className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
-                style={statusPillStyle}
-              >
-                {command.applicable
-                  ? lang.status.label(runtime.status)
-                  : lang.scripts.disabledCommandBadge}
-              </span>
+              {showStatusPill && (
+                <span
+                  className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
+                  style={statusPillStyle}
+                >
+                  {lang.status.label(runtime.status)}
+                </span>
+              )}
 
               {command.platforms.length > 0 && (
                 <span
                   className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
                   style={{
                     backgroundColor: "var(--st-bg-panel)",
-                    color: "var(--st-text-muted)",
+                    color: command.applicable
+                      ? "var(--st-text-muted)"
+                      : "var(--st-text-disabled)",
                   }}
                 >
                   {command.platforms.map(lang.app.platformLabel).join(" / ")}
@@ -179,9 +175,10 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
         <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
           <button
             type="button"
+            disabled={!command.applicable && !hasLogs}
             onClick={() => setLogOpen((prev) => !prev)}
             aria-expanded={logOpen}
-            className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-panel ${
+            className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium disabled:cursor-not-allowed cursor-pointer st-control st-btn-panel ${
               logOpen
                 ? "st-btn-panel--active"
                 : hasLogs

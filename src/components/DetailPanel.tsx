@@ -1,7 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   AlertTriangle,
-  Ban,
   Braces,
   Check,
   ChevronDown,
@@ -27,7 +26,6 @@ import { ScriptGroupCard } from "./ScriptGroupCard";
 
 interface DetailPanelProps {
   item: WorkspaceItem | null;
-  hostPlatform: Platform;
   scope: ScopeMode;
   runtimeMap: Record<string, CommandRuntimeState>;
   verifyingItemId: string | null;
@@ -121,7 +119,6 @@ function CollapsibleDetailCard({
 
 export function DetailPanel({
   item,
-  hostPlatform,
   scope,
   runtimeMap,
   verifyingItemId,
@@ -181,7 +178,9 @@ export function DetailPanel({
     <main className="flex-1 min-w-0 overflow-y-auto p-[var(--st-space-24)]">
       <div className="max-w-[960px] mx-auto flex flex-col gap-[var(--st-space-20)]">
         <section
-          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)]"
+          className={`rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)] ${
+            !item.applicable ? "border-dashed opacity-80" : ""
+          }`}
           style={{
             backgroundColor: item.applicable
               ? "var(--st-bg-panel)"
@@ -193,27 +192,26 @@ export function DetailPanel({
         >
           <div className="flex flex-wrap items-start justify-between gap-[var(--st-space-16)]">
             <div className="flex flex-col gap-[var(--st-space-6)] min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-[var(--st-space-10)]">
-                <h1 className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold text-[color:var(--st-text-primary)]">
-                  {item.name}
-                </h1>
-                {!item.applicable && (
-                  <span
-                    className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
-                    style={{
-                      backgroundColor: "var(--st-status-disabled-soft)",
-                      borderColor: "var(--st-border-subtle)",
-                      color: "var(--st-status-disabled-text)",
-                    }}
-                  >
-                    <Ban className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-                    <span>{lang.sidebar.disabledOsBadge}</span>
-                  </span>
-                )}
-              </div>
+              <h1
+                className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold"
+                style={{
+                  color: item.applicable
+                    ? "var(--st-text-primary)"
+                    : "var(--st-text-muted)",
+                }}
+              >
+                {item.name}
+              </h1>
 
               {item.description && (
-                <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-secondary)]">
+                <p
+                  className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)]"
+                  style={{
+                    color: item.applicable
+                      ? "var(--st-text-secondary)"
+                      : "var(--st-text-disabled)",
+                  }}
+                >
                   {item.description}
                 </p>
               )}
@@ -320,29 +318,6 @@ export function DetailPanel({
           </div>
         </section>
 
-        {!item.applicable && (
-          <section
-            className="rounded-[var(--st-radius-lg)] border border-dashed p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
-            style={{
-              backgroundColor: "var(--st-bg-disabled)",
-              borderColor: "var(--st-border-default)",
-            }}
-          >
-            <Ban
-              className="w-[var(--st-icon-md)] h-[var(--st-icon-md)] shrink-0 mt-[var(--st-space-2)]"
-              style={{ color: "var(--st-status-disabled-text)" }}
-            />
-            <div className="flex flex-col gap-[var(--st-space-4)] min-w-0">
-              <h2 className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold text-[color:var(--st-text-secondary)]">
-                {lang.detail.disabledNoticeTitle}
-              </h2>
-              <p className="m-0 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-                {lang.detail.disabledNoticeBody(hostPlatform, item.platforms)}
-              </p>
-            </div>
-          </section>
-        )}
-
         {item.parseError && (
           <section
             className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
@@ -404,11 +379,7 @@ export function DetailPanel({
         </section>
 
         <CollapsibleDetailCard
-          title={
-            showReadme
-              ? lang.detail.readmeToggleHide
-              : lang.detail.readmeToggleShow
-          }
+          title={lang.detail.readmeTitle}
           icon={
             <FileText className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
           }
@@ -422,11 +393,7 @@ export function DetailPanel({
         </CollapsibleDetailCard>
 
         <CollapsibleDetailCard
-          title={
-            showRawMeta
-              ? lang.detail.rawMetaToggleHide
-              : lang.detail.rawMetaToggleShow
-          }
+          title={lang.detail.rawMetaTitle}
           icon={
             <Braces className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
           }

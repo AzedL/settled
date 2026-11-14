@@ -54,17 +54,23 @@ export function ScriptGroupCard({
     (c) => getCommandRuntime(runtimeMap, c.commandId).status === "running"
   );
 
-  const canRunGroup =
-    itemApplicable && applicableCommands.length > 0 && !anyRunning;
+  const isGroupDisabled = !itemApplicable || applicableCommands.length === 0;
+  const canRunGroup = !isGroupDisabled && !anyRunning;
 
   return (
     <section
-      className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex flex-col gap-[var(--st-space-12)]"
+      className={`rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex flex-col gap-[var(--st-space-12)] ${
+        isGroupDisabled ? "border-dashed opacity-75" : ""
+      }`}
       style={{
-        backgroundColor: "var(--st-bg-panel)",
-        borderColor: isHighlightedFix
-          ? "var(--st-border-warn)"
-          : "var(--st-border-default)",
+        backgroundColor: isGroupDisabled
+          ? "var(--st-bg-disabled)"
+          : "var(--st-bg-panel)",
+        borderColor: isGroupDisabled
+          ? "var(--st-border-subtle)"
+          : isHighlightedFix
+            ? "var(--st-border-warn)"
+            : "var(--st-border-default)",
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-[var(--st-space-12)]">
@@ -72,14 +78,16 @@ export function ScriptGroupCard({
           <div
             className="w-[var(--st-space-32)] h-[var(--st-space-32)] rounded-[var(--st-radius-md)] flex items-center justify-center shrink-0"
             style={{
-              backgroundColor:
-                group.role === "check"
+              backgroundColor: isGroupDisabled
+                ? "var(--st-status-disabled-soft)"
+                : group.role === "check"
                   ? "var(--st-accent-soft)"
                   : group.role === "fix"
                     ? "var(--st-status-canceled-soft)"
                     : "var(--st-status-idle-soft)",
-              color:
-                group.role === "check"
+              color: isGroupDisabled
+                ? "var(--st-status-disabled-text)"
+                : group.role === "check"
                   ? "var(--st-accent-text)"
                   : group.role === "fix"
                     ? "var(--st-status-canceled-text)"
@@ -88,7 +96,14 @@ export function ScriptGroupCard({
           >
             <GroupIcon className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
           </div>
-          <h3 className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold text-[color:var(--st-text-primary)] truncate">
+          <h3
+            className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold truncate"
+            style={{
+              color: isGroupDisabled
+                ? "var(--st-text-disabled)"
+                : "var(--st-text-primary)",
+            }}
+          >
             {title}
           </h3>
         </div>

@@ -665,9 +665,6 @@ export default function App() {
     [workspace, selectedItemId]
   );
 
-  const hostPlatform =
-    workspace?.hostPlatform ?? initialState?.hostPlatform ?? "windows";
-
   return (
     <div
       className="h-screen w-screen flex flex-col overflow-hidden"
@@ -747,7 +744,6 @@ export default function App() {
 
           <DetailPanel
             item={selectedItem}
-            hostPlatform={hostPlatform}
             scope={scope}
             runtimeMap={runtimeMap}
             verifyingItemId={verifyingItemId}

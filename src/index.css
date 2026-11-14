@@ -139,6 +139,12 @@ button:focus-visible {
     color: var(--st-text-primary);
   }
 
+  .st-btn-panel:disabled {
+    background-color: var(--st-bg-disabled);
+    border-color: var(--st-border-subtle);
+    color: var(--st-text-disabled);
+  }
+
   .st-btn-panel--active {
     background-color: var(--st-bg-surface-active);
     border-color: var(--st-border-default);
@@ -286,19 +292,19 @@ button:focus-visible {
   .st-sidebar-item[data-applicable="false"] {
     background-color: var(--st-bg-disabled);
     border-color: var(--st-border-subtle);
-    opacity: 0.72;
+    opacity: 0.68;
   }
 
   .st-sidebar-item[data-applicable="false"]:hover {
-    background-color: var(--st-bg-surface);
+    background-color: var(--st-bg-disabled);
     border-color: var(--st-border-default);
-    opacity: 0.88;
+    opacity: 0.82;
   }
 
   .st-sidebar-item[data-applicable="false"][data-selected="true"] {
-    background-color: var(--st-bg-surface);
+    background-color: var(--st-bg-disabled);
     border-color: var(--st-border-strong);
-    opacity: 0.88;
+    opacity: 0.9;
   }
 
   .st-recent-item {

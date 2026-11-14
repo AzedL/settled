@@ -53,10 +53,7 @@ export const lang = {
     noItemsMatch: "没有符合当前筛选条件的条目",
     noItemsInWorkspace: "当前工作区的 items/ 下暂无条目",
     missingItemsDirHint: "当前目录中尚未发现 items/ 聚合目录，请先创建 items/<item-id>/。",
-    disabledOsBadge: "非当前平台",
     parseErrorBadge: "配置异常",
-    disabledCommandTooltip: (name: string, platforms: Platform[]): string =>
-      `${name}（仅适用于 ${platforms.map(lang.app.platformLabel).join(", ")}）`,
   },
 
   detail: {
@@ -70,18 +67,13 @@ export const lang = {
     revealInExplorer: "在文件管理器中定位",
     copyAiContext: "复制 AI 上下文",
     copiedAiContext: "已复制上下文",
-    disabledNoticeTitle: "此条目不适用于当前设备平台",
-    disabledNoticeBody: (host: Platform, targets: Platform[]): string =>
-      `当前主机为 ${lang.app.platformLabel(host)}，该条目的适用平台限定为 ${targets.map(lang.app.platformLabel).join(" / ")}。在「全部平台」视图中仅作只读对照，已禁用本机执行。`,
     parseErrorTitle: "meta.json 解析失败",
-    readmeToggleShow: "查看说明文档 (README.md)",
-    readmeToggleHide: "收起说明文档 (README.md)",
+    readmeTitle: "README.md",
     readmeEmptyHint: "未编写",
     emptyReadme: "该条目暂未编写 README.md。",
     scriptsSectionTitle: "命令",
     noScriptsNotice: "该条目未注册命令",
-    rawMetaToggleShow: "查看原始 meta.json",
-    rawMetaToggleHide: "收起原始 meta.json",
+    rawMetaTitle: "meta.json",
   },
 
   scripts: {
@@ -90,7 +82,6 @@ export const lang = {
     stopSingle: "中止",
     autoVerifyingFix: "修复动作执行完毕，正在自动重跑当前条目 check 验收...",
     noApplicableInGroup: "当前设备平台下无适用命令",
-    disabledCommandBadge: "禁用（跨平台）",
     exitCodeLabel: (code: number): string => `exit ${code}`,
     durationLabel: (ms: number): string => `${ms} ms`,
     logsShow: "日志",
