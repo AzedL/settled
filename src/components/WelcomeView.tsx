@@ -1,5 +1,6 @@
 import { FolderOpen, History, Layers, Sparkles } from "lucide-react";
 import { lang } from "../lang";
+import { Button } from "./Button";
 
 interface WelcomeViewProps {
   recentWorkspaces: string[];
@@ -47,24 +48,16 @@ export function WelcomeView({
         </div>
 
         <div className="flex flex-wrap items-center gap-[var(--st-space-12)]">
-          <button
-            type="button"
-            onClick={onOpenWorkspace}
-            className="inline-flex items-center gap-[var(--st-space-8)] px-[var(--st-space-16)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer st-control st-btn-primary"
-          >
-            <FolderOpen className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
+          <Button size="md" variant="primary" onClick={onOpenWorkspace}>
+            <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
             <span>{lang.welcome.openFolderBtn}</span>
-          </button>
+          </Button>
 
           {hasSampleWorkspace && (
-            <button
-              type="button"
-              onClick={onLoadSample}
-              className="inline-flex items-center gap-[var(--st-space-8)] px-[var(--st-space-16)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer st-control st-btn-surface"
-            >
-              <Sparkles className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
+            <Button size="md" variant="surface" onClick={onLoadSample}>
+              <Sparkles className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
               <span>{lang.welcome.loadSampleBtn}</span>
-            </button>
+            </Button>
           )}
         </div>
 

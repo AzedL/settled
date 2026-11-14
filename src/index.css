@@ -112,10 +112,6 @@ button:focus-visible {
     color: var(--st-text-primary);
   }
 
-  .st-btn-surface--muted {
-    color: var(--st-text-secondary);
-  }
-
   .st-btn-surface:hover:not(:disabled) {
     background-color: var(--st-bg-surface-hover);
     border-color: var(--st-border-strong);

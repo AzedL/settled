@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { lang } from "../lang";
 import type { CommandExecutionTarget, ScriptRole } from "../types";
+import { Button } from "./Button";
 
 interface ConfirmModalProps {
   role: ScriptRole;
@@ -105,20 +106,12 @@ export function ConfirmModal({
         </label>
 
         <div className="flex items-center justify-end gap-[var(--st-space-12)] pt-[var(--st-space-4)]">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer st-control st-btn-surface st-btn-surface--muted"
-          >
+          <Button size="md" variant="surface" onClick={onCancel}>
             {lang.confirmModal.cancelBtn}
-          </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(skipFuture)}
-            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer st-control st-btn-primary"
-          >
+          </Button>
+          <Button size="md" variant="primary" onClick={() => onConfirm(skipFuture)}>
             {lang.confirmModal.confirmBtn}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

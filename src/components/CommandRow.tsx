@@ -4,6 +4,7 @@ import { lang } from "../lang";
 import type { CommandRuntimeState, ResolvedCommand } from "../types";
 import { formatPlatforms } from "../utils/format";
 import { TrafficLed } from "./TrafficLed";
+import { Button } from "./Button";
 
 interface CommandRowProps {
   command: ResolvedCommand;
@@ -57,30 +58,27 @@ export function CommandRow({
         </div>
 
         <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="panel"
+            active={logOpen}
             onClick={() => setLogOpen((prev) => !prev)}
             aria-expanded={logOpen}
-            className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-panel ${
-              logOpen ? "st-btn-panel--active" : ""
-            }`}
           >
-            <Terminal className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+            <Terminal className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
             <span>{logOpen ? lang.scripts.logsHide : lang.scripts.logsShow}</span>
             {logOpen ? (
-              <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+              <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
             ) : (
-              <ChevronRight className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+              <ChevronRight className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
             )}
-          </button>
+          </Button>
 
           {command.applicable && (
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant={isActiveStop ? "warn-soft" : "accent-soft"}
               onClick={isActiveStop ? onStop : onRun}
-              className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control ${
-                isActiveStop ? "st-btn-warn-soft" : "st-btn-accent-soft"
-              }`}
             >
               {isActiveStop ? (
                 <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
@@ -90,7 +88,7 @@ export function CommandRow({
               <span>
                 {isActiveStop ? lang.scripts.stopSingle : lang.scripts.runSingle}
               </span>
-            </button>
+            </Button>
           )}
         </div>
       </div>

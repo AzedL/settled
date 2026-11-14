@@ -198,6 +198,7 @@ export function Sidebar({
                 <div className="flex items-center justify-between gap-[var(--st-space-8)]">
                   <span
                     className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0 flex-1"
+                    title={item.name}
                     style={{
                       color: item.applicable
                         ? "var(--st-text-primary)"

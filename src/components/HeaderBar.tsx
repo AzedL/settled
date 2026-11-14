@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { lang } from "../lang";
 import type { ThemeMode, WorkspaceSnapshot } from "../types";
+import { Button } from "./Button";
 
 interface HeaderBarProps {
   workspace: WorkspaceSnapshot | null;
@@ -73,12 +74,10 @@ export function HeaderBar({
       <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
         {workspace && (
           <>
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant={isCheckingActive ? "warn-soft" : "primary"}
               onClick={isCheckingActive ? onStopChecks : onRunChecks}
-              className={`h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control ${
-                isCheckingActive ? "st-btn-warn-soft" : "st-btn-primary"
-              }`}
             >
               {isCheckingActive ? (
                 <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
@@ -90,40 +89,33 @@ export function HeaderBar({
                   ? lang.header.stopChecks
                   : lang.header.runChecks}
               </span>
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              size="md"
+              variant="surface"
+              iconOnly
               onClick={onReload}
               title={lang.header.reload}
               aria-label={lang.header.reload}
-              className="w-[var(--st-control-h)] h-[var(--st-control-h)] inline-flex items-center justify-center rounded-[var(--st-radius-md)] border cursor-pointer st-control st-btn-surface st-btn-surface--muted"
             >
-              <RefreshCw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-            </button>
+              <RefreshCw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+            </Button>
           </>
         )}
 
         {!workspace && hasSampleWorkspace && (
-          <button
-            type="button"
-            onClick={onLoadSample}
-            className="h-[var(--st-control-h)] inline-flex items-center px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface st-btn-surface--muted"
-          >
+          <Button size="md" variant="surface" onClick={onLoadSample}>
             {lang.header.loadSample}
-          </button>
+          </Button>
         )}
 
-        <button
-          type="button"
-          onClick={onOpenWorkspace}
-          className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface"
-        >
-          <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+        <Button size="md" variant="surface" onClick={onOpenWorkspace}>
+          <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
           <span>
             {workspace ? lang.header.switchWorkspace : lang.header.openWorkspace}
           </span>
-        </button>
+        </Button>
 
         <div
           className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-4)] rounded-[var(--st-radius-md)] border p-[var(--st-space-4)]"

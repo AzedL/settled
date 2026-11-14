@@ -23,6 +23,7 @@ import { formatLocalDateTime, formatPlatforms } from "../utils/format";
 import { getCommandRuntime } from "../utils/itemStatus";
 import { MarkdownView } from "./MarkdownView";
 import { ScriptGroupCard } from "./ScriptGroupCard";
+import { Button } from "./Button";
 
 interface DetailPanelProps {
   item: WorkspaceItem | null;
@@ -182,57 +183,58 @@ export function DetailPanel({
             borderColor: "var(--st-border-default)",
           }}
         >
-          <div className="flex flex-wrap items-start justify-between gap-[var(--st-space-16)]">
-            <div className="flex flex-col gap-[var(--st-space-6)] min-w-0 flex-1">
-              <h1 className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold text-[color:var(--st-text-primary)]">
+          <div className="flex flex-col gap-[var(--st-space-6)] min-w-0">
+            <div className="flex items-center justify-between gap-[var(--st-space-16)] min-w-0">
+              <h1
+                className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold text-[color:var(--st-text-primary)] truncate min-w-0 flex-1"
+                title={item.name}
+              >
                 {item.name}
               </h1>
 
-              {item.description && (
-                <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-secondary)]">
-                  {item.description}
-                </p>
-              )}
+              <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
+                <Button
+                  size="sm"
+                  variant="surface"
+                  onClick={() => onOpenInVscode(item.path)}
+                >
+                  <Code2 className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                  <span>{lang.detail.openInVscode}</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="surface"
+                  onClick={() => onRevealInExplorer(item.metaPath)}
+                >
+                  <FolderSearch className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                  <span>{lang.detail.revealInExplorer}</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant={copiedContext ? "pass-soft" : "accent-soft"}
+                  onClick={handleCopyContext}
+                >
+                  {copiedContext ? (
+                    <Check className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                  ) : (
+                    <Sparkles className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                  )}
+                  <span>
+                    {copiedContext
+                      ? lang.detail.copiedAiContext
+                      : lang.detail.copyAiContext}
+                  </span>
+                </Button>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-[var(--st-space-8)] shrink-0">
-              <button
-                type="button"
-                onClick={() => onOpenInVscode(item.path)}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface"
-              >
-                <Code2 className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                <span>{lang.detail.openInVscode}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => onRevealInExplorer(item.metaPath)}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface st-btn-surface--muted"
-              >
-                <FolderSearch className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                <span>{lang.detail.revealInExplorer}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleCopyContext}
-                className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control ${
-                  copiedContext ? "st-btn-pass-soft" : "st-btn-accent-soft"
-                }`}
-              >
-                {copiedContext ? (
-                  <Check className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                ) : (
-                  <Sparkles className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                )}
-                <span>
-                  {copiedContext
-                    ? lang.detail.copiedAiContext
-                    : lang.detail.copyAiContext}
-                </span>
-              </button>
-            </div>
+            {item.description && (
+              <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-secondary)]">
+                {item.description}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--st-space-10)]">

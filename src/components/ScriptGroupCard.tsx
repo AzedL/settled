@@ -10,6 +10,7 @@ import type {
 import { formatScriptGroupTitle } from "../utils/format";
 import { getCommandRuntime } from "../utils/itemStatus";
 import { CommandRow } from "./CommandRow";
+import { Button } from "./Button";
 
 interface ScriptGroupCardProps {
   itemId: string;
@@ -99,14 +100,14 @@ export function ScriptGroupCard({
         </div>
 
         {canRunGroup && (
-          <button
-            type="button"
-            onClick={isGroupActiveStop ? onStopActiveRun : () => onRunGroup(group)}
-            className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer shrink-0 st-control ${
+          <Button
+            size="md"
+            variant={
               isGroupActiveStop || group.role === "fix"
-                ? "st-btn-warn-soft"
-                : "st-btn-primary"
-            }`}
+                ? "warn-soft"
+                : "primary"
+            }
+            onClick={isGroupActiveStop ? onStopActiveRun : () => onRunGroup(group)}
           >
             {isGroupActiveStop ? (
               <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
@@ -114,7 +115,7 @@ export function ScriptGroupCard({
               <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
             )}
             <span>{isGroupActiveStop ? stopGroupLabel : runGroupLabel}</span>
-          </button>
+          </Button>
         )}
       </div>
 
