@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
   AlertTriangle,
   Ban,
+  Braces,
   Check,
   ChevronDown,
   ChevronRight,
   Code2,
+  FileText,
   FolderSearch,
   Sparkles,
 } from "lucide-react";
@@ -41,6 +43,82 @@ interface DetailPanelProps {
   onCopyAiContext: (item: WorkspaceItem) => Promise<void>;
 }
 
+const ALL_PLATFORMS: Platform[] = ["windows", "macos", "linux"];
+
+interface CollapsibleDetailCardProps {
+  title: string;
+  icon: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  rightHint?: string;
+  bodyStyle?: CSSProperties;
+  bodyClassName?: string;
+  children: ReactNode;
+}
+
+function CollapsibleDetailCard({
+  title,
+  icon,
+  open,
+  onToggle,
+  rightHint,
+  bodyStyle,
+  bodyClassName = "",
+  children,
+}: CollapsibleDetailCardProps) {
+  return (
+    <section
+      className="rounded-[var(--st-radius-lg)] border overflow-hidden"
+      style={{
+        backgroundColor: "var(--st-bg-panel)",
+        borderColor: "var(--st-border-default)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full px-[var(--st-space-16)] py-[var(--st-space-12)] flex items-center justify-between gap-[var(--st-space-12)] text-left cursor-pointer st-control st-raw-toggle"
+      >
+        <div className="flex items-center gap-[var(--st-space-8)] min-w-0">
+          {open ? (
+            <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+          ) : (
+            <ChevronRight className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+          )}
+          <span
+            className="inline-flex items-center shrink-0"
+            style={{ color: "var(--st-text-muted)" }}
+          >
+            {icon}
+          </span>
+          <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium truncate">
+            {title}
+          </span>
+        </div>
+
+        {rightHint && (
+          <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] shrink-0">
+            {rightHint}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className={`border-t max-h-[var(--st-doc-max-h)] ${bodyClassName}`}
+          style={{
+            borderColor: "var(--st-border-subtle)",
+            ...bodyStyle,
+          }}
+        >
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function DetailPanel({
   item,
   hostPlatform,
@@ -55,10 +133,12 @@ export function DetailPanel({
   onCopyAiContext,
 }: DetailPanelProps) {
   const [copiedContext, setCopiedContext] = useState(false);
+  const [showReadme, setShowReadme] = useState(false);
   const [showRawMeta, setShowRawMeta] = useState(false);
 
   useEffect(() => {
     setCopiedContext(false);
+    setShowReadme(false);
     setShowRawMeta(false);
   }, [item?.id]);
 
@@ -84,12 +164,12 @@ export function DetailPanel({
 
   const isVerifyingFix = verifyingItemId === item.id;
 
-  const platformsText =
-    item.platforms.length > 0
-      ? item.platforms.map(lang.app.platformLabel).join(" / ")
-      : lang.detail.allPlatformsValue;
+  const effectivePlatforms =
+    item.platforms.length > 0 ? item.platforms : ALL_PLATFORMS;
+  const platformsText = effectivePlatforms.map(lang.app.platformLabel).join(" / ");
 
   const createdAtText = formatLocalDateTime(item.createAt);
+  const hasReadme = item.readme.trim().length > 0;
 
   const handleCopyContext = async () => {
     await onCopyAiContext(item);
@@ -323,63 +403,45 @@ export function DetailPanel({
           )}
         </section>
 
-        <section
-          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-12)]"
-          style={{
-            backgroundColor: "var(--st-bg-panel)",
-            borderColor: "var(--st-border-default)",
-          }}
+        <CollapsibleDetailCard
+          title={
+            showReadme
+              ? lang.detail.readmeToggleHide
+              : lang.detail.readmeToggleShow
+          }
+          icon={
+            <FileText className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+          }
+          open={showReadme}
+          onToggle={() => setShowReadme((prev) => !prev)}
+          rightHint={!hasReadme ? lang.detail.readmeEmptyHint : undefined}
+          bodyClassName="p-[var(--st-space-20)] overflow-y-auto"
+          bodyStyle={{ backgroundColor: "var(--st-bg-panel)" }}
         >
-          <h2 className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold text-[color:var(--st-text-primary)]">
-            {lang.detail.readmeTitle}
-          </h2>
+          <MarkdownView content={item.readme} />
+        </CollapsibleDetailCard>
 
-          {item.readme.trim().length > 0 ? (
-            <MarkdownView content={item.readme} />
-          ) : (
-            <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]">
-              {lang.detail.emptyReadme}
-            </p>
-          )}
-        </section>
-
-        <section
-          className="rounded-[var(--st-radius-lg)] border overflow-hidden"
-          style={{
-            backgroundColor: "var(--st-bg-panel)",
-            borderColor: "var(--st-border-subtle)",
-          }}
+        <CollapsibleDetailCard
+          title={
+            showRawMeta
+              ? lang.detail.rawMetaToggleHide
+              : lang.detail.rawMetaToggleShow
+          }
+          icon={
+            <Braces className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+          }
+          open={showRawMeta}
+          onToggle={() => setShowRawMeta((prev) => !prev)}
+          bodyClassName="overflow-auto"
+          bodyStyle={{ backgroundColor: "var(--st-bg-terminal)" }}
         >
-          <button
-            type="button"
-            onClick={() => setShowRawMeta((prev) => !prev)}
-            className="w-full px-[var(--st-space-16)] py-[var(--st-space-12)] flex items-center gap-[var(--st-space-8)] text-left cursor-pointer st-control st-raw-toggle"
+          <pre
+            className="m-0 min-w-full w-max p-[var(--st-space-16)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+            style={{ color: "var(--st-text-secondary)" }}
           >
-            {showRawMeta ? (
-              <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-            ) : (
-              <ChevronRight className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-            )}
-            <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium">
-              {showRawMeta
-                ? lang.detail.rawMetaToggleHide
-                : lang.detail.rawMetaToggleShow}
-            </span>
-          </button>
-
-          {showRawMeta && (
-            <pre
-              className="m-0 p-[var(--st-space-16)] border-t font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] overflow-x-auto"
-              style={{
-                backgroundColor: "var(--st-bg-terminal)",
-                borderColor: "var(--st-border-subtle)",
-                color: "var(--st-text-secondary)",
-              }}
-            >
-              {item.rawMeta}
-            </pre>
-          )}
-        </section>
+            {item.rawMeta}
+          </pre>
+        </CollapsibleDetailCard>
       </div>
     </main>
   );

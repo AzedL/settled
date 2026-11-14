@@ -180,7 +180,7 @@ export function Sidebar({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-[var(--st-space-10)] flex flex-col gap-[var(--st-space-8)]">
+      <div className="flex-1 overflow-y-auto p-[var(--st-space-10)] flex flex-col gap-[var(--st-space-6)]">
         {filteredItems.length === 0 ? (
           <div className="p-[var(--st-space-24)] text-center flex flex-col items-center gap-[var(--st-space-12)]">
             <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]">
@@ -218,104 +218,86 @@ export function Sidebar({
                 data-selected={isSelected ? "true" : "false"}
                 data-applicable={item.applicable ? "true" : "false"}
                 aria-current={isSelected ? "true" : undefined}
-                className={`w-full text-left p-[var(--st-space-12)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-8)] cursor-pointer st-control st-sidebar-item ${
+                className={`w-full text-left px-[var(--st-space-12)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-6)] cursor-pointer st-control st-sidebar-item ${
                   !item.applicable ? "border-dashed" : ""
                 }`}
               >
-                <div className="flex items-start justify-between gap-[var(--st-space-8)]">
-                  <span
-                    className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0"
-                    style={{
-                      color: item.applicable
-                        ? "var(--st-text-primary)"
-                        : "var(--st-text-muted)",
-                    }}
-                  >
-                    {item.name}
-                  </span>
-
-                  <div className="flex flex-wrap items-center justify-end gap-[var(--st-space-4)] shrink-0">
-                    {!item.applicable && (
-                      <span
-                        className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                        style={{
-                          backgroundColor: "var(--st-status-disabled-soft)",
-                          color: "var(--st-status-disabled-text)",
-                        }}
-                      >
-                        <Ban className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-                        <span>{lang.sidebar.disabledOsBadge}</span>
-                      </span>
-                    )}
-
-                    {item.parseError && (
-                      <span
-                        className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                        style={{
-                          backgroundColor: "var(--st-status-fail-soft)",
-                          color: "var(--st-status-fail-text)",
-                        }}
-                      >
-                        <AlertCircle className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-                        <span>{lang.sidebar.parseErrorBadge}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {item.description && (
-                  <p
-                    className="m-0 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] line-clamp-2"
-                    style={{
-                      color: item.applicable
-                        ? "var(--st-text-secondary)"
-                        : "var(--st-text-disabled)",
-                    }}
-                  >
-                    {item.description}
-                  </p>
-                )}
-
-                <div className="flex items-center gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
-                  {displayedCheckCommands.length > 0 ? (
-                    <div className="flex flex-wrap items-center gap-[var(--st-space-6)] min-w-0">
-                      {displayedCheckCommands.map((cmd) => {
-                        const effectiveApplicable =
-                          item.applicable && cmd.applicable;
-                        const status: RunStatus | "disabled" = effectiveApplicable
-                          ? getCommandRuntime(runtimeMap, cmd.commandId).status
-                          : "disabled";
-                        const tooltipPlatforms =
-                          cmd.platforms.length > 0 ? cmd.platforms : item.platforms;
-                        const title = effectiveApplicable
-                          ? `${cmd.name}: ${lang.status.label(
-                              getCommandRuntime(runtimeMap, cmd.commandId).status
-                            )}`
-                          : lang.sidebar.disabledCommandTooltip(
-                              cmd.name,
-                              tooltipPlatforms
-                            );
-
-                        return (
-                          <TrafficLed
-                            key={cmd.commandId}
-                            status={status}
-                            size="sm"
-                            title={title}
-                          />
-                        );
-                      })}
-                    </div>
-                  ) : (
+                <div className="flex items-center justify-between gap-[var(--st-space-8)]">
+                  <div className="flex items-center gap-[var(--st-space-8)] min-w-0 flex-1">
                     <span
-                      className="px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                      className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0"
                       style={{
-                        backgroundColor: "var(--st-status-idle-soft)",
-                        color: "var(--st-text-muted)",
+                        color: item.applicable
+                          ? "var(--st-text-primary)"
+                          : "var(--st-text-muted)",
                       }}
                     >
-                      {lang.sidebar.noCheckBadge}
+                      {item.name}
                     </span>
+
+                    {displayedCheckCommands.length > 0 && (
+                      <div className="flex items-center gap-[var(--st-space-6)] shrink-0">
+                        {displayedCheckCommands.map((cmd) => {
+                          const effectiveApplicable =
+                            item.applicable && cmd.applicable;
+                          const status: RunStatus | "disabled" =
+                            effectiveApplicable
+                              ? getCommandRuntime(runtimeMap, cmd.commandId).status
+                              : "disabled";
+                          const tooltipPlatforms =
+                            cmd.platforms.length > 0
+                              ? cmd.platforms
+                              : item.platforms;
+                          const title = effectiveApplicable
+                            ? `${cmd.name}: ${lang.status.label(
+                                getCommandRuntime(runtimeMap, cmd.commandId).status
+                              )}`
+                            : lang.sidebar.disabledCommandTooltip(
+                                cmd.name,
+                                tooltipPlatforms
+                              );
+
+                          return (
+                            <TrafficLed
+                              key={cmd.commandId}
+                              status={status}
+                              size="sm"
+                              title={title}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {(!item.applicable || item.parseError) && (
+                    <div className="flex items-center gap-[var(--st-space-4)] shrink-0">
+                      {!item.applicable && (
+                        <span
+                          className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                          style={{
+                            backgroundColor: "var(--st-status-disabled-soft)",
+                            color: "var(--st-status-disabled-text)",
+                          }}
+                        >
+                          <Ban className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
+                          <span>{lang.sidebar.disabledOsBadge}</span>
+                        </span>
+                      )}
+
+                      {item.parseError && (
+                        <span
+                          className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                          style={{
+                            backgroundColor: "var(--st-status-fail-soft)",
+                            color: "var(--st-status-fail-text)",
+                          }}
+                        >
+                          <AlertCircle className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
+                          <span>{lang.sidebar.parseErrorBadge}</span>
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
 

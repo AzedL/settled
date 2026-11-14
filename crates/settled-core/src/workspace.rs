@@ -152,13 +152,31 @@ fn is_hidden_dir(path: &Path) -> bool {
 }
 
 fn find_readme_path(item_dir: &Path) -> Option<PathBuf> {
+    let upper = item_dir.join("README.md");
+    if upper.is_file() {
+        return Some(upper);
+    }
     let lower = item_dir.join("readme.md");
     if lower.is_file() {
         return Some(lower);
     }
-    let upper = item_dir.join("README.md");
-    if upper.is_file() {
-        return Some(upper);
+    if let Ok(entries) = fs::read_dir(item_dir) {
+        let mut fallback: Option<PathBuf> = None;
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if path.is_file()
+                && path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|name| name.eq_ignore_ascii_case("readme.md"))
+            {
+                match &fallback {
+                    Some(prev) if prev <= &path => {}
+                    _ => fallback = Some(path),
+                }
+            }
+        }
+        return fallback;
     }
     None
 }
@@ -410,11 +428,12 @@ mod tests {
             }"#,
         )
         .unwrap();
-        fs::write(git_dir.join("readme.md"), "# Git Core\nDetails here.").unwrap();
+        fs::write(git_dir.join("README.md"), "# Git Core\nDetails here.").unwrap();
 
         let broken_dir = items.join("broken-item");
         fs::create_dir_all(&broken_dir).unwrap();
         fs::write(broken_dir.join("meta.json"), "{ not json").unwrap();
+        fs::write(broken_dir.join("readme.md"), "Lowercase fallback.").unwrap();
 
         let snapshot = load_workspace(tmp.path()).unwrap();
         assert!(snapshot.items_dir_exists);
@@ -425,6 +444,7 @@ mod tests {
         let broken = &snapshot.items[0];
         assert_eq!(broken.id, "broken-item");
         assert!(broken.parse_error.is_some());
+        assert_eq!(broken.readme, "Lowercase fallback.");
 
         let git = &snapshot.items[1];
         assert_eq!(git.id, "git-core");

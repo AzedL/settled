@@ -33,7 +33,7 @@ settled/
 
 ## 2. Workspace Open Protocol
 
-Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, Syncthing, etc.). `Settled` treats the workspace definition layer as read-only input during normal operation and never writes per-device run results into `meta.json` or `readme.md`.
+Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, Syncthing, etc.). `Settled` treats the workspace definition layer as read-only input during normal operation and never writes per-device run results into `meta.json` or `README.md`.
 
 ```text
 <workspace>/
@@ -42,7 +42,7 @@ Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, 
 └── items/                       # Aggregation directory for all Settled items
     └── <item-id>/               # Folder name = unique item ID (flat, tagged)
         ├── meta.json            # Required manifest & explicit script registry
-        ├── readme.md            # Problem background, symptoms, manual steps, notes
+        ├── README.md            # Problem background, symptoms, manual steps, notes
         └── scripts/             # Optional; `@script/` strictly resolves here
             ├── check.sh
             └── fix.ps1
@@ -52,6 +52,7 @@ Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, 
 - `Settled` scans `<workspace>/items/*/`.
 - Hidden directories starting with `.` are skipped.
 - Only directories containing `meta.json` are loaded as items.
+- Item documentation prefers `README.md` by convention while remaining compatible with lowercase `readme.md`.
 - Malformed `meta.json` files surface an isolated parse-error item card without breaking the rest of the workspace.
 
 ### 2.2 Canonical Platform Values

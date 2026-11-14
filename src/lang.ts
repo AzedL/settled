@@ -55,7 +55,6 @@ export const lang = {
     missingItemsDirHint: "当前目录中尚未发现 items/ 聚合目录，请先创建 items/<item-id>/。",
     disabledOsBadge: "非当前平台",
     parseErrorBadge: "配置异常",
-    noCheckBadge: "纯文档 / 手工项",
     disabledCommandTooltip: (name: string, platforms: Platform[]): string =>
       `${name}（仅适用于 ${platforms.map(lang.app.platformLabel).join(", ")}）`,
   },
@@ -64,7 +63,6 @@ export const lang = {
     selectItemPrompt: "从左侧选择一条环境条目以查看详情与独立红绿灯控制",
     createdAtLabel: "创建时间",
     platformsLabel: "目标平台",
-    allPlatformsValue: "全平台通用",
     tagsLabel: "分类标签",
     noTagsValue: "无标签",
     createdAtEmpty: "未填写",
@@ -76,24 +74,22 @@ export const lang = {
     disabledNoticeBody: (host: Platform, targets: Platform[]): string =>
       `当前主机为 ${lang.app.platformLabel(host)}，该条目的适用平台限定为 ${targets.map(lang.app.platformLabel).join(" / ")}。在「全部平台」视图中仅作只读对照，已禁用本机执行。`,
     parseErrorTitle: "meta.json 解析失败",
-    readmeTitle: "说明文档 (readme.md)",
-    emptyReadme: "该条目暂未编写 readme.md。",
+    readmeToggleShow: "查看说明文档 (README.md)",
+    readmeToggleHide: "收起说明文档 (README.md)",
+    readmeEmptyHint: "未编写",
+    emptyReadme: "该条目暂未编写 README.md。",
     scriptsSectionTitle: "命令",
-    noScriptsNotice: "该条目未注册任何 scripts 命令，可作为纯文档或手工排查记录保存。",
+    noScriptsNotice: "该条目未注册命令",
     rawMetaToggleShow: "查看原始 meta.json",
     rawMetaToggleHide: "收起原始 meta.json",
   },
 
   scripts: {
-    runGroupCheck: "运行整组 Check",
-    runGroupFix: "执行整组 Fix",
-    runGroupCustom: (title: string): string => `执行整组 ${title}`,
+    runGroup: (title: string): string => `运行 ${title}`,
     runSingle: "运行",
     stopSingle: "中止",
     autoVerifyingFix: "修复动作执行完毕，正在自动重跑当前条目 check 验收...",
     noApplicableInGroup: "当前设备平台下无适用命令",
-    hiddenPlatformCount: (count: number): string =>
-      `另有 ${count} 条非当前平台命令在「当前设备」视图下已隐藏`,
     disabledCommandBadge: "禁用（跨平台）",
     exitCodeLabel: (code: number): string => `exit ${code}`,
     durationLabel: (ms: number): string => `${ms} ms`,
@@ -102,7 +98,6 @@ export const lang = {
     logsEmpty: "暂无输出日志",
     logsWaiting: "正在等待命令输出...",
     commandPreviewLabel: "执行命令",
-    cwdHintLabel: "工作目录固定为当前条目目录",
   },
 
   status: {
@@ -139,7 +134,7 @@ export const lang = {
     loadSampleBtn: "打开内置示例 Workspace",
     recentTitle: "最近打开的工作区",
     protocolHintTitle: "目录约定",
-    protocolHintBody: "<workspace>/items/<item-id>/meta.json + readme.md + scripts/ (@script/)",
+    protocolHintBody: "<workspace>/items/<item-id>/meta.json + README.md + scripts/ (@script/)",
   },
 
   notifications: {

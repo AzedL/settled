@@ -62,7 +62,7 @@ pub fn format_item_context(
     }
 
     if !item.readme.trim().is_empty() {
-        out.push_str("\n## Item Documentation (`readme.md`)\n\n");
+        out.push_str("\n## Item Documentation (`README.md`)\n\n");
         out.push_str(item.readme.trim());
         out.push('\n');
     }
@@ -97,7 +97,7 @@ mod tests {
             id: "git-core".to_string(),
             path: "/tmp/ws/items/git-core".to_string(),
             meta_path: "/tmp/ws/items/git-core/meta.json".to_string(),
-            readme_path: Some("/tmp/ws/items/git-core/readme.md".to_string()),
+            readme_path: Some("/tmp/ws/items/git-core/README.md".to_string()),
             readme: "Check user.name and email.".to_string(),
             raw_meta: "{\"name\":\"Git Core\"}".to_string(),
             name: "Git Core".to_string(),

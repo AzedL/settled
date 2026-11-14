@@ -436,3 +436,7 @@ button:focus-visible {
   margin: var(--st-space-0) var(--st-space-0) var(--st-space-12) var(--st-space-0);
   color: var(--st-text-muted);
 }
+
+.st-markdown > *:last-child {
+  margin-bottom: var(--st-space-0);
+}

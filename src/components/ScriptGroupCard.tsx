@@ -36,19 +36,12 @@ export function ScriptGroupCard({
   const applicableCommands = group.commands.filter((c) => c.applicable);
   const visibleCommands =
     scope === "current" ? applicableCommands : group.commands;
-  const hiddenCount = group.commands.length - applicableCommands.length;
 
   const isHighlightedFix =
     group.role === "fix" && hasFailingCheck && applicableCommands.length > 0;
 
   const title = formatScriptGroupTitle(group.key);
-
-  const runGroupLabel =
-    group.role === "check"
-      ? lang.scripts.runGroupCheck
-      : group.role === "fix"
-        ? lang.scripts.runGroupFix
-        : lang.scripts.runGroupCustom(title);
+  const runGroupLabel = lang.scripts.runGroup(title);
 
   const GroupIcon =
     group.role === "check"
@@ -149,12 +142,6 @@ export function ScriptGroupCard({
             />
           ))}
         </div>
-      )}
-
-      {scope === "current" && hiddenCount > 0 && (
-        <p className="m-0 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-          {lang.scripts.hiddenPlatformCount(hiddenCount)}
-        </p>
       )}
     </section>
   );
