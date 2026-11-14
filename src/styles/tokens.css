@@ -130,64 +130,64 @@
 :root[data-resolved-theme="dark"] {
   color-scheme: dark;
 
-  /* Dark Mode — mineral charcoal-forest anchor + jade-mint accents */
-  --st-bg-canvas: #111614;
-  --st-bg-panel: #171d1b;
-  --st-bg-surface: #1d2522;
-  --st-bg-surface-hover: #232d29;
-  --st-bg-surface-active: #1b362d;
-  --st-bg-terminal: #0e1311;
-  --st-bg-disabled: #131816;
-  --st-bg-overlay: rgba(10, 14, 13, 0.76);
+  /* Dark Mode — neutral matte charcoal layers & restrained focus accents (Antigravity-inspired) */
+  --st-bg-canvas: #18191b;
+  --st-bg-panel: #1f2023;
+  --st-bg-surface: #25272b;
+  --st-bg-surface-hover: #2c2e33;
+  --st-bg-surface-active: #2a3038;
+  --st-bg-terminal: #141517;
+  --st-bg-disabled: #1b1c1f;
+  --st-bg-overlay: rgba(10, 11, 13, 0.72);
 
-  --st-border-subtle: #242d2a;
-  --st-border-default: #2f3b37;
-  --st-border-strong: #42534d;
-  --st-border-accent: rgba(32, 180, 134, 0.56);
-  --st-border-running: rgba(60, 168, 224, 0.50);
-  --st-border-danger: rgba(233, 108, 75, 0.46);
-  --st-border-warn: rgba(242, 181, 61, 0.44);
+  --st-border-subtle: rgba(255, 255, 255, 0.08);
+  --st-border-default: rgba(255, 255, 255, 0.13);
+  --st-border-strong: rgba(255, 255, 255, 0.24);
+  --st-border-accent: rgba(74, 158, 242, 0.56);
+  --st-border-running: rgba(74, 158, 242, 0.56);
+  --st-border-danger: rgba(224, 93, 86, 0.50);
+  --st-border-warn: rgba(217, 172, 66, 0.46);
 
-  --st-text-primary: #edf2ef;
-  --st-text-secondary: #aab8b2;
-  --st-text-muted: #788881;
-  --st-text-disabled: #51605a;
+  --st-text-primary: #eceef2;
+  --st-text-secondary: #b4b9c2;
+  --st-text-muted: #828894;
+  --st-text-disabled: #595f6a;
 
-  --st-accent: #20b486;
-  --st-accent-hover: #2bc494;
-  --st-accent-soft: rgba(32, 180, 134, 0.18);
-  --st-accent-text: #4fd4a9;
-  --st-accent-contrast: #062319;
+  --st-accent: #2e86de;
+  --st-accent-hover: #3d93eb;
+  --st-accent-soft: rgba(59, 148, 232, 0.16);
+  --st-accent-text: #72b8fa;
+  --st-accent-contrast: #ffffff;
 
-  --st-status-pass: #22c58e;
-  --st-status-pass-soft: rgba(34, 197, 142, 0.16);
-  --st-status-pass-text: #53daa9;
-  --st-status-pass-glow: 0 0 0 2px rgba(34, 197, 142, 0.24);
+  --st-status-pass: #54ad6e;
+  --st-status-pass-soft: rgba(84, 173, 110, 0.16);
+  --st-status-pass-text: #7dcf95;
+  --st-status-pass-glow: 0 0 0 2px rgba(84, 173, 110, 0.24);
 
-  --st-status-fail: #e96c4b;
-  --st-status-fail-soft: rgba(233, 108, 75, 0.16);
-  --st-status-fail-text: #f5977e;
-  --st-status-fail-glow: 0 0 0 2px rgba(233, 108, 75, 0.24);
+  --st-status-fail: #e05d56;
+  --st-status-fail-soft: rgba(224, 93, 86, 0.16);
+  --st-status-fail-text: #f08e88;
+  --st-status-fail-glow: 0 0 0 2px rgba(224, 93, 86, 0.24);
 
-  --st-status-running: #3ca8e0;
-  --st-status-running-soft: rgba(60, 168, 224, 0.16);
-  --st-status-running-text: #74c5ef;
-  --st-status-running-glow: 0 0 0 2px rgba(60, 168, 224, 0.24);
+  --st-status-running: #4a9ef2;
+  --st-status-running-soft: rgba(74, 158, 242, 0.16);
+  --st-status-running-text: #7cc0fa;
+  --st-status-running-glow: 0 0 0 2px rgba(74, 158, 242, 0.24);
 
-  --st-status-canceled: #f2b53d;
-  --st-status-canceled-soft: rgba(242, 181, 61, 0.16);
-  --st-status-canceled-text: #f7cb6b;
+  --st-status-canceled: #d9ac42;
+  --st-status-canceled-soft: rgba(217, 172, 66, 0.15);
+  --st-status-canceled-text: #ecc86c;
 
-  --st-status-idle: #5d6d67;
-  --st-status-idle-soft: rgba(93, 109, 103, 0.22);
-  --st-status-idle-text: #9baaa4;
+  --st-status-idle: #686e7a;
+  --st-status-idle-soft: rgba(104, 110, 122, 0.22);
+  --st-status-idle-text: #a1a7b3;
 
-  --st-status-disabled: #35423d;
-  --st-status-disabled-soft: rgba(53, 66, 61, 0.26);
-  --st-status-disabled-text: #5d6e67;
+  --st-status-disabled: #3e424b;
+  --st-status-disabled-soft: rgba(62, 66, 75, 0.28);
+  --st-status-disabled-text: #6d7380;
 
-  --st-scrollbar-thumb: #465650;
-  --st-scrollbar-thumb-hover: #5f726b;
-  --st-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.28);
-  --st-shadow-modal: 0 16px 44px rgba(0, 0, 0, 0.52);
+  --st-scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --st-scrollbar-thumb-hover: rgba(255, 255, 255, 0.30);
+  --st-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --st-shadow-modal: 0 16px 44px rgba(0, 0, 0, 0.56);
 }
