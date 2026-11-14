@@ -1,0 +1,25 @@
+<svg width="1024" height="1024" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="settled-paper" x1="256" y1="24" x2="256" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F3F5F4"/>
+    </linearGradient>
+    <mask id="settled-s-knockout" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+      <rect x="0" y="0" width="512" height="512" fill="#FFFFFF"/>
+      <circle cx="348" cy="148" r="34" fill="#000000"/>
+      <circle cx="164" cy="364" r="34" fill="#000000"/>
+    </mask>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="url(#settled-paper)"/>
+  <rect x="29" y="29" width="454" height="454" rx="107" stroke="#D8DFDA" stroke-width="10"/>
+  <path
+    d="M346 148H206A54 54 0 0 0 206 256H306A54 54 0 0 1 306 364H166"
+    stroke="#17262C"
+    stroke-width="52"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    mask="url(#settled-s-knockout)"
+  />
+  <circle cx="348" cy="148" r="22" fill="#EF4444"/>
+  <circle cx="164" cy="364" r="22" fill="#10B981"/>
+</svg>

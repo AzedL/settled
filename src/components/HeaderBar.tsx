@@ -40,27 +40,11 @@ export function HeaderBar({
       }}
     >
       <div className="flex items-center gap-[var(--st-space-12)] min-w-0">
-        <div
-          className="w-[var(--st-space-32)] h-[var(--st-space-32)] rounded-[var(--st-radius-md)] border-2 flex items-center justify-center shrink-0"
-          style={{
-            backgroundColor: "var(--st-accent-soft)",
-            borderColor: "var(--st-border-accent)",
-            color: "var(--st-accent-text)",
-          }}
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 20 20"
-            fill="none"
-            aria-hidden="true"
-          >
-            <circle cx="6" cy="6" r="2" fill="currentColor" />
-            <circle cx="14" cy="6" r="2" fill="var(--st-status-pass)" />
-            <circle cx="6" cy="14" r="2" fill="var(--st-status-pass)" />
-            <circle cx="14" cy="14" r="2" fill="currentColor" />
-          </svg>
-        </div>
+        <img
+          src="/icon.svg"
+          alt=""
+          className="w-[var(--st-space-32)] h-[var(--st-space-32)] shrink-0"
+        />
 
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-[var(--st-space-8)]">
