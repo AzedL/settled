@@ -13,13 +13,12 @@ import {
 import { lang } from "../lang";
 import type {
   CommandRuntimeState,
-  Platform,
   ResolvedCommand,
   ScopeMode,
   ScriptGroup,
   WorkspaceItem,
 } from "../types";
-import { formatLocalDateTime } from "../utils/format";
+import { formatLocalDateTime, formatPlatforms } from "../utils/format";
 import { getCommandRuntime } from "../utils/itemStatus";
 import { MarkdownView } from "./MarkdownView";
 import { ScriptGroupCard } from "./ScriptGroupCard";
@@ -40,8 +39,6 @@ interface DetailPanelProps {
   onRevealInExplorer: (path: string) => void;
   onCopyAiContext: (item: WorkspaceItem) => Promise<void>;
 }
-
-const ALL_PLATFORMS: Platform[] = ["windows", "macos", "linux"];
 
 interface CollapsibleDetailCardProps {
   title: string;
@@ -161,9 +158,7 @@ export function DetailPanel({
 
   const isVerifyingFix = verifyingItemId === item.id;
 
-  const effectivePlatforms =
-    item.platforms.length > 0 ? item.platforms : ALL_PLATFORMS;
-  const platformsText = effectivePlatforms.map(lang.app.platformLabel).join(" / ");
+  const platformsText = formatPlatforms(item.platforms, lang.app.platformLabel);
 
   const createdAtText = formatLocalDateTime(item.createAt);
   const hasReadme = item.readme.trim().length > 0;
@@ -178,40 +173,20 @@ export function DetailPanel({
     <main className="flex-1 min-w-0 overflow-y-auto p-[var(--st-space-24)]">
       <div className="max-w-[960px] mx-auto flex flex-col gap-[var(--st-space-20)]">
         <section
-          className={`rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)] ${
-            !item.applicable ? "border-dashed opacity-80" : ""
-          }`}
+          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)]"
           style={{
-            backgroundColor: item.applicable
-              ? "var(--st-bg-panel)"
-              : "var(--st-bg-disabled)",
-            borderColor: item.applicable
-              ? "var(--st-border-default)"
-              : "var(--st-border-subtle)",
+            backgroundColor: "var(--st-bg-panel)",
+            borderColor: "var(--st-border-default)",
           }}
         >
           <div className="flex flex-wrap items-start justify-between gap-[var(--st-space-16)]">
             <div className="flex flex-col gap-[var(--st-space-6)] min-w-0 flex-1">
-              <h1
-                className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold"
-                style={{
-                  color: item.applicable
-                    ? "var(--st-text-primary)"
-                    : "var(--st-text-muted)",
-                }}
-              >
+              <h1 className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold text-[color:var(--st-text-primary)]">
                 {item.name}
               </h1>
 
               {item.description && (
-                <p
-                  className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)]"
-                  style={{
-                    color: item.applicable
-                      ? "var(--st-text-secondary)"
-                      : "var(--st-text-disabled)",
-                  }}
-                >
+                <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-secondary)]">
                   {item.description}
                 </p>
               )}

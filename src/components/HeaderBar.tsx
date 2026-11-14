@@ -8,15 +8,13 @@ import {
   Sun,
 } from "lucide-react";
 import { lang } from "../lang";
-import type { ScopeMode, ThemeMode, WorkspaceSnapshot } from "../types";
+import type { ThemeMode, WorkspaceSnapshot } from "../types";
 
 interface HeaderBarProps {
   workspace: WorkspaceSnapshot | null;
-  scope: ScopeMode;
   themeMode: ThemeMode;
   runningCount: number;
   hasSampleWorkspace: boolean;
-  onChangeScope: (scope: ScopeMode) => void;
   onChangeThemeMode: (mode: ThemeMode) => void;
   onOpenWorkspace: () => void;
   onLoadSample: () => void;
@@ -37,11 +35,9 @@ const THEME_OPTIONS: {
 
 export function HeaderBar({
   workspace,
-  scope,
   themeMode,
   runningCount,
   hasSampleWorkspace,
-  onChangeScope,
   onChangeThemeMode,
   onOpenWorkspace,
   onLoadSample,
@@ -77,35 +73,6 @@ export function HeaderBar({
       <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
         {workspace && (
           <>
-            <div
-              className="h-[var(--st-control-h)] inline-flex items-center rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
-              style={{
-                backgroundColor: "var(--st-bg-canvas)",
-                borderColor: "var(--st-border-default)",
-              }}
-              role="group"
-              aria-label={lang.header.scopeLabel}
-            >
-              <button
-                type="button"
-                onClick={() => onChangeScope("current")}
-                aria-pressed={scope === "current"}
-                data-active={scope === "current" ? "true" : "false"}
-                className="h-full inline-flex items-center px-[var(--st-space-10)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
-              >
-                {lang.header.scopeCurrent}
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeScope("all")}
-                aria-pressed={scope === "all"}
-                data-active={scope === "all" ? "true" : "false"}
-                className="h-full inline-flex items-center px-[var(--st-space-10)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
-              >
-                {lang.header.scopeAll}
-              </button>
-            </div>
-
             <button
               type="button"
               onClick={onRunAllChecks}
@@ -160,7 +127,7 @@ export function HeaderBar({
         </button>
 
         <div
-          className="h-[var(--st-control-h)] inline-flex items-center rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
+          className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-4)] rounded-[var(--st-radius-md)] border p-[var(--st-space-4)]"
           style={{
             backgroundColor: "var(--st-bg-canvas)",
             borderColor: "var(--st-border-default)",

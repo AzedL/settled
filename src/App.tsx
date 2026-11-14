@@ -675,11 +675,9 @@ export default function App() {
     >
       <HeaderBar
         workspace={workspace}
-        scope={scope}
         themeMode={themeMode}
         runningCount={totalRunningCount}
         hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
-        onChangeScope={handleChangeScope}
         onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
         onLoadSample={handleLoadSample}
@@ -732,13 +730,10 @@ export default function App() {
             selectedTag={selectedTag}
             selectedItemId={selectedItemId}
             runtimeMap={runtimeMap}
+            onChangeScope={handleChangeScope}
             onSearchChange={setSearch}
             onSelectTag={setSelectedTag}
             onSelectItem={setSelectedItemId}
-            onClearFilters={() => {
-              setSearch("");
-              setSelectedTag(null);
-            }}
             onRunFilteredChecks={handleRunFilteredChecks}
           />
 

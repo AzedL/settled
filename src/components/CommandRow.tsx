@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Info, Play, Square, Terminal } from "lucide-react";
+import { ChevronDown, ChevronRight, Play, Square, Terminal } from "lucide-react";
 import { lang } from "../lang";
 import type { CommandRuntimeState, ResolvedCommand } from "../types";
+import { formatPlatforms } from "../utils/format";
 import { TrafficLed } from "./TrafficLed";
 
 interface CommandRowProps {
@@ -23,38 +24,11 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
     }
   }, [runtime.status]);
 
-  const showStatusPill = command.applicable && runtime.status !== "idle";
-
-  const statusPillStyle: React.CSSProperties =
-    runtime.status === "pass"
-      ? {
-          backgroundColor: "var(--st-status-pass-soft)",
-          color: "var(--st-status-pass-text)",
-        }
-      : runtime.status === "fail"
-        ? {
-            backgroundColor: "var(--st-status-fail-soft)",
-            color: "var(--st-status-fail-text)",
-          }
-        : runtime.status === "running"
-          ? {
-              backgroundColor: "var(--st-status-running-soft)",
-              color: "var(--st-status-running-text)",
-            }
-          : {
-              backgroundColor: "var(--st-status-canceled-soft)",
-              color: "var(--st-status-canceled-text)",
-            };
-
   return (
     <div
-      className={`rounded-[var(--st-radius-md)] border transition-colors ${
-        !command.applicable ? "border-dashed opacity-65 select-none" : ""
-      }`}
+      className="rounded-[var(--st-radius-md)] border transition-colors"
       style={{
-        backgroundColor: command.applicable
-          ? "var(--st-bg-surface)"
-          : "var(--st-bg-disabled)",
+        backgroundColor: "var(--st-bg-surface)",
         borderColor: !command.applicable
           ? "var(--st-border-subtle)"
           : runtime.status === "fail"
@@ -64,121 +38,24 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               : "var(--st-border-subtle)",
       }}
     >
-      <div className="p-[var(--st-space-12)] flex items-start justify-between gap-[var(--st-space-12)]">
-        <div className="flex items-start gap-[var(--st-space-12)] min-w-0 flex-1">
-          <div className="pt-[var(--st-space-4)]">
-            <TrafficLed
-              status={command.applicable ? runtime.status : "disabled"}
-              size="md"
-            />
-          </div>
+      <div className="px-[var(--st-space-12)] py-[var(--st-space-10)] flex items-center justify-between gap-[var(--st-space-12)]">
+        <div className="flex items-center gap-[var(--st-space-10)] min-w-0 flex-1">
+          <TrafficLed
+            status={command.applicable ? runtime.status : "disabled"}
+            size="md"
+          />
 
-          <div className="flex flex-col gap-[var(--st-space-6)] min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-[var(--st-space-8)]">
-              <div className="inline-flex items-center gap-[var(--st-space-6)] min-w-0">
-                <span
-                  className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium break-words"
-                  style={{
-                    color: command.applicable
-                      ? "var(--st-text-primary)"
-                      : "var(--st-text-disabled)",
-                  }}
-                >
-                  {command.name}
-                </span>
-                {command.description && (
-                  <div className="relative group/info inline-flex items-center">
-                    <button
-                      type="button"
-                      aria-label={command.description}
-                      className="inline-flex items-center justify-center rounded-[var(--st-radius-sm)] st-info-trigger cursor-help"
-                    >
-                      <Info className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-                    </button>
-                    <div
-                      className="pointer-events-none hidden group-hover/info:block group-focus-within/info:block absolute left-0 top-full mt-[var(--st-space-6)] z-30 w-[320px] rounded-[var(--st-radius-md)] border p-[var(--st-space-10)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                      style={{
-                        backgroundColor: "var(--st-bg-panel)",
-                        borderColor: "var(--st-border-strong)",
-                        color: "var(--st-text-secondary)",
-                        boxShadow: "var(--st-shadow-card)",
-                      }}
-                    >
-                      {command.description}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {showStatusPill && (
-                <span
-                  className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
-                  style={statusPillStyle}
-                >
-                  {lang.status.label(runtime.status)}
-                </span>
-              )}
-
-              {command.platforms.length > 0 && (
-                <span
-                  className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                  style={{
-                    backgroundColor: "var(--st-bg-panel)",
-                    color: command.applicable
-                      ? "var(--st-text-muted)"
-                      : "var(--st-text-disabled)",
-                  }}
-                >
-                  {command.platforms.map(lang.app.platformLabel).join(" / ")}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-[var(--st-space-8)]">
-              <code
-                className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] break-all"
-                style={{
-                  backgroundColor: "var(--st-bg-terminal)",
-                  color: command.applicable
-                    ? "var(--st-text-secondary)"
-                    : "var(--st-text-disabled)",
-                }}
-                title={`${lang.scripts.commandPreviewLabel}: ${command.resolvedRun}`}
-              >
-                {command.resolvedRun}
-              </code>
-              {runtime.exitCode !== null && (
-                <span
-                  className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                  style={{
-                    color:
-                      runtime.exitCode === 0
-                        ? "var(--st-status-pass-text)"
-                        : "var(--st-status-fail-text)",
-                  }}
-                >
-                  {lang.scripts.exitCodeLabel(runtime.exitCode)}
-                </span>
-              )}
-              {runtime.durationMs !== null && (
-                <span
-                  className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                  style={{ color: "var(--st-text-muted)" }}
-                >
-                  {lang.scripts.durationLabel(runtime.durationMs)}
-                </span>
-              )}
-            </div>
-          </div>
+          <span className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium text-[color:var(--st-text-primary)] truncate min-w-0">
+            {command.name}
+          </span>
         </div>
 
         <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
           <button
             type="button"
-            disabled={!command.applicable && !hasLogs}
             onClick={() => setLogOpen((prev) => !prev)}
             aria-expanded={logOpen}
-            className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium disabled:cursor-not-allowed cursor-pointer st-control st-btn-panel ${
+            className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-panel ${
               logOpen
                 ? "st-btn-panel--active"
                 : hasLogs
@@ -195,37 +72,91 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
             )}
           </button>
 
-          {isRunning ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-danger-soft"
-            >
-              <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-              <span>{lang.scripts.stopSingle}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={!command.applicable}
-              onClick={onRun}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold disabled:cursor-not-allowed cursor-pointer st-control st-btn-accent-soft"
-            >
-              <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-              <span>{lang.scripts.runSingle}</span>
-            </button>
-          )}
+          {command.applicable &&
+            (isRunning ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-danger-soft"
+              >
+                <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+                <span>{lang.scripts.stopSingle}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onRun}
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-accent-soft"
+              >
+                <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+                <span>{lang.scripts.runSingle}</span>
+              </button>
+            ))}
         </div>
       </div>
 
       {logOpen && (
-        <div
-          className="border-t rounded-b-[calc(var(--st-radius-md)-var(--st-border-w))] p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
-          style={{
-            backgroundColor: "var(--st-bg-terminal)",
-            borderColor: "var(--st-border-subtle)",
-          }}
-        >
+        <>
+          <div
+            className="border-t px-[var(--st-space-12)] py-[var(--st-space-10)] flex flex-col gap-[var(--st-space-8)]"
+            style={{
+              backgroundColor: "var(--st-bg-panel)",
+              borderColor: "var(--st-border-subtle)",
+            }}
+          >
+            {command.description && (
+              <p className="m-0 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-secondary)]">
+                {command.description}
+              </p>
+            )}
+
+            <code
+              className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] break-all text-[color:var(--st-text-primary)]"
+              style={{ backgroundColor: "var(--st-bg-terminal)" }}
+            >
+              {command.resolvedRun}
+            </code>
+
+            <div className="flex flex-wrap items-center gap-x-[var(--st-space-16)] gap-y-[var(--st-space-4)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
+              <span>
+                {lang.detail.platformsLabel}:{" "}
+                <span className="font-medium text-[color:var(--st-text-secondary)]">
+                  {formatPlatforms(command.platforms, lang.app.platformLabel)}
+                </span>
+              </span>
+
+              {runtime.durationMs !== null && (
+                <span>
+                  {lang.scripts.durationTitle}:{" "}
+                  <span className="font-mono text-[color:var(--st-text-secondary)]">
+                    {lang.scripts.durationLabel(runtime.durationMs)}
+                  </span>
+                </span>
+              )}
+
+              {runtime.exitCode !== null && (
+                <span
+                  className="font-mono font-medium"
+                  style={{
+                    color:
+                      runtime.exitCode === 0
+                        ? "var(--st-status-pass-text)"
+                        : "var(--st-status-fail-text)",
+                  }}
+                >
+                  {lang.scripts.exitCodeLabel(runtime.exitCode)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div
+            className="border-t rounded-b-[calc(var(--st-radius-md)-var(--st-border-w))] p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
+            style={{
+              backgroundColor: "var(--st-bg-terminal)",
+              borderColor: "var(--st-border-subtle)",
+            }}
+          >
           {runtime.error && (
             <div
               className="mb-[var(--st-space-6)]"
@@ -258,7 +189,8 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               {isRunning ? lang.scripts.logsWaiting : lang.scripts.logsEmpty}
             </span>
           )}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

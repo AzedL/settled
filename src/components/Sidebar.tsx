@@ -1,7 +1,6 @@
 import {
   AlertCircle,
   Play,
-  RotateCcw,
   Search,
   Tag,
   X,
@@ -28,10 +27,10 @@ interface SidebarProps {
   selectedTag: string | null;
   selectedItemId: string | null;
   runtimeMap: Record<string, CommandRuntimeState>;
+  onChangeScope: (scope: ScopeMode) => void;
   onSearchChange: (value: string) => void;
   onSelectTag: (tag: string | null) => void;
   onSelectItem: (itemId: string) => void;
-  onClearFilters: () => void;
   onRunFilteredChecks: (items: WorkspaceItem[]) => void;
 }
 
@@ -42,10 +41,10 @@ export function Sidebar({
   selectedTag,
   selectedItemId,
   runtimeMap,
+  onChangeScope,
   onSearchChange,
   onSelectTag,
   onSelectItem,
-  onClearFilters,
   onRunFilteredChecks,
 }: SidebarProps) {
   const scopedItems =
@@ -80,7 +79,13 @@ export function Sidebar({
         className="p-[var(--st-space-12)] border-b flex flex-col gap-[var(--st-space-10)] shrink-0"
         style={{ borderColor: "var(--st-border-subtle)" }}
       >
-        <div className="flex items-center gap-[var(--st-space-8)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border st-search-box">
+        <div
+          className={`h-[var(--st-control-h)] flex items-center gap-[var(--st-space-8)] pl-[var(--st-space-10)] ${
+            search.length > 0
+              ? "pr-[var(--st-space-4)]"
+              : "pr-[var(--st-space-10)]"
+          } rounded-[var(--st-radius-md)] border st-search-box`}
+        >
           <Search
             className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
             style={{ color: "var(--st-text-muted)" }}
@@ -97,7 +102,7 @@ export function Sidebar({
               type="button"
               onClick={() => onSearchChange("")}
               aria-label={lang.filters.clearSearchAria}
-              className="p-[var(--st-space-2)] rounded-[var(--st-radius-sm)] cursor-pointer st-control st-icon-ghost"
+              className="p-[var(--st-space-4)] rounded-[var(--st-radius-sm)] shrink-0 cursor-pointer st-control st-icon-ghost"
             >
               <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
             </button>
@@ -135,22 +140,40 @@ export function Sidebar({
           </div>
         )}
 
-        <div className="flex flex-col gap-[var(--st-space-6)] pt-[var(--st-space-2)]">
+        <div className="flex flex-col gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
           <div className="flex items-center justify-between gap-[var(--st-space-8)]">
-            <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-secondary)]">
-              {lang.filters.itemsSummary(filteredItems.length, scopedItems.length)}
-            </span>
-
-            {hasActiveFilters && (
+            <div
+              className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-4)] rounded-[var(--st-radius-md)] border p-[var(--st-space-4)]"
+              style={{
+                backgroundColor: "var(--st-bg-canvas)",
+                borderColor: "var(--st-border-default)",
+              }}
+              role="group"
+              aria-label={lang.header.scopeLabel}
+            >
               <button
                 type="button"
-                onClick={onClearFilters}
-                className="inline-flex items-center gap-[var(--st-space-4)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer st-control st-link-action"
+                onClick={() => onChangeScope("current")}
+                aria-pressed={scope === "current"}
+                data-active={scope === "current" ? "true" : "false"}
+                className="h-full inline-flex items-center px-[var(--st-space-8)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
               >
-                <RotateCcw className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-                <span>{lang.filters.clearFilters}</span>
+                {lang.header.scopeCurrent}
               </button>
-            )}
+              <button
+                type="button"
+                onClick={() => onChangeScope("all")}
+                aria-pressed={scope === "all"}
+                data-active={scope === "all" ? "true" : "false"}
+                className="h-full inline-flex items-center px-[var(--st-space-8)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
+              >
+                {lang.header.scopeAll}
+              </button>
+            </div>
+
+            <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-muted)] tabular-nums">
+              {lang.filters.itemsSummary(filteredItems.length, scopedItems.length)}
+            </span>
           </div>
 
           {hasActiveFilters && filteredRunnableCheckCount > 0 && (
@@ -187,15 +210,6 @@ export function Sidebar({
                 ? lang.sidebar.noItemsInWorkspace
                 : lang.sidebar.noItemsMatch}
             </p>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={onClearFilters}
-                className="px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface"
-              >
-                {lang.filters.clearFilters}
-              </button>
-            )}
           </div>
         ) : (
           filteredItems.map((item) => {

@@ -54,23 +54,16 @@ export function ScriptGroupCard({
     (c) => getCommandRuntime(runtimeMap, c.commandId).status === "running"
   );
 
-  const isGroupDisabled = !itemApplicable || applicableCommands.length === 0;
-  const canRunGroup = !isGroupDisabled && !anyRunning;
+  const canRunGroup = itemApplicable && applicableCommands.length > 0;
 
   return (
     <section
-      className={`rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex flex-col gap-[var(--st-space-12)] ${
-        isGroupDisabled ? "border-dashed opacity-75" : ""
-      }`}
+      className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex flex-col gap-[var(--st-space-12)]"
       style={{
-        backgroundColor: isGroupDisabled
-          ? "var(--st-bg-disabled)"
-          : "var(--st-bg-panel)",
-        borderColor: isGroupDisabled
-          ? "var(--st-border-subtle)"
-          : isHighlightedFix
-            ? "var(--st-border-warn)"
-            : "var(--st-border-default)",
+        backgroundColor: "var(--st-bg-panel)",
+        borderColor: isHighlightedFix
+          ? "var(--st-border-warn)"
+          : "var(--st-border-default)",
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-[var(--st-space-12)]">
@@ -78,16 +71,14 @@ export function ScriptGroupCard({
           <div
             className="w-[var(--st-space-32)] h-[var(--st-space-32)] rounded-[var(--st-radius-md)] flex items-center justify-center shrink-0"
             style={{
-              backgroundColor: isGroupDisabled
-                ? "var(--st-status-disabled-soft)"
-                : group.role === "check"
+              backgroundColor:
+                group.role === "check"
                   ? "var(--st-accent-soft)"
                   : group.role === "fix"
                     ? "var(--st-status-canceled-soft)"
                     : "var(--st-status-idle-soft)",
-              color: isGroupDisabled
-                ? "var(--st-status-disabled-text)"
-                : group.role === "check"
+              color:
+                group.role === "check"
                   ? "var(--st-accent-text)"
                   : group.role === "fix"
                     ? "var(--st-status-canceled-text)"
@@ -96,29 +87,24 @@ export function ScriptGroupCard({
           >
             <GroupIcon className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
           </div>
-          <h3
-            className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold truncate"
-            style={{
-              color: isGroupDisabled
-                ? "var(--st-text-disabled)"
-                : "var(--st-text-primary)",
-            }}
-          >
+          <h3 className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold text-[color:var(--st-text-primary)] truncate">
             {title}
           </h3>
         </div>
 
-        <button
-          type="button"
-          disabled={!canRunGroup}
-          onClick={() => onRunGroup(group)}
-          className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold disabled:cursor-not-allowed cursor-pointer shrink-0 st-control ${
-            group.role === "fix" ? "st-btn-warn-soft" : "st-btn-primary"
-          }`}
-        >
-          <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-          <span>{runGroupLabel}</span>
-        </button>
+        {canRunGroup && (
+          <button
+            type="button"
+            disabled={anyRunning}
+            onClick={() => onRunGroup(group)}
+            className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold disabled:cursor-not-allowed cursor-pointer shrink-0 st-control ${
+              group.role === "fix" ? "st-btn-warn-soft" : "st-btn-primary"
+            }`}
+          >
+            <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+            <span>{runGroupLabel}</span>
+          </button>
+        )}
       </div>
 
       {group.role === "fix" && isVerifyingFix && (

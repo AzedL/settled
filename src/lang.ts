@@ -42,15 +42,14 @@ export const lang = {
   filters: {
     searchPlaceholder: "搜索条目名称、描述或标签...",
     allTags: "全部标签",
-    clearFilters: "重置筛选",
     itemsSummary: (shown: number, total: number): string =>
-      `显示 ${shown} / ${total} 条`,
+      `${shown}/${total}`,
     runFilteredChecks: (count: number): string => `运行当前筛选 Check (${count})`,
     clearSearchAria: "清空搜索关键词",
   },
 
   sidebar: {
-    noItemsMatch: "没有符合当前筛选条件的条目",
+    noItemsMatch: "没有符合条件的条目",
     noItemsInWorkspace: "当前工作区的 items/ 下暂无条目",
     missingItemsDirHint: "当前目录中尚未发现 items/ 聚合目录，请先创建 items/<item-id>/。",
     parseErrorBadge: "配置异常",
@@ -83,12 +82,12 @@ export const lang = {
     autoVerifyingFix: "修复动作执行完毕，正在自动重跑当前条目 check 验收...",
     noApplicableInGroup: "当前设备平台下无适用命令",
     exitCodeLabel: (code: number): string => `exit ${code}`,
+    durationTitle: "执行时间",
     durationLabel: (ms: number): string => `${ms} ms`,
     logsShow: "日志",
     logsHide: "收起日志",
     logsEmpty: "暂无输出日志",
     logsWaiting: "正在等待命令输出...",
-    commandPreviewLabel: "执行命令",
   },
 
   status: {

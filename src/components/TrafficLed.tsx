@@ -28,6 +28,7 @@ export function TrafficLed({ status, size = "md", title }: TrafficLedProps) {
     },
     canceled: {
       backgroundColor: "var(--st-status-canceled)",
+      boxShadow: "var(--st-status-canceled-glow)",
     },
     idle: {
       backgroundColor: "var(--st-status-idle)",

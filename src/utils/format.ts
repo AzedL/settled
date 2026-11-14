@@ -1,3 +1,18 @@
+import type { Platform } from "../types";
+
+export const ALL_PLATFORMS: Platform[] = ["windows", "macos", "linux"];
+
+/**
+ * Formats target platforms as a slash-separated list, expanding an omitted/empty list to all platforms.
+ */
+export function formatPlatforms(
+  platforms: Platform[],
+  formatLabel: (platform: Platform) => string
+): string {
+  const effective = platforms.length > 0 ? platforms : ALL_PLATFORMS;
+  return effective.map(formatLabel).join(" / ");
+}
+
 /**
  * Normalizes a script group key across kebab-case, snake_case, camelCase, PascalCase,
  * and space-delimited forms into clean Title Case (e.g. `work-out` / `workOut` -> `Work Out`).

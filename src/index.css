@@ -210,18 +210,20 @@ button:focus-visible {
   }
 
   .st-segmented-btn:hover:not([data-active="true"]) {
-    background-color: var(--st-bg-surface-hover);
+    background-color: var(--st-seg-hover-bg);
     color: var(--st-text-primary);
   }
 
   .st-segmented-btn[data-active="true"] {
-    background-color: var(--st-bg-surface-active);
+    background-color: var(--st-seg-active-bg);
     color: var(--st-text-primary);
+    box-shadow: var(--st-seg-active-shadow);
   }
 
   .st-segmented-btn[data-accent-active="true"] {
-    background-color: var(--st-bg-surface-active);
+    background-color: var(--st-seg-active-bg);
     color: var(--st-accent-text);
+    box-shadow: var(--st-seg-active-shadow);
   }
 
   .st-search-box {
@@ -343,18 +345,8 @@ button:focus-visible {
   }
 
   .st-icon-ghost:hover {
-    background-color: var(--st-bg-surface-hover);
+    background-color: var(--st-icon-ghost-hover-bg);
     color: var(--st-text-primary);
-  }
-
-  .st-info-trigger {
-    color: var(--st-text-muted);
-    transition: color 140ms ease;
-  }
-
-  .st-info-trigger:hover,
-  .st-info-trigger:focus-visible {
-    color: var(--st-accent-text);
   }
 }
 

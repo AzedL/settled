@@ -118,14 +118,21 @@
   --st-status-canceled-soft: #fff8e8;
   --st-status-canceled-soft-hover: #ffefc8;
   --st-status-canceled-text: #9a5b00;
+  --st-status-canceled-glow: 0 0 0 2px rgba(229, 166, 58, 0.26);
 
   --st-status-idle: #98a19c;
   --st-status-idle-soft: #eef2f0;
   --st-status-idle-text: #58676e;
 
-  --st-status-disabled: #cbd2cd;
+  --st-status-disabled: #b4beb9;
   --st-status-disabled-soft: #eef2f1;
   --st-status-disabled-text: #8d999c;
+
+  /* Segmented & ghost interactive surfaces */
+  --st-seg-hover-bg: rgba(20, 35, 42, 0.05);
+  --st-seg-active-bg: #ffffff;
+  --st-seg-active-shadow: 0 1px 2px rgba(20, 35, 42, 0.08);
+  --st-icon-ghost-hover-bg: rgba(20, 35, 42, 0.08);
 
   /* Scrollbars & Shadows */
   --st-scrollbar-thumb: #b7c2be;
@@ -189,14 +196,21 @@
   --st-status-canceled-soft: rgba(217, 172, 66, 0.15);
   --st-status-canceled-soft-hover: rgba(217, 172, 66, 0.24);
   --st-status-canceled-text: #ecc86c;
+  --st-status-canceled-glow: 0 0 0 2px rgba(217, 172, 66, 0.28);
 
   --st-status-idle: #686e7a;
   --st-status-idle-soft: rgba(104, 110, 122, 0.22);
   --st-status-idle-text: #a1a7b3;
 
-  --st-status-disabled: #3e424b;
+  --st-status-disabled: #585f6b;
   --st-status-disabled-soft: rgba(62, 66, 75, 0.28);
   --st-status-disabled-text: #6d7380;
+
+  /* Segmented & ghost interactive surfaces */
+  --st-seg-hover-bg: rgba(255, 255, 255, 0.05);
+  --st-seg-active-bg: #30353e;
+  --st-seg-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.36);
+  --st-icon-ghost-hover-bg: rgba(255, 255, 255, 0.10);
 
   --st-scrollbar-thumb: rgba(255, 255, 255, 0.18);
   --st-scrollbar-thumb-hover: rgba(255, 255, 255, 0.30);
