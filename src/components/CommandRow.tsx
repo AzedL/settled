@@ -81,7 +81,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
 
           <div className="flex flex-col gap-[var(--st-space-6)] min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-[var(--st-space-8)]">
-              <div className="relative group inline-flex items-center gap-[var(--st-space-6)] min-w-0">
+              <div className="inline-flex items-center gap-[var(--st-space-6)] min-w-0">
                 <span
                   className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium break-words"
                   style={{
@@ -93,14 +93,16 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
                   {command.name}
                 </span>
                 {command.description && (
-                  <>
-                    <Info
-                      className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
-                      style={{ color: "var(--st-text-muted)" }}
+                  <div className="relative group/info inline-flex items-center">
+                    <button
+                      type="button"
                       aria-label={command.description}
-                    />
+                      className="inline-flex items-center justify-center rounded-[var(--st-radius-sm)] st-info-trigger cursor-help"
+                    >
+                      <Info className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                    </button>
                     <div
-                      className="pointer-events-none hidden group-hover:block absolute left-0 top-full mt-[var(--st-space-6)] z-30 w-[320px] rounded-[var(--st-radius-md)] border p-[var(--st-space-10)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                      className="pointer-events-none hidden group-hover/info:block group-focus-within/info:block absolute left-0 top-full mt-[var(--st-space-6)] z-30 w-[320px] rounded-[var(--st-radius-md)] border p-[var(--st-space-10)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
                       style={{
                         backgroundColor: "var(--st-bg-panel)",
                         borderColor: "var(--st-border-strong)",
@@ -110,7 +112,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
                     >
                       {command.description}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
@@ -184,12 +186,14 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
           <button
             type="button"
             onClick={() => setLogOpen((prev) => !prev)}
-            className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-            style={{
-              backgroundColor: logOpen ? "var(--st-bg-surface-active)" : "var(--st-bg-panel)",
-              borderColor: hasLogs ? "var(--st-border-default)" : "var(--st-border-subtle)",
-              color: hasLogs ? "var(--st-text-secondary)" : "var(--st-text-muted)",
-            }}
+            aria-expanded={logOpen}
+            className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-panel ${
+              logOpen
+                ? "st-btn-panel--active"
+                : hasLogs
+                  ? "st-btn-panel--ready"
+                  : ""
+            }`}
           >
             <Terminal className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
             <span>{logOpen ? lang.scripts.logsHide : lang.scripts.logsShow}</span>
@@ -204,12 +208,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
             <button
               type="button"
               onClick={onStop}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
-              style={{
-                backgroundColor: "var(--st-status-fail-soft)",
-                borderColor: "var(--st-border-danger)",
-                color: "var(--st-status-fail-text)",
-              }}
+              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-danger-soft"
             >
               <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
               <span>{lang.scripts.stopSingle}</span>
@@ -219,18 +218,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               type="button"
               disabled={!command.applicable}
               onClick={onRun}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer"
-              style={{
-                backgroundColor: command.applicable
-                  ? "var(--st-accent-soft)"
-                  : "var(--st-bg-disabled)",
-                borderColor: command.applicable
-                  ? "var(--st-border-accent)"
-                  : "var(--st-border-subtle)",
-                color: command.applicable
-                  ? "var(--st-accent-text)"
-                  : "var(--st-text-disabled)",
-              }}
+              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold disabled:cursor-not-allowed cursor-pointer st-control st-btn-accent-soft"
             >
               <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
               <span>{lang.scripts.runSingle}</span>

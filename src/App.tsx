@@ -756,7 +756,7 @@ export default function App() {
             type="button"
             onClick={() => setToast(null)}
             aria-label={lang.notifications.clearToast}
-            className="p-[var(--st-space-4)] rounded-[var(--st-radius-sm)] cursor-pointer shrink-0"
+            className="p-[var(--st-space-4)] rounded-[var(--st-radius-sm)] cursor-pointer shrink-0 st-control hover:opacity-70"
           >
             <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
           </button>

@@ -140,12 +140,7 @@ export function DetailPanel({
               <button
                 type="button"
                 onClick={() => onOpenInVscode(item.path)}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: "var(--st-bg-surface)",
-                  borderColor: "var(--st-border-default)",
-                  color: "var(--st-text-primary)",
-                }}
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface"
               >
                 <Code2 className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
                 <span>{lang.detail.openInVscode}</span>
@@ -154,12 +149,7 @@ export function DetailPanel({
               <button
                 type="button"
                 onClick={() => onRevealInExplorer(item.metaPath)}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: "var(--st-bg-surface)",
-                  borderColor: "var(--st-border-default)",
-                  color: "var(--st-text-secondary)",
-                }}
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface st-btn-surface--muted"
               >
                 <FolderSearch className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
                 <span>{lang.detail.revealInExplorer}</span>
@@ -168,18 +158,9 @@ export function DetailPanel({
               <button
                 type="button"
                 onClick={handleCopyContext}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: copiedContext
-                    ? "var(--st-status-pass-soft)"
-                    : "var(--st-accent-soft)",
-                  borderColor: copiedContext
-                    ? "var(--st-status-pass)"
-                    : "var(--st-border-accent)",
-                  color: copiedContext
-                    ? "var(--st-status-pass-text)"
-                    : "var(--st-accent-text)",
-                }}
+                className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control ${
+                  copiedContext ? "st-btn-pass-soft" : "st-btn-accent-soft"
+                }`}
               >
                 {copiedContext ? (
                   <Check className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
@@ -384,8 +365,7 @@ export function DetailPanel({
           <button
             type="button"
             onClick={() => setShowRawMeta((prev) => !prev)}
-            className="w-full px-[var(--st-space-16)] py-[var(--st-space-12)] flex items-center gap-[var(--st-space-8)] text-left cursor-pointer"
-            style={{ color: "var(--st-text-secondary)" }}
+            className="w-full px-[var(--st-space-16)] py-[var(--st-space-12)] flex items-center gap-[var(--st-space-8)] text-left cursor-pointer st-control st-raw-toggle"
           >
             {showRawMeta ? (
               <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />

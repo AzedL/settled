@@ -20,9 +20,9 @@ export function WelcomeView({
   onOpenRecent,
 }: WelcomeViewProps) {
   return (
-    <main className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-[var(--st-space-24)]">
+    <main className="flex-1 min-h-0 overflow-y-auto flex p-[var(--st-space-24)]">
       <div
-        className="w-full max-w-[var(--st-welcome-w)] rounded-[var(--st-radius-xl)] border p-[var(--st-space-32)] flex flex-col gap-[var(--st-space-24)]"
+        className="m-auto w-full max-w-[var(--st-welcome-w)] rounded-[var(--st-radius-xl)] border p-[var(--st-space-32)] flex flex-col gap-[var(--st-space-24)]"
         style={{
           backgroundColor: "var(--st-bg-panel)",
           borderColor: "var(--st-border-default)",
@@ -64,12 +64,7 @@ export function WelcomeView({
           <button
             type="button"
             onClick={onOpenWorkspace}
-            className="inline-flex items-center gap-[var(--st-space-8)] px-[var(--st-space-16)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer transition-colors"
-            style={{
-              backgroundColor: "var(--st-accent)",
-              borderColor: "var(--st-accent)",
-              color: "var(--st-accent-contrast)",
-            }}
+            className="inline-flex items-center gap-[var(--st-space-8)] px-[var(--st-space-16)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer st-control st-btn-primary"
           >
             <FolderOpen className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
             <span>{lang.welcome.openFolderBtn}</span>
@@ -79,12 +74,7 @@ export function WelcomeView({
             <button
               type="button"
               onClick={onLoadSample}
-              className="inline-flex items-center gap-[var(--st-space-8)] px-[var(--st-space-16)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer transition-colors"
-              style={{
-                backgroundColor: "var(--st-bg-surface)",
-                borderColor: "var(--st-border-default)",
-                color: "var(--st-text-primary)",
-              }}
+              className="inline-flex items-center gap-[var(--st-space-8)] px-[var(--st-space-16)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer st-control st-btn-surface"
             >
               <Sparkles className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
               <span>{lang.welcome.loadSampleBtn}</span>
@@ -105,12 +95,7 @@ export function WelcomeView({
                   key={path}
                   type="button"
                   onClick={() => onOpenRecent(path)}
-                  className="w-full text-left px-[var(--st-space-12)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] truncate cursor-pointer transition-colors"
-                  style={{
-                    backgroundColor: "var(--st-bg-surface)",
-                    borderColor: "var(--st-border-subtle)",
-                    color: "var(--st-text-primary)",
-                  }}
+                  className="w-full text-left px-[var(--st-space-12)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] truncate cursor-pointer st-control st-recent-item"
                 >
                   {path}
                 </button>

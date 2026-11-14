@@ -120,24 +120,9 @@ export function ScriptGroupCard({
           type="button"
           disabled={!canRunGroup}
           onClick={() => onRunGroup(group)}
-          className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer shrink-0"
-          style={{
-            backgroundColor: !canRunGroup
-              ? "var(--st-bg-disabled)"
-              : group.role === "fix"
-                ? "var(--st-status-canceled-soft)"
-                : "var(--st-accent)",
-            borderColor: !canRunGroup
-              ? "var(--st-border-subtle)"
-              : group.role === "fix"
-                ? "var(--st-border-warn)"
-                : "var(--st-accent)",
-            color: !canRunGroup
-              ? "var(--st-text-disabled)"
-              : group.role === "fix"
-                ? "var(--st-status-canceled-text)"
-                : "var(--st-accent-contrast)",
-          }}
+          className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold disabled:cursor-not-allowed cursor-pointer shrink-0 st-control ${
+            group.role === "fix" ? "st-btn-warn-soft" : "st-btn-primary"
+          }`}
         >
           <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
           <span>{runGroupLabel}</span>

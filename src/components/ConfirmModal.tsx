@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { lang } from "../lang";
 import type { CommandExecutionTarget, ScriptRole } from "../types";
@@ -18,12 +18,27 @@ export function ConfirmModal({
 }: ConfirmModalProps) {
   const [skipFuture, setSkipFuture] = useState(false);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-[var(--st-space-16)]"
       style={{ backgroundColor: "var(--st-bg-overlay)" }}
       role="dialog"
       aria-modal="true"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onCancel();
+        }
+      }}
     >
       <div
         className="w-full max-w-[var(--st-modal-w)] rounded-[var(--st-radius-lg)] border p-[var(--st-space-24)] flex flex-col gap-[var(--st-space-16)]"
@@ -93,24 +108,14 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer transition-colors"
-            style={{
-              backgroundColor: "var(--st-bg-surface)",
-              borderColor: "var(--st-border-default)",
-              color: "var(--st-text-secondary)",
-            }}
+            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer st-control st-btn-surface st-btn-surface--muted"
           >
             {lang.confirmModal.cancelBtn}
           </button>
           <button
             type="button"
             onClick={() => onConfirm(skipFuture)}
-            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer transition-colors"
-            style={{
-              backgroundColor: "var(--st-accent)",
-              borderColor: "var(--st-accent)",
-              color: "var(--st-accent-contrast)",
-            }}
+            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer st-control st-btn-primary"
           >
             {lang.confirmModal.confirmBtn}
           </button>

@@ -98,13 +98,7 @@ export function Sidebar({
         className="p-[var(--st-space-12)] border-b flex flex-col gap-[var(--st-space-10)] shrink-0"
         style={{ borderColor: "var(--st-border-subtle)" }}
       >
-        <div
-          className="flex items-center gap-[var(--st-space-8)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border"
-          style={{
-            backgroundColor: "var(--st-bg-canvas)",
-            borderColor: "var(--st-border-default)",
-          }}
-        >
+        <div className="flex items-center gap-[var(--st-space-8)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border st-search-box">
           <Search
             className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
             style={{ color: "var(--st-text-muted)" }}
@@ -121,8 +115,7 @@ export function Sidebar({
               type="button"
               onClick={() => onSearchChange("")}
               aria-label={lang.filters.clearSearchAria}
-              className="p-[var(--st-space-2)] rounded-[var(--st-radius-sm)] cursor-pointer transition-colors"
-              style={{ color: "var(--st-text-muted)" }}
+              className="p-[var(--st-space-2)] rounded-[var(--st-radius-sm)] cursor-pointer st-control st-icon-ghost"
             >
               <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
             </button>
@@ -137,18 +130,9 @@ export function Sidebar({
                 key={option.value}
                 type="button"
                 onClick={() => onStatusFilterChange(option.value)}
-                className="px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: active
-                    ? "var(--st-accent-soft)"
-                    : "var(--st-bg-surface)",
-                  borderColor: active
-                    ? "var(--st-border-accent)"
-                    : "var(--st-border-subtle)",
-                  color: active
-                    ? "var(--st-accent-text)"
-                    : "var(--st-text-secondary)",
-                }}
+                data-selected={active ? "accent" : undefined}
+                aria-pressed={active}
+                className="px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-filter-chip"
               >
                 {option.label}
               </button>
@@ -161,21 +145,9 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => onSelectTag(null)}
-              className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer transition-colors"
-              style={{
-                backgroundColor:
-                  selectedTag === null
-                    ? "var(--st-bg-surface-active)"
-                    : "transparent",
-                borderColor:
-                  selectedTag === null
-                    ? "var(--st-border-strong)"
-                    : "var(--st-border-subtle)",
-                color:
-                  selectedTag === null
-                    ? "var(--st-text-primary)"
-                    : "var(--st-text-muted)",
-              }}
+              data-selected={selectedTag === null ? "neutral" : undefined}
+              aria-pressed={selectedTag === null}
+              className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer st-control st-filter-chip st-filter-chip--ghost"
             >
               <Tag className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
               <span>{lang.filters.allTags}</span>
@@ -188,18 +160,9 @@ export function Sidebar({
                   key={tag}
                   type="button"
                   onClick={() => onSelectTag(active ? null : tag)}
-                  className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer transition-colors"
-                  style={{
-                    backgroundColor: active
-                      ? "var(--st-accent-soft)"
-                      : "var(--st-bg-surface)",
-                    borderColor: active
-                      ? "var(--st-border-accent)"
-                      : "var(--st-border-subtle)",
-                    color: active
-                      ? "var(--st-accent-text)"
-                      : "var(--st-text-secondary)",
-                  }}
+                  data-selected={active ? "accent" : undefined}
+                  aria-pressed={active}
+                  className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer st-control st-filter-chip"
                 >
                   {tag}
                 </button>
@@ -218,8 +181,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onClearFilters}
-                className="inline-flex items-center gap-[var(--st-space-4)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer transition-colors"
-                style={{ color: "var(--st-accent-text)" }}
+                className="inline-flex items-center gap-[var(--st-space-4)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer st-control st-link-action"
               >
                 <RotateCcw className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
                 <span>{lang.filters.clearFilters}</span>
@@ -240,12 +202,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => onRunFilteredChecks(filteredItems)}
-              className="w-full inline-flex items-center justify-center gap-[var(--st-space-6)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-              style={{
-                backgroundColor: "var(--st-accent-soft)",
-                borderColor: "var(--st-border-accent)",
-                color: "var(--st-accent-text)",
-              }}
+              className="w-full inline-flex items-center justify-center gap-[var(--st-space-6)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-accent-soft"
             >
               <Play className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
               <span>{lang.filters.runFilteredChecks(filteredRunnableCheckCount)}</span>
@@ -279,12 +236,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onClearFilters}
-                className="px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer"
-                style={{
-                  backgroundColor: "var(--st-bg-surface)",
-                  borderColor: "var(--st-border-default)",
-                  color: "var(--st-text-primary)",
-                }}
+                className="px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface"
               >
                 {lang.filters.clearFilters}
               </button>
@@ -303,35 +255,17 @@ export function Sidebar({
               : [];
             const applicableCheckCount = getApplicableCheckCommands(item).length;
 
-            const cardBg = !item.applicable
-              ? isSelected
-                ? "var(--st-bg-surface)"
-                : "var(--st-bg-disabled)"
-              : isSelected
-                ? "var(--st-bg-surface-active)"
-                : "var(--st-bg-surface)";
-
-            const cardBorder = !item.applicable
-              ? isSelected
-                ? "var(--st-border-strong)"
-                : "var(--st-border-subtle)"
-              : isSelected
-                ? "var(--st-border-accent)"
-                : "var(--st-border-default)";
-
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => onSelectItem(item.id)}
-                className={`w-full text-left p-[var(--st-space-12)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-8)] cursor-pointer transition-colors ${
+                data-selected={isSelected ? "true" : "false"}
+                data-applicable={item.applicable ? "true" : "false"}
+                aria-current={isSelected ? "true" : undefined}
+                className={`w-full text-left p-[var(--st-space-12)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-8)] cursor-pointer st-control st-sidebar-item ${
                   !item.applicable ? "border-dashed" : ""
                 }`}
-                style={{
-                  backgroundColor: cardBg,
-                  borderColor: cardBorder,
-                  opacity: item.applicable ? 1 : 0.72,
-                }}
               >
                 <div className="flex items-start justify-between gap-[var(--st-space-8)]">
                   <div className="flex flex-col gap-[var(--st-space-2)] min-w-0">

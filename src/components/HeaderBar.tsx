@@ -97,7 +97,7 @@ export function HeaderBar({
         {workspace && (
           <>
             <div
-              className="inline-flex rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
+              className="h-[var(--st-control-h)] inline-flex items-center rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
               style={{
                 backgroundColor: "var(--st-bg-canvas)",
                 borderColor: "var(--st-border-default)",
@@ -108,30 +108,18 @@ export function HeaderBar({
               <button
                 type="button"
                 onClick={() => onChangeScope("current")}
-                className="px-[var(--st-space-10)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-                style={{
-                  backgroundColor:
-                    scope === "current" ? "var(--st-bg-surface-active)" : "transparent",
-                  color:
-                    scope === "current"
-                      ? "var(--st-text-primary)"
-                      : "var(--st-text-muted)",
-                }}
+                aria-pressed={scope === "current"}
+                data-active={scope === "current" ? "true" : "false"}
+                className="h-full inline-flex items-center px-[var(--st-space-10)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
               >
                 {lang.header.scopeCurrent}
               </button>
               <button
                 type="button"
                 onClick={() => onChangeScope("all")}
-                className="px-[var(--st-space-10)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-                style={{
-                  backgroundColor:
-                    scope === "all" ? "var(--st-bg-surface-active)" : "transparent",
-                  color:
-                    scope === "all"
-                      ? "var(--st-text-primary)"
-                      : "var(--st-text-muted)",
-                }}
+                aria-pressed={scope === "all"}
+                data-active={scope === "all" ? "true" : "false"}
+                className="h-full inline-flex items-center px-[var(--st-space-10)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
               >
                 {lang.header.scopeAll}
               </button>
@@ -140,12 +128,7 @@ export function HeaderBar({
             <button
               type="button"
               onClick={onRunAllChecks}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
-              style={{
-                backgroundColor: "var(--st-accent)",
-                borderColor: "var(--st-accent)",
-                color: "var(--st-accent-contrast)",
-              }}
+              className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-primary"
             >
               <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
               <span>{lang.header.runAllChecks}</span>
@@ -155,12 +138,7 @@ export function HeaderBar({
               <button
                 type="button"
                 onClick={onRunFailedChecks}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: "var(--st-status-fail-soft)",
-                  borderColor: "var(--st-border-danger)",
-                  color: "var(--st-status-fail-text)",
-                }}
+                className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-danger-soft"
               >
                 <RotateCcw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
                 <span>{lang.header.runFailedChecks}</span>
@@ -171,12 +149,7 @@ export function HeaderBar({
               <button
                 type="button"
                 onClick={onCancelAll}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: "var(--st-status-canceled-soft)",
-                  borderColor: "var(--st-border-warn)",
-                  color: "var(--st-status-canceled-text)",
-                }}
+                className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-warn-soft"
               >
                 <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
                 <span>{lang.header.cancelAll}</span>
@@ -188,12 +161,7 @@ export function HeaderBar({
               onClick={onReload}
               title={lang.header.reload}
               aria-label={lang.header.reload}
-              className="p-[var(--st-space-8)] rounded-[var(--st-radius-md)] border cursor-pointer transition-colors"
-              style={{
-                backgroundColor: "var(--st-bg-surface)",
-                borderColor: "var(--st-border-default)",
-                color: "var(--st-text-secondary)",
-              }}
+              className="w-[var(--st-control-h)] h-[var(--st-control-h)] inline-flex items-center justify-center rounded-[var(--st-radius-md)] border cursor-pointer st-control st-btn-surface st-btn-surface--muted"
             >
               <RefreshCw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
             </button>
@@ -204,12 +172,7 @@ export function HeaderBar({
           <button
             type="button"
             onClick={onLoadSample}
-            className="px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-            style={{
-              backgroundColor: "var(--st-bg-surface)",
-              borderColor: "var(--st-border-default)",
-              color: "var(--st-text-secondary)",
-            }}
+            className="h-[var(--st-control-h)] inline-flex items-center px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface st-btn-surface--muted"
           >
             {lang.header.loadSample}
           </button>
@@ -218,12 +181,7 @@ export function HeaderBar({
         <button
           type="button"
           onClick={onOpenWorkspace}
-          className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
-          style={{
-            backgroundColor: "var(--st-bg-surface)",
-            borderColor: "var(--st-border-default)",
-            color: "var(--st-text-primary)",
-          }}
+          className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-surface"
         >
           <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
           <span>
@@ -232,7 +190,7 @@ export function HeaderBar({
         </button>
 
         <div
-          className="inline-flex rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
+          className="h-[var(--st-control-h)] inline-flex items-center rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
           style={{
             backgroundColor: "var(--st-bg-canvas)",
             borderColor: "var(--st-border-default)",
@@ -250,15 +208,9 @@ export function HeaderBar({
                 title={label}
                 aria-label={label}
                 aria-pressed={active}
-                className="p-[var(--st-space-6)] rounded-[var(--st-radius-sm)] cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: active
-                    ? "var(--st-bg-surface-active)"
-                    : "transparent",
-                  color: active
-                    ? "var(--st-accent-text)"
-                    : "var(--st-text-muted)",
-                }}
+                data-active={active ? "true" : "false"}
+                data-accent-active={active ? "true" : "false"}
+                className="h-full inline-flex items-center justify-center px-[var(--st-space-6)] rounded-[var(--st-radius-sm)] cursor-pointer st-control st-segmented-btn"
               >
                 <Icon className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
               </button>
