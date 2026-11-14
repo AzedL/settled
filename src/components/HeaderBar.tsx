@@ -1,14 +1,25 @@
-import { FolderOpen, Play, RefreshCw, RotateCcw, Square } from "lucide-react";
+import {
+  FolderOpen,
+  Monitor,
+  Moon,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Square,
+  Sun,
+} from "lucide-react";
 import { lang } from "../lang";
-import type { ScopeMode, WorkspaceSnapshot } from "../types";
+import type { ScopeMode, ThemeMode, WorkspaceSnapshot } from "../types";
 
 interface HeaderBarProps {
   workspace: WorkspaceSnapshot | null;
   scope: ScopeMode;
+  themeMode: ThemeMode;
   runningCount: number;
   failedCount: number;
   hasSampleWorkspace: boolean;
   onChangeScope: (scope: ScopeMode) => void;
+  onChangeThemeMode: (mode: ThemeMode) => void;
   onOpenWorkspace: () => void;
   onLoadSample: () => void;
   onReload: () => void;
@@ -17,13 +28,25 @@ interface HeaderBarProps {
   onCancelAll: () => void;
 }
 
+const THEME_OPTIONS: {
+  value: ThemeMode;
+  label: string;
+  Icon: typeof Monitor;
+}[] = [
+  { value: "system", label: lang.header.themeSystem, Icon: Monitor },
+  { value: "light", label: lang.header.themeLight, Icon: Sun },
+  { value: "dark", label: lang.header.themeDark, Icon: Moon },
+];
+
 export function HeaderBar({
   workspace,
   scope,
+  themeMode,
   runningCount,
   failedCount,
   hasSampleWorkspace,
   onChangeScope,
+  onChangeThemeMode,
   onOpenWorkspace,
   onLoadSample,
   onReload,
@@ -53,9 +76,10 @@ export function HeaderBar({
             </span>
             {workspace && (
               <span
-                className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border-2 font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
                 style={{
                   backgroundColor: "var(--st-bg-surface)",
+                  borderColor: "var(--st-border-subtle)",
                   color: "var(--st-text-secondary)",
                 }}
               >
@@ -206,6 +230,41 @@ export function HeaderBar({
             {workspace ? lang.header.switchWorkspace : lang.header.openWorkspace}
           </span>
         </button>
+
+        <div
+          className="inline-flex rounded-[var(--st-radius-md)] border-2 p-[var(--st-space-2)]"
+          style={{
+            backgroundColor: "var(--st-bg-canvas)",
+            borderColor: "var(--st-border-default)",
+          }}
+          role="group"
+          aria-label={lang.header.themeGroupAria}
+        >
+          {THEME_OPTIONS.map(({ value, label, Icon }) => {
+            const active = themeMode === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onChangeThemeMode(value)}
+                title={label}
+                aria-label={label}
+                aria-pressed={active}
+                className="p-[var(--st-space-6)] rounded-[var(--st-radius-sm)] cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: active
+                    ? "var(--st-bg-surface-active)"
+                    : "transparent",
+                  color: active
+                    ? "var(--st-accent-text)"
+                    : "var(--st-text-muted)",
+                }}
+              >
+                <Icon className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+              </button>
+            );
+          })}
+        </div>
       </div>
     </header>
   );

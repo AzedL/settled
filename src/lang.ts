@@ -36,6 +36,10 @@ export const lang = {
     activeRunsCount: (count: number): string => `运行中 (${count})`,
     selectWorkspaceTitle: "选择 Settled Workspace 目录",
     noWorkspaceLoaded: "未打开工作区",
+    themeGroupAria: "主题外观",
+    themeSystem: "跟随系统",
+    themeLight: "浅色模式",
+    themeDark: "深色模式",
   },
 
   filters: {

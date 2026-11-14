@@ -149,7 +149,7 @@ export function ScriptGroupCard({
           className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-8)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium animate-pulse"
           style={{
             backgroundColor: "var(--st-status-running-soft)",
-            borderColor: "var(--st-border-accent)",
+            borderColor: "var(--st-border-running)",
             color: "var(--st-status-running-text)",
           }}
         >

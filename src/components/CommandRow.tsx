@@ -65,7 +65,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
           : runtime.status === "fail"
             ? "var(--st-border-danger)"
             : runtime.status === "running"
-              ? "var(--st-border-accent)"
+              ? "var(--st-border-running)"
               : "var(--st-border-subtle)",
         opacity: command.applicable ? 1 : 0.65,
       }}

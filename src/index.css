@@ -45,7 +45,7 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
-/* Subtle telemetry scrollbar */
+/* Subtle architectural scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -56,12 +56,12 @@ body,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.20);
+  background: var(--st-scrollbar-thumb);
   border-radius: var(--st-radius-pill);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.34);
+  background: var(--st-scrollbar-thumb-hover);
 }
 
 /* Read-only Markdown styling using strictly even px tokens */

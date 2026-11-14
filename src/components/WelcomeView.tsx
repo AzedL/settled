@@ -29,20 +29,27 @@ export function WelcomeView({
           boxShadow: "var(--st-shadow-card)",
         }}
       >
-        <div className="flex flex-col gap-[var(--st-space-8)]">
-          <div className="flex items-center gap-[var(--st-space-10)]">
-            <span
-              className="px-[var(--st-space-10)] py-[var(--st-space-4)] rounded-[var(--st-radius-pill)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
-              style={{
-                backgroundColor: "var(--st-accent-soft)",
-                color: "var(--st-accent-text)",
-              }}
-            >
-              {lang.app.platformLabel(hostPlatform)}
-            </span>
-            <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-              {lang.app.tagline}
-            </span>
+        <div className="flex flex-col gap-[var(--st-space-12)]">
+          <div className="flex items-center gap-[var(--st-space-12)]">
+            <img
+              src="/icon.svg"
+              alt=""
+              className="w-[var(--st-space-40)] h-[var(--st-space-40)] shrink-0"
+            />
+            <div className="flex flex-wrap items-center gap-[var(--st-space-8)] min-w-0">
+              <span
+                className="px-[var(--st-space-10)] py-[var(--st-space-4)] rounded-[var(--st-radius-pill)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
+                style={{
+                  backgroundColor: "var(--st-accent-soft)",
+                  color: "var(--st-accent-text)",
+                }}
+              >
+                {lang.app.platformLabel(hostPlatform)}
+              </span>
+              <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
+                {lang.app.tagline}
+              </span>
+            </div>
           </div>
 
           <h1 className="m-0 text-[length:var(--st-text-2xl)] leading-[var(--st-leading-2xl)] font-bold text-[color:var(--st-text-primary)]">

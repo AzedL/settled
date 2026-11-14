@@ -4,6 +4,7 @@ export type RunStatus = "idle" | "running" | "pass" | "fail" | "canceled";
 export type LogStream = "stdout" | "stderr" | "system";
 export type ScopeMode = "current" | "all";
 export type StatusFilter = "all" | "has-fail" | "has-idle" | "all-pass" | "no-check";
+export type ThemeMode = "system" | "light" | "dark";
 
 export interface OutputLine {
   stream: LogStream;

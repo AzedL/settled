@@ -31,6 +31,7 @@ import type {
   ScriptGroup,
   ScriptRole,
   StatusFilter,
+  ThemeMode,
   WorkspaceItem,
   WorkspaceSnapshot,
 } from "./types";
@@ -90,10 +91,36 @@ function reconcileRuntimeWithSnapshot(
   return nextMap;
 }
 
+const THEME_STORAGE_KEY = "settled.theme";
+
+function readStoredThemeMode(): ThemeMode {
+  try {
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    if (raw === "light" || raw === "dark" || raw === "system") {
+      return raw;
+    }
+  } catch {
+    // Ignore storage read errors in restricted environments.
+  }
+  return "system";
+}
+
+function applyResolvedTheme(mode: ThemeMode) {
+  const prefersDark =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const resolved =
+    mode === "dark" || (mode === "system" && prefersDark) ? "dark" : "light";
+  document.documentElement.dataset.resolvedTheme = resolved;
+  document.documentElement.style.colorScheme = resolved;
+}
+
 export default function App() {
   const [initialState, setInitialState] = useState<InitialAppState | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
   const [scope, setScope] = useState<ScopeMode>("current");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readStoredThemeMode);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -111,6 +138,28 @@ export default function App() {
 
   const runtimeMapRef = useRef<Record<string, CommandRuntimeState>>(runtimeMap);
   runtimeMapRef.current = runtimeMap;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+    } catch {
+      // Ignore storage write errors.
+    }
+    applyResolvedTheme(themeMode);
+
+    if (
+      themeMode !== "system" ||
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const onSystemThemeChange = () => applyResolvedTheme("system");
+    mediaQuery.addEventListener("change", onSystemThemeChange);
+    return () => mediaQuery.removeEventListener("change", onSystemThemeChange);
+  }, [themeMode]);
 
   const applyWorkspaceSnapshot = useCallback(
     (snapshot: WorkspaceSnapshot, isSameRootReload: boolean) => {
@@ -665,10 +714,12 @@ export default function App() {
       <HeaderBar
         workspace={workspace}
         scope={scope}
+        themeMode={themeMode}
         runningCount={totalRunningCount}
         failedCount={globalCheckStats.fail + globalCheckStats.canceled}
         hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
         onChangeScope={handleChangeScope}
+        onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
         onLoadSample={handleLoadSample}
         onReload={() => void handleReloadWorkspace(false)}

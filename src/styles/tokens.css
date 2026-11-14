@@ -1,7 +1,9 @@
 :root {
+  color-scheme: light;
+
   /* Fonts */
-  --st-font-sans: "IBM Plex Sans", "Microsoft YaHei UI", "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
-  --st-font-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+  --st-font-sans: "IBM Plex Sans", "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  --st-font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
 
   /* Typography scale — strictly even pixels */
   --st-text-xs: 12px;
@@ -58,66 +60,134 @@
   --st-radius-pill: 9998px;
   --st-border-w: 2px;
 
-  /* Surface & background tokens */
-  --st-bg-canvas: #0b0e14;
-  --st-bg-panel: #111620;
-  --st-bg-surface: #161c28;
-  --st-bg-surface-hover: #1c2434;
-  --st-bg-surface-active: #202a3c;
-  --st-bg-terminal: #080b10;
-  --st-bg-disabled: #0e121a;
-  --st-bg-overlay: rgba(6, 8, 12, 0.78);
+  /* Light Mode (Default) — mineral paper & mint/jade architectural palette */
+  --st-bg-canvas: #f3f5f2;
+  --st-bg-panel: #ffffff;
+  --st-bg-surface: #f7f9f8;
+  --st-bg-surface-hover: #f1faf8;
+  --st-bg-surface-active: #ddf5ec;
+  --st-bg-terminal: #edf2f0;
+  --st-bg-disabled: #eef2f1;
+  --st-bg-overlay: rgba(20, 35, 42, 0.42);
 
   /* Borders */
-  --st-border-subtle: rgba(148, 163, 184, 0.10);
-  --st-border-default: rgba(148, 163, 184, 0.18);
-  --st-border-strong: rgba(148, 163, 184, 0.30);
-  --st-border-accent: rgba(56, 189, 248, 0.45);
-  --st-border-danger: rgba(244, 63, 94, 0.42);
-  --st-border-warn: rgba(245, 158, 11, 0.42);
+  --st-border-subtle: #e4eae7;
+  --st-border-default: #d8dfda;
+  --st-border-strong: #b9c6c0;
+  --st-border-accent: #20b486;
+  --st-border-running: #7bc0e6;
+  --st-border-danger: #eab3a8;
+  --st-border-warn: #efcf8a;
 
   /* Text tokens */
-  --st-text-primary: #edf2f7;
-  --st-text-secondary: #9aa7bc;
-  --st-text-muted: #65748b;
-  --st-text-disabled: #49566c;
+  --st-text-primary: #14232a;
+  --st-text-secondary: #34494e;
+  --st-text-muted: #58676e;
+  --st-text-disabled: #8d999c;
 
   /* Interactive accent */
-  --st-accent: #38bdf8;
-  --st-accent-hover: #7dd3fc;
-  --st-accent-soft: rgba(56, 189, 248, 0.14);
-  --st-accent-text: #7dd3fc;
-  --st-accent-contrast: #06141f;
+  --st-accent: #20b486;
+  --st-accent-hover: #169a72;
+  --st-accent-soft: #ddf5ec;
+  --st-accent-text: #087a5a;
+  --st-accent-contrast: #09291f;
 
   /* Traffic light status tokens */
-  --st-status-pass: #10b981;
-  --st-status-pass-soft: rgba(16, 185, 129, 0.14);
-  --st-status-pass-text: #34d399;
-  --st-status-pass-glow: 0 0 8px rgba(16, 185, 129, 0.55);
+  --st-status-pass: #20b486;
+  --st-status-pass-soft: #eaf7f1;
+  --st-status-pass-text: #087a5a;
+  --st-status-pass-glow: 0 0 0 2px rgba(32, 180, 134, 0.22);
 
-  --st-status-fail: #f43f5e;
-  --st-status-fail-soft: rgba(244, 63, 94, 0.14);
-  --st-status-fail-text: #fb7185;
-  --st-status-fail-glow: 0 0 8px rgba(244, 63, 94, 0.55);
+  --st-status-fail: #e05548;
+  --st-status-fail-soft: #fff1f0;
+  --st-status-fail-text: #b42318;
+  --st-status-fail-glow: 0 0 0 2px rgba(224, 85, 72, 0.20);
 
-  --st-status-running: #38bdf8;
-  --st-status-running-soft: rgba(56, 189, 248, 0.16);
-  --st-status-running-text: #7dd3fc;
-  --st-status-running-glow: 0 0 8px rgba(56, 189, 248, 0.55);
+  --st-status-running: #2d9cdb;
+  --st-status-running-soft: #edf6ff;
+  --st-status-running-text: #175cd3;
+  --st-status-running-glow: 0 0 0 2px rgba(45, 156, 219, 0.22);
 
-  --st-status-canceled: #f59e0b;
-  --st-status-canceled-soft: rgba(245, 158, 11, 0.14);
-  --st-status-canceled-text: #fbbf24;
+  --st-status-canceled: #e5a63a;
+  --st-status-canceled-soft: #fff8e8;
+  --st-status-canceled-text: #9a5b00;
 
-  --st-status-idle: #475569;
-  --st-status-idle-soft: rgba(71, 85, 105, 0.18);
-  --st-status-idle-text: #94a3b8;
+  --st-status-idle: #98a19c;
+  --st-status-idle-soft: #eef2f0;
+  --st-status-idle-text: #58676e;
 
-  --st-status-disabled: #2b3547;
-  --st-status-disabled-soft: rgba(43, 53, 71, 0.24);
-  --st-status-disabled-text: #56637a;
+  --st-status-disabled: #cbd2cd;
+  --st-status-disabled-soft: #eef2f1;
+  --st-status-disabled-text: #8d999c;
 
-  /* Shadows */
+  /* Scrollbars & Shadows */
+  --st-scrollbar-thumb: #b7c2be;
+  --st-scrollbar-thumb-hover: #8d999c;
+  --st-shadow-card: 0 4px 16px rgba(20, 42, 48, 0.08);
+  --st-shadow-modal: 0 16px 42px rgba(15, 38, 44, 0.18);
+}
+
+:root[data-resolved-theme="dark"] {
+  color-scheme: dark;
+
+  /* Dark Mode — mineral charcoal-forest anchor + jade-mint accents */
+  --st-bg-canvas: #111614;
+  --st-bg-panel: #171d1b;
+  --st-bg-surface: #1d2522;
+  --st-bg-surface-hover: #232d29;
+  --st-bg-surface-active: #1b362d;
+  --st-bg-terminal: #0e1311;
+  --st-bg-disabled: #131816;
+  --st-bg-overlay: rgba(10, 14, 13, 0.76);
+
+  --st-border-subtle: #242d2a;
+  --st-border-default: #2f3b37;
+  --st-border-strong: #42534d;
+  --st-border-accent: rgba(32, 180, 134, 0.56);
+  --st-border-running: rgba(60, 168, 224, 0.50);
+  --st-border-danger: rgba(233, 108, 75, 0.46);
+  --st-border-warn: rgba(242, 181, 61, 0.44);
+
+  --st-text-primary: #edf2ef;
+  --st-text-secondary: #aab8b2;
+  --st-text-muted: #788881;
+  --st-text-disabled: #51605a;
+
+  --st-accent: #20b486;
+  --st-accent-hover: #2bc494;
+  --st-accent-soft: rgba(32, 180, 134, 0.18);
+  --st-accent-text: #4fd4a9;
+  --st-accent-contrast: #062319;
+
+  --st-status-pass: #22c58e;
+  --st-status-pass-soft: rgba(34, 197, 142, 0.16);
+  --st-status-pass-text: #53daa9;
+  --st-status-pass-glow: 0 0 0 2px rgba(34, 197, 142, 0.24);
+
+  --st-status-fail: #e96c4b;
+  --st-status-fail-soft: rgba(233, 108, 75, 0.16);
+  --st-status-fail-text: #f5977e;
+  --st-status-fail-glow: 0 0 0 2px rgba(233, 108, 75, 0.24);
+
+  --st-status-running: #3ca8e0;
+  --st-status-running-soft: rgba(60, 168, 224, 0.16);
+  --st-status-running-text: #74c5ef;
+  --st-status-running-glow: 0 0 0 2px rgba(60, 168, 224, 0.24);
+
+  --st-status-canceled: #f2b53d;
+  --st-status-canceled-soft: rgba(242, 181, 61, 0.16);
+  --st-status-canceled-text: #f7cb6b;
+
+  --st-status-idle: #5d6d67;
+  --st-status-idle-soft: rgba(93, 109, 103, 0.22);
+  --st-status-idle-text: #9baaa4;
+
+  --st-status-disabled: #35423d;
+  --st-status-disabled-soft: rgba(53, 66, 61, 0.26);
+  --st-status-disabled-text: #5d6e67;
+
+  --st-scrollbar-thumb: #465650;
+  --st-scrollbar-thumb-hover: #5f726b;
   --st-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.28);
-  --st-shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.56);
+  --st-shadow-modal: 0 16px 44px rgba(0, 0, 0, 0.52);
 }
