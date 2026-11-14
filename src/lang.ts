@@ -18,8 +18,6 @@ export const lang = {
           return "Linux";
       }
     },
-    hostBadge: (platform: Platform, shell: string): string =>
-      `${lang.app.platformLabel(platform)} · 默认 ${shell}`,
   },
 
   header: {
@@ -31,7 +29,6 @@ export const lang = {
     scopeCurrent: "当前设备",
     scopeAll: "全部平台",
     runAllChecks: "全部 Check",
-    runFailedChecks: "重跑失败项",
     cancelAll: "中止运行",
     activeRunsCount: (count: number): string => `运行中 (${count})`,
     selectWorkspaceTitle: "选择 Settled Workspace 目录",
@@ -43,18 +40,11 @@ export const lang = {
   },
 
   filters: {
-    searchPlaceholder: "搜索条目名称、ID、描述或标签...",
-    statusAll: "全部状态",
-    statusHasFail: "存在失败",
-    statusHasIdle: "待检测",
-    statusAllPass: "全部通过",
-    statusNoCheck: "无 Check",
+    searchPlaceholder: "搜索条目名称、描述或标签...",
     allTags: "全部标签",
     clearFilters: "重置筛选",
     itemsSummary: (shown: number, total: number): string =>
       `显示 ${shown} / ${total} 条`,
-    checksCounter: (pass: number, fail: number, idle: number, running: number): string =>
-      `Check 统计：${pass} 通过 · ${fail} 失败 · ${idle} 未跑${running > 0 ? ` · ${running} 运行中` : ""}`,
     runFilteredChecks: (count: number): string => `运行当前筛选 Check (${count})`,
     clearSearchAria: "清空搜索关键词",
   },
@@ -66,14 +56,12 @@ export const lang = {
     disabledOsBadge: "非当前平台",
     parseErrorBadge: "配置异常",
     noCheckBadge: "纯文档 / 手工项",
-    commandsCount: (count: number): string => `${count} 条 Check`,
     disabledCommandTooltip: (name: string, platforms: Platform[]): string =>
       `${name}（仅适用于 ${platforms.map(lang.app.platformLabel).join(", ")}）`,
   },
 
   detail: {
     selectItemPrompt: "从左侧选择一条环境条目以查看详情与独立红绿灯控制",
-    itemIdLabel: "目录 ID",
     createdAtLabel: "创建时间",
     platformsLabel: "目标平台",
     allPlatformsValue: "全平台通用",
@@ -90,22 +78,16 @@ export const lang = {
     parseErrorTitle: "meta.json 解析失败",
     readmeTitle: "说明文档 (readme.md)",
     emptyReadme: "该条目暂未编写 readme.md。",
-    scriptsSectionTitle: "已注册命令 (scripts)",
+    scriptsSectionTitle: "命令",
     noScriptsNotice: "该条目未注册任何 scripts 命令，可作为纯文档或手工排查记录保存。",
     rawMetaToggleShow: "查看原始 meta.json",
     rawMetaToggleHide: "收起原始 meta.json",
   },
 
   scripts: {
-    groupTitleCheck: "红绿灯检测 · check",
-    groupTitleFix: "修复动作 · fix",
-    groupTitleCustom: (key: string): string => `自定义脚本 · ${key}`,
-    groupSubtitleCheck: "每条检测命令独立并行执行并展示各自红绿灯，互不中止。",
-    groupSubtitleFix: "执行完成后若存在适用 check，将自动重跑 check 进行验收。",
-    groupSubtitleCustom: "在 meta.json 中显式注册的扩展操作命令。",
     runGroupCheck: "运行整组 Check",
     runGroupFix: "执行整组 Fix",
-    runGroupCustom: (key: string): string => `执行整组 ${key}`,
+    runGroupCustom: (title: string): string => `执行整组 ${title}`,
     runSingle: "运行",
     stopSingle: "中止",
     autoVerifyingFix: "修复动作执行完毕，正在自动重跑当前条目 check 验收...",
@@ -113,7 +95,6 @@ export const lang = {
     hiddenPlatformCount: (count: number): string =>
       `另有 ${count} 条非当前平台命令在「当前设备」视图下已隐藏`,
     disabledCommandBadge: "禁用（跨平台）",
-    shellBadge: (shell: string, encoding: string): string => `${shell} · ${encoding}`,
     exitCodeLabel: (code: number): string => `exit ${code}`,
     durationLabel: (ms: number): string => `${ms} ms`,
     logsShow: "日志",
@@ -167,7 +148,6 @@ export const lang = {
     errorPrefix: "操作失败：",
     vscodeFallbackHint: "请确认已安装 VS Code 并将 code 命令加入系统 PATH。",
     noRunnableChecks: "当前范围内没有可执行的 Check 命令",
-    noFailedChecks: "当前没有失败或中止的 Check 命令",
     clearToast: "关闭提示",
   },
 } as const;

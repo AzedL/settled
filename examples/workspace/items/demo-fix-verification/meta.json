@@ -1,7 +1,7 @@
 {
   "name": "Demo Fix -> Verify Loop",
   "description": "Safe sandboxed demo showing red check -> fix with confirmation -> automatic re-check turning green.",
-  "createAt": "2026-11-14T03:25:00+08:00",
+  "createAt": 1794597900,
   "tags": ["demo", "workflow"],
   "scripts": {
     "check": [

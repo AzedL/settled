@@ -4,7 +4,6 @@ import {
   Moon,
   Play,
   RefreshCw,
-  RotateCcw,
   Square,
   Sun,
 } from "lucide-react";
@@ -16,7 +15,6 @@ interface HeaderBarProps {
   scope: ScopeMode;
   themeMode: ThemeMode;
   runningCount: number;
-  failedCount: number;
   hasSampleWorkspace: boolean;
   onChangeScope: (scope: ScopeMode) => void;
   onChangeThemeMode: (mode: ThemeMode) => void;
@@ -24,7 +22,6 @@ interface HeaderBarProps {
   onLoadSample: () => void;
   onReload: () => void;
   onRunAllChecks: () => void;
-  onRunFailedChecks: () => void;
   onCancelAll: () => void;
 }
 
@@ -43,7 +40,6 @@ export function HeaderBar({
   scope,
   themeMode,
   runningCount,
-  failedCount,
   hasSampleWorkspace,
   onChangeScope,
   onChangeThemeMode,
@@ -51,7 +47,6 @@ export function HeaderBar({
   onLoadSample,
   onReload,
   onRunAllChecks,
-  onRunFailedChecks,
   onCancelAll,
 }: HeaderBarProps) {
   return (
@@ -70,23 +65,9 @@ export function HeaderBar({
         />
 
         <div className="flex flex-col min-w-0">
-          <div className="flex items-center gap-[var(--st-space-8)]">
-            <span className="text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-bold tracking-tight text-[color:var(--st-text-primary)]">
-              {lang.app.name}
-            </span>
-            {workspace && (
-              <span
-                className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                style={{
-                  backgroundColor: "var(--st-bg-surface)",
-                  borderColor: "var(--st-border-subtle)",
-                  color: "var(--st-text-secondary)",
-                }}
-              >
-                {lang.app.hostBadge(workspace.hostPlatform, workspace.defaultShell)}
-              </span>
-            )}
-          </div>
+          <span className="text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-bold tracking-tight text-[color:var(--st-text-primary)]">
+            {lang.app.name}
+          </span>
           <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] truncate">
             {workspace ? workspace.rootPath : lang.header.noWorkspaceLoaded}
           </span>
@@ -133,17 +114,6 @@ export function HeaderBar({
               <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
               <span>{lang.header.runAllChecks}</span>
             </button>
-
-            {failedCount > 0 && (
-              <button
-                type="button"
-                onClick={onRunFailedChecks}
-                className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-danger-soft"
-              >
-                <RotateCcw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                <span>{lang.header.runFailedChecks}</span>
-              </button>
-            )}
 
             {runningCount > 0 && (
               <button

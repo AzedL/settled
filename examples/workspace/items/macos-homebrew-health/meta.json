@@ -1,7 +1,7 @@
 {
   "name": "macOS Homebrew Health",
   "description": "Verify Homebrew installation and run brew doctor on macOS.",
-  "createAt": "2026-11-14T03:15:00+08:00",
+  "createAt": 1794597300,
   "tags": ["macos", "toolchain", "init"],
   "platforms": ["macos"],
   "scripts": {

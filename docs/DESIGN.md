@@ -84,7 +84,7 @@ type ScriptSpec = CommandSpec | CommandSpec[];
 interface ItemMeta {
   name: string;
   description: string;
-  createAt: string;      // ISO-8601 timestamp
+  createAt?: number;     // Unix timestamp (seconds)
   tags?: string[];
   platforms?: Platform[];
   scripts?: Record<string, ScriptSpec>;

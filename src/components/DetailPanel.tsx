@@ -18,6 +18,7 @@ import type {
   ScriptGroup,
   WorkspaceItem,
 } from "../types";
+import { formatLocalDateTime } from "../utils/format";
 import { getCommandRuntime } from "../utils/itemStatus";
 import { MarkdownView } from "./MarkdownView";
 import { ScriptGroupCard } from "./ScriptGroupCard";
@@ -87,6 +88,8 @@ export function DetailPanel({
     item.platforms.length > 0
       ? item.platforms.map(lang.app.platformLabel).join(" / ")
       : lang.detail.allPlatformsValue;
+
+  const createdAtText = formatLocalDateTime(item.createAt);
 
   const handleCopyContext = async () => {
     await onCopyAiContext(item);
@@ -176,22 +179,7 @@ export function DetailPanel({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--st-space-10)]">
-            <div
-              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
-              style={{
-                backgroundColor: "var(--st-bg-surface)",
-                borderColor: "var(--st-border-subtle)",
-              }}
-            >
-              <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-                {lang.detail.itemIdLabel}
-              </span>
-              <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] truncate">
-                {item.id}
-              </span>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--st-space-10)]">
             <div
               className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
               style={{
@@ -203,7 +191,7 @@ export function DetailPanel({
                 {lang.detail.createdAtLabel}
               </span>
               <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] truncate">
-                {item.createAt || lang.detail.createdAtEmpty}
+                {createdAtText || lang.detail.createdAtEmpty}
               </span>
             </div>
 

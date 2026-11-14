@@ -1,7 +1,7 @@
 {
   "name": "Git Core Configuration",
   "description": "Verify Git binary availability, user identity, and line-ending policy across devices.",
-  "createAt": "2026-11-14T03:00:00+08:00",
+  "createAt": 1794596400,
   "tags": ["git", "init"],
   "platforms": ["windows", "macos", "linux"],
   "scripts": {

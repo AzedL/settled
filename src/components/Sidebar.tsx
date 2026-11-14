@@ -12,12 +12,10 @@ import type {
   CommandRuntimeState,
   RunStatus,
   ScopeMode,
-  StatusFilter,
   WorkspaceItem,
   WorkspaceSnapshot,
 } from "../types";
 import {
-  computeCheckStats,
   getApplicableCheckCommands,
   getCommandRuntime,
   matchesItemFilters,
@@ -29,36 +27,24 @@ interface SidebarProps {
   scope: ScopeMode;
   search: string;
   selectedTag: string | null;
-  statusFilter: StatusFilter;
   selectedItemId: string | null;
   runtimeMap: Record<string, CommandRuntimeState>;
   onSearchChange: (value: string) => void;
   onSelectTag: (tag: string | null) => void;
-  onStatusFilterChange: (filter: StatusFilter) => void;
   onSelectItem: (itemId: string) => void;
   onClearFilters: () => void;
   onRunFilteredChecks: (items: WorkspaceItem[]) => void;
 }
-
-const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: lang.filters.statusAll },
-  { value: "has-fail", label: lang.filters.statusHasFail },
-  { value: "has-idle", label: lang.filters.statusHasIdle },
-  { value: "all-pass", label: lang.filters.statusAllPass },
-  { value: "no-check", label: lang.filters.statusNoCheck },
-];
 
 export function Sidebar({
   workspace,
   scope,
   search,
   selectedTag,
-  statusFilter,
   selectedItemId,
   runtimeMap,
   onSearchChange,
   onSelectTag,
-  onStatusFilterChange,
   onSelectItem,
   onClearFilters,
   onRunFilteredChecks,
@@ -69,18 +55,15 @@ export function Sidebar({
       : workspace.items;
 
   const filteredItems = workspace.items.filter((item) =>
-    matchesItemFilters(item, runtimeMap, {
+    matchesItemFilters(item, {
       scope,
       search,
       selectedTag,
-      statusFilter,
     })
   );
 
-  const hasActiveFilters =
-    search.trim().length > 0 || selectedTag !== null || statusFilter !== "all";
+  const hasActiveFilters = search.trim().length > 0 || selectedTag !== null;
 
-  const stats = computeCheckStats(scopedItems, runtimeMap);
   const filteredRunnableCheckCount = filteredItems.reduce(
     (sum, item) => sum + getApplicableCheckCommands(item).length,
     0
@@ -120,24 +103,6 @@ export function Sidebar({
               <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
             </button>
           )}
-        </div>
-
-        <div className="flex flex-wrap gap-[var(--st-space-6)]">
-          {STATUS_FILTER_OPTIONS.map((option) => {
-            const active = statusFilter === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onStatusFilterChange(option.value)}
-                data-selected={active ? "accent" : undefined}
-                aria-pressed={active}
-                className="px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-filter-chip"
-              >
-                {option.label}
-              </button>
-            );
-          })}
         </div>
 
         {workspace.allTags.length > 0 && (
@@ -188,15 +153,6 @@ export function Sidebar({
               </button>
             )}
           </div>
-
-          <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-            {lang.filters.checksCounter(
-              stats.pass,
-              stats.fail,
-              stats.idle,
-              stats.running
-            )}
-          </span>
 
           {hasActiveFilters && filteredRunnableCheckCount > 0 && (
             <button
@@ -253,7 +209,6 @@ export function Sidebar({
                 ? checkGroup.commands.filter((cmd) => cmd.applicable)
                 : checkGroup.commands
               : [];
-            const applicableCheckCount = getApplicableCheckCommands(item).length;
 
             return (
               <button
@@ -268,28 +223,16 @@ export function Sidebar({
                 }`}
               >
                 <div className="flex items-start justify-between gap-[var(--st-space-8)]">
-                  <div className="flex flex-col gap-[var(--st-space-2)] min-w-0">
-                    <span
-                      className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate"
-                      style={{
-                        color: item.applicable
-                          ? "var(--st-text-primary)"
-                          : "var(--st-text-muted)",
-                      }}
-                    >
-                      {item.name}
-                    </span>
-                    <span
-                      className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] truncate"
-                      style={{
-                        color: item.applicable
-                          ? "var(--st-text-muted)"
-                          : "var(--st-text-disabled)",
-                      }}
-                    >
-                      {item.id}
-                    </span>
-                  </div>
+                  <span
+                    className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0"
+                    style={{
+                      color: item.applicable
+                        ? "var(--st-text-primary)"
+                        : "var(--st-text-muted)",
+                    }}
+                  >
+                    {item.name}
+                  </span>
 
                   <div className="flex flex-wrap items-center justify-end gap-[var(--st-space-4)] shrink-0">
                     {!item.applicable && (
@@ -333,7 +276,7 @@ export function Sidebar({
                   </p>
                 )}
 
-                <div className="flex items-center justify-between gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
+                <div className="flex items-center gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
                   {displayedCheckCommands.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-[var(--st-space-6)] min-w-0">
                       {displayedCheckCommands.map((cmd) => {
@@ -372,12 +315,6 @@ export function Sidebar({
                       }}
                     >
                       {lang.sidebar.noCheckBadge}
-                    </span>
-                  )}
-
-                  {applicableCheckCount > 0 && (
-                    <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] shrink-0">
-                      {lang.sidebar.commandsCount(applicableCheckCount)}
                     </span>
                   )}
                 </div>

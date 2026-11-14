@@ -43,7 +43,7 @@ A Settled workspace stores all definitions under `<workspace>/items/`:
 {
   "name": "Git Core Configuration",
   "description": "Ensure Git identity, line endings, and credential helper fit the OS",
-  "createAt": "2026-11-14T03:00:00+08:00",
+  "createAt": 1794596400,
   "tags": ["git", "init"],
   "platforms": ["windows", "macos", "linux"],
   "scripts": {
@@ -94,7 +94,7 @@ Field notes:
 ### Capturing a New Pitfall or Setup Item
 1. Choose a concise kebab-case `<item-id>` under `<workspace>/items/<item-id>/`.
 2. Write `readme.md` documenting: symptom, root cause, verified solution across relevant OSes, and any manual steps.
-3. Write `meta.json` with `name`, `description`, `createAt` (current ISO-8601 timestamp), `tags`, optional `platforms`, and read-only `scripts.check` (plus optional `scripts.fix` / custom scripts) if automatable.
+3. Write `meta.json` with `name`, `description`, `createAt` (current Unix timestamp in seconds, e.g. `1794596400`), `tags`, optional `platforms`, and read-only `scripts.check` (plus optional `scripts.fix` / custom scripts) if automatable.
 4. Immediately validate using:
    ```bash
    settled check <item-id> --workspace <workspace> --json

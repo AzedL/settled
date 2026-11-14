@@ -1,3 +1,4 @@
+use serde::de::{self, Deserializer, Visitor};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -124,6 +125,160 @@ impl ScriptInput {
     }
 }
 
+/// Normalizes Unix timestamp integers into canonical seconds (dividing millisecond inputs by 1000).
+fn normalize_unix_seconds(value: i64) -> i64 {
+    if value.abs() >= 100_000_000_000 {
+        value / 1000
+    } else {
+        value
+    }
+}
+
+/// Converts civil Gregorian date (YYYY-MM-DD) to days since 1970-01-01.
+fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
+    let y = year - if month <= 2 { 1 } else { 0 };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let shifted_month = month as i64 + if month > 2 { -3 } else { 9 };
+    let doy = (153 * shifted_month + 2) / 5 + day as i64 - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146_097 + doe - 719_468
+}
+
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
+fn days_in_month(year: i64, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 0,
+    }
+}
+
+/// Parses an ISO-8601 / RFC3339 timestamp string (`YYYY-MM-DD[THH:MM:SS[.fff][Z|+HH:MM|-HH:MM]]`)
+/// into Unix timestamp seconds for backwards compatibility with legacy `meta.json` files.
+fn parse_iso8601_to_unix(input: &str) -> Option<i64> {
+    let trimmed = input.trim();
+    let (date_part, rest) = trimmed.split_once(['T', 't', ' '])?;
+    let mut date_segs = date_part.split('-');
+    let year: i64 = date_segs.next()?.parse().ok()?;
+    let month: u32 = date_segs.next()?.parse().ok()?;
+    let day: u32 = date_segs.next()?.parse().ok()?;
+    if date_segs.next().is_some()
+        || !(1..=12).contains(&month)
+        || day == 0
+        || day > days_in_month(year, month)
+    {
+        return None;
+    }
+
+    let (time_part, tz_offset_secs) = if let Some(stripped) = rest.strip_suffix(['Z', 'z']) {
+        (stripped, 0i64)
+    } else if let Some(tz_pos) = rest.rfind(['+', '-']) {
+        let (t, tz) = rest.split_at(tz_pos);
+        let sign = if tz.starts_with('-') { -1i64 } else { 1i64 };
+        let tz_digits = &tz[1..];
+        let (tz_h, tz_m) = if let Some((h, m)) = tz_digits.split_once(':') {
+            (h.parse::<i64>().ok()?, m.parse::<i64>().ok()?)
+        } else if tz_digits.len() == 4 {
+            (
+                tz_digits[..2].parse::<i64>().ok()?,
+                tz_digits[2..].parse::<i64>().ok()?,
+            )
+        } else {
+            return None;
+        };
+        if !(0..=23).contains(&tz_h) || !(0..=59).contains(&tz_m) {
+            return None;
+        }
+        (t, sign * (tz_h * 3600 + tz_m * 60))
+    } else {
+        (rest, 0i64)
+    };
+
+    let time_no_frac = time_part.split('.').next().unwrap_or(time_part);
+    let mut time_segs = time_no_frac.split(':');
+    let hour: i64 = time_segs.next()?.parse().ok()?;
+    let minute: i64 = time_segs.next()?.parse().ok()?;
+    let second: i64 = time_segs.next().unwrap_or("0").parse().ok()?;
+    if time_segs.next().is_some()
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=60).contains(&second)
+    {
+        return None;
+    }
+
+    let days = days_from_civil(year, month, day);
+    Some(days * 86_400 + hour * 3600 + minute * 60 + second - tz_offset_secs)
+}
+
+fn deserialize_optional_unix_timestamp<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct TimestampVisitor;
+
+    impl<'de> Visitor<'de> for TimestampVisitor {
+        type Value = Option<i64>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str("a Unix timestamp integer, numeric string, ISO-8601 string, or null")
+        }
+
+        fn visit_none<E>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E>(self) -> Result<Self::Value, E> {
+            Ok(None)
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
+            Ok(Some(normalize_unix_seconds(value)))
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let signed = i64::try_from(value)
+                .map_err(|_| de::Error::custom("createAt timestamp overflows i64"))?;
+            Ok(Some(normalize_unix_seconds(signed)))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                return Ok(None);
+            }
+            if let Ok(parsed) = trimmed.parse::<i64>() {
+                return Ok(Some(normalize_unix_seconds(parsed)));
+            }
+            if let Some(ts) = parse_iso8601_to_unix(trimmed) {
+                return Ok(Some(ts));
+            }
+            Err(de::Error::custom(format!(
+                "invalid createAt timestamp '{trimmed}' (expected Unix seconds integer)"
+            )))
+        }
+    }
+
+    deserializer.deserialize_any(TimestampVisitor)
+}
+
 /// Raw `meta.json` manifest stored inside `<workspace>/items/<item-id>/meta.json`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -131,8 +286,8 @@ pub struct ItemMetaRaw {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    #[serde(default)]
-    pub create_at: String,
+    #[serde(default, deserialize_with = "deserialize_optional_unix_timestamp")]
+    pub create_at: Option<i64>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
@@ -180,7 +335,7 @@ pub struct WorkspaceItem {
     pub raw_meta: String,
     pub name: String,
     pub description: String,
-    pub create_at: String,
+    pub create_at: Option<i64>,
     pub tags: Vec<String>,
     pub platforms: Vec<Platform>,
     pub applicable: bool,

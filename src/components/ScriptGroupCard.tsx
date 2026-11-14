@@ -6,6 +6,7 @@ import type {
   ScopeMode,
   ScriptGroup,
 } from "../types";
+import { formatScriptGroupTitle } from "../utils/format";
 import { getCommandRuntime } from "../utils/itemStatus";
 import { CommandRow } from "./CommandRow";
 
@@ -40,26 +41,14 @@ export function ScriptGroupCard({
   const isHighlightedFix =
     group.role === "fix" && hasFailingCheck && applicableCommands.length > 0;
 
-  const title =
-    group.role === "check"
-      ? lang.scripts.groupTitleCheck
-      : group.role === "fix"
-        ? lang.scripts.groupTitleFix
-        : lang.scripts.groupTitleCustom(group.key);
-
-  const subtitle =
-    group.role === "check"
-      ? lang.scripts.groupSubtitleCheck
-      : group.role === "fix"
-        ? lang.scripts.groupSubtitleFix
-        : lang.scripts.groupSubtitleCustom;
+  const title = formatScriptGroupTitle(group.key);
 
   const runGroupLabel =
     group.role === "check"
       ? lang.scripts.runGroupCheck
       : group.role === "fix"
         ? lang.scripts.runGroupFix
-        : lang.scripts.runGroupCustom(group.key);
+        : lang.scripts.runGroupCustom(title);
 
   const GroupIcon =
     group.role === "check"
@@ -86,7 +75,7 @@ export function ScriptGroupCard({
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-[var(--st-space-12)]">
-        <div className="flex items-start gap-[var(--st-space-10)] min-w-0">
+        <div className="flex items-center gap-[var(--st-space-10)] min-w-0">
           <div
             className="w-[var(--st-space-32)] h-[var(--st-space-32)] rounded-[var(--st-radius-md)] flex items-center justify-center shrink-0"
             style={{
@@ -106,14 +95,9 @@ export function ScriptGroupCard({
           >
             <GroupIcon className="w-[var(--st-icon-md)] h-[var(--st-icon-md)]" />
           </div>
-          <div className="flex flex-col gap-[var(--st-space-2)] min-w-0">
-            <h3 className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold text-[color:var(--st-text-primary)]">
-              {title}
-            </h3>
-            <p className="m-0 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-              {subtitle}
-            </p>
-          </div>
+          <h3 className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold text-[color:var(--st-text-primary)] truncate">
+            {title}
+          </h3>
         </div>
 
         <button

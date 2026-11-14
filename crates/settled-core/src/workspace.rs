@@ -247,7 +247,7 @@ fn malformed_item(
         raw_meta,
         name: id.to_string(),
         description: String::new(),
-        create_at: String::new(),
+        create_at: None,
         tags: Vec::new(),
         platforms: Vec::new(),
         applicable: true,
@@ -390,7 +390,7 @@ mod tests {
             r#"{
                 "name": "Git Core",
                 "description": "Verify git basics",
-                "createAt": "2026-11-14T03:00:00+08:00",
+                "createAt": 1794596400,
                 "tags": ["git", "init"],
                 "scripts": {
                     "sync": { "run": "echo sync" },
@@ -429,6 +429,7 @@ mod tests {
         let git = &snapshot.items[1];
         assert_eq!(git.id, "git-core");
         assert!(git.parse_error.is_none());
+        assert_eq!(git.create_at, Some(1794596400));
         assert_eq!(git.readme, "# Git Core\nDetails here.");
         assert_eq!(git.script_groups.len(), 3);
         assert_eq!(git.script_groups[0].key, "check");
@@ -460,7 +461,7 @@ mod tests {
                 r#"{{
                     "name": "Other OS",
                     "description": "Not for host",
-                    "createAt": "2026-11-14T03:00:00+08:00",
+                    "createAt": 1794596400,
                     "platforms": ["{non_host}"],
                     "scripts": {{ "check": "echo hi" }}
                 }}"#
@@ -472,5 +473,30 @@ mod tests {
         assert_eq!(snapshot.items.len(), 1);
         assert!(!snapshot.items[0].applicable);
         assert!(!snapshot.items[0].script_groups[0].commands[0].applicable);
+    }
+
+    #[test]
+    fn parses_create_at_unix_seconds_millis_and_legacy_iso_strings() {
+        let sec: ItemMetaRaw =
+            serde_json::from_str(r#"{"name":"A","createAt":1794596400}"#).unwrap();
+        assert_eq!(sec.create_at, Some(1794596400));
+
+        let ms: ItemMetaRaw =
+            serde_json::from_str(r#"{"name":"B","createAt":1794596400000}"#).unwrap();
+        assert_eq!(ms.create_at, Some(1794596400));
+
+        let iso: ItemMetaRaw = serde_json::from_str(
+            r#"{"name":"C","createAt":"2026-11-14T03:00:00+08:00"}"#,
+        )
+        .unwrap();
+        assert_eq!(iso.create_at, Some(1794596400));
+
+        let omitted: ItemMetaRaw = serde_json::from_str(r#"{"name":"D"}"#).unwrap();
+        assert_eq!(omitted.create_at, None);
+
+        let invalid = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"E","createAt":"not-a-timestamp"}"#,
+        );
+        assert!(invalid.is_err());
     }
 }

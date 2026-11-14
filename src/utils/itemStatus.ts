@@ -3,9 +3,7 @@ import type {
   CommandResult,
   CommandRuntimeState,
   ResolvedCommand,
-  RunStatus,
   ScopeMode,
-  StatusFilter,
   WorkspaceItem,
 } from "../types";
 
@@ -63,16 +61,14 @@ export function getCommandRuntime(
 }
 
 /**
- * Evaluates whether an item matches the selected search query, tag, scope, and check status filter.
+ * Evaluates whether an item matches the selected scope, tag, and search query.
  */
 export function matchesItemFilters(
   item: WorkspaceItem,
-  runtimeMap: Record<string, CommandRuntimeState>,
   options: {
     scope: ScopeMode;
     search: string;
     selectedTag: string | null;
-    statusFilter: StatusFilter;
   }
 ): boolean {
   if (options.scope === "current" && !item.applicable) {
@@ -85,7 +81,7 @@ export function matchesItemFilters(
 
   const query = options.search.trim().toLowerCase();
   if (query.length > 0) {
-    const haystack = [item.id, item.name, item.description, ...item.tags]
+    const haystack = [item.name, item.description, ...item.tags]
       .join(" ")
       .toLowerCase();
     if (!haystack.includes(query)) {
@@ -93,53 +89,7 @@ export function matchesItemFilters(
     }
   }
 
-  const applicableChecks = getApplicableCheckCommands(item);
-  switch (options.statusFilter) {
-    case "all":
-      return true;
-    case "no-check":
-      return item.applicable && applicableChecks.length === 0;
-    case "has-fail":
-      return applicableChecks.some((cmd) => {
-        const status = getCommandRuntime(runtimeMap, cmd.commandId).status;
-        return status === "fail" || status === "canceled";
-      });
-    case "has-idle":
-      return applicableChecks.some(
-        (cmd) => getCommandRuntime(runtimeMap, cmd.commandId).status === "idle"
-      );
-    case "all-pass":
-      return (
-        applicableChecks.length > 0 &&
-        applicableChecks.every(
-          (cmd) => getCommandRuntime(runtimeMap, cmd.commandId).status === "pass"
-        )
-      );
-  }
-}
-
-/**
- * Computes global check status counts across all applicable items in the workspace.
- */
-export function computeCheckStats(
-  items: WorkspaceItem[],
-  runtimeMap: Record<string, CommandRuntimeState>
-): Record<RunStatus, number> {
-  const counts: Record<RunStatus, number> = {
-    idle: 0,
-    running: 0,
-    pass: 0,
-    fail: 0,
-    canceled: 0,
-  };
-
-  for (const item of items) {
-    for (const cmd of getApplicableCheckCommands(item)) {
-      const status = getCommandRuntime(runtimeMap, cmd.commandId).status;
-      counts[status] += 1;
-    }
-  }
-  return counts;
+  return true;
 }
 
 /**

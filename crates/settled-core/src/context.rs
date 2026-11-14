@@ -102,7 +102,7 @@ mod tests {
             raw_meta: "{\"name\":\"Git Core\"}".to_string(),
             name: "Git Core".to_string(),
             description: "Git identity check".to_string(),
-            create_at: "2026-11-14T03:00:00+08:00".to_string(),
+            create_at: Some(1794596400),
             tags: vec!["git".to_string()],
             platforms: vec![Platform::Windows, Platform::Macos],
             applicable: true,

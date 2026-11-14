@@ -1,7 +1,7 @@
 {
   "name": "Editor & License Migration Notes",
   "description": "Manual checklist for GUI permissions, license unbinding, and non-scriptable setup tasks.",
-  "createAt": "2026-11-14T03:20:00+08:00",
+  "createAt": 1794597600,
   "tags": ["manual", "apps"],
   "platforms": ["windows", "macos"]
 }

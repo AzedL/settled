@@ -1,7 +1,7 @@
 {
   "name": "Windows PowerShell 7 & UTF-8 Check",
   "description": "Verify PowerShell 7 (pwsh) and UTF-8 console output support on Windows.",
-  "createAt": "2026-11-14T03:10:00+08:00",
+  "createAt": 1794597000,
   "tags": ["windows", "shell", "encoding"],
   "platforms": ["windows"],
   "scripts": {

@@ -30,14 +30,12 @@ import type {
   ScopeMode,
   ScriptGroup,
   ScriptRole,
-  StatusFilter,
   ThemeMode,
   WorkspaceItem,
   WorkspaceSnapshot,
 } from "./types";
 import {
   collectItemCommandResults,
-  computeCheckStats,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   getCommandRuntime,
@@ -123,7 +121,6 @@ export default function App() {
   const [themeMode, setThemeMode] = useState<ThemeMode>(readStoredThemeMode);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [runtimeMap, setRuntimeMap] = useState<
     Record<string, CommandRuntimeState>
@@ -172,7 +169,6 @@ export default function App() {
       if (!isSameRootReload) {
         setSearch("");
         setSelectedTag(null);
-        setStatusFilter("all");
       }
 
       setSelectedItemId((prevId) => {
@@ -533,29 +529,6 @@ export default function App() {
     void executeTargets(targets);
   };
 
-  const handleRunFailedChecks = () => {
-    if (!workspace) {
-      return;
-    }
-    const targets: CommandExecutionTarget[] = [];
-    for (const item of workspace.items) {
-      for (const cmd of getApplicableCheckCommands(item)) {
-        const status = getCommandRuntime(runtimeMap, cmd.commandId).status;
-        if (status === "fail" || status === "canceled") {
-          targets.push(toExecutionTarget(item, cmd));
-        }
-      }
-    }
-    if (targets.length === 0) {
-      setToast({
-        kind: "warn",
-        message: lang.notifications.noFailedChecks,
-      });
-      return;
-    }
-    void executeTargets(targets);
-  };
-
   const handleRunFilteredChecks = (items: WorkspaceItem[]) => {
     const targets: CommandExecutionTarget[] = [];
     for (const item of items) {
@@ -680,14 +653,6 @@ export default function App() {
     }
   };
 
-  const globalCheckStats = useMemo(
-    () =>
-      workspace
-        ? computeCheckStats(workspace.items, runtimeMap)
-        : { idle: 0, running: 0, pass: 0, fail: 0, canceled: 0 },
-    [workspace, runtimeMap]
-  );
-
   const totalRunningCount = useMemo(
     () =>
       Object.values(runtimeMap).filter((state) => state.status === "running")
@@ -716,7 +681,6 @@ export default function App() {
         scope={scope}
         themeMode={themeMode}
         runningCount={totalRunningCount}
-        failedCount={globalCheckStats.fail + globalCheckStats.canceled}
         hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
         onChangeScope={handleChangeScope}
         onChangeThemeMode={setThemeMode}
@@ -724,7 +688,6 @@ export default function App() {
         onLoadSample={handleLoadSample}
         onReload={() => void handleReloadWorkspace(false)}
         onRunAllChecks={handleRunAllChecks}
-        onRunFailedChecks={handleRunFailedChecks}
         onCancelAll={() => void handleCancelAll()}
       />
 
@@ -770,17 +733,14 @@ export default function App() {
             scope={scope}
             search={search}
             selectedTag={selectedTag}
-            statusFilter={statusFilter}
             selectedItemId={selectedItemId}
             runtimeMap={runtimeMap}
             onSearchChange={setSearch}
             onSelectTag={setSelectedTag}
-            onStatusFilterChange={setStatusFilter}
             onSelectItem={setSelectedItemId}
             onClearFilters={() => {
               setSearch("");
               setSelectedTag(null);
-              setStatusFilter("all");
             }}
             onRunFilteredChecks={handleRunFilteredChecks}
           />
@@ -801,7 +761,6 @@ export default function App() {
         </div>
       ) : (
         <WelcomeView
-          hostPlatform={hostPlatform}
           recentWorkspaces={initialState?.prefs.recentWorkspaces ?? []}
           hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
           onOpenWorkspace={() => void handleOpenWorkspaceDialog()}

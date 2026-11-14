@@ -151,12 +151,6 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               >
                 {command.resolvedRun}
               </code>
-              <span
-                className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                style={{ color: "var(--st-text-muted)" }}
-              >
-                {lang.scripts.shellBadge(command.effectiveShell, command.encoding)}
-              </span>
               {runtime.exitCode !== null && (
                 <span
                   className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
@@ -229,7 +223,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
 
       {logOpen && (
         <div
-          className="border-t p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
+          className="border-t rounded-b-[calc(var(--st-radius-md)-var(--st-border-w))] p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
           style={{
             backgroundColor: "var(--st-bg-terminal)",
             borderColor: "var(--st-border-subtle)",

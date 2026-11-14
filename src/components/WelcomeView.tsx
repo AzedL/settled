@@ -1,9 +1,7 @@
 import { FolderOpen, History, Layers, Sparkles } from "lucide-react";
 import { lang } from "../lang";
-import type { Platform } from "../types";
 
 interface WelcomeViewProps {
-  hostPlatform: Platform;
   recentWorkspaces: string[];
   hasSampleWorkspace: boolean;
   onOpenWorkspace: () => void;
@@ -12,7 +10,6 @@ interface WelcomeViewProps {
 }
 
 export function WelcomeView({
-  hostPlatform,
   recentWorkspaces,
   hasSampleWorkspace,
   onOpenWorkspace,
@@ -36,20 +33,9 @@ export function WelcomeView({
               alt=""
               className="w-[var(--st-space-40)] h-[var(--st-space-40)] shrink-0"
             />
-            <div className="flex flex-wrap items-center gap-[var(--st-space-8)] min-w-0">
-              <span
-                className="px-[var(--st-space-10)] py-[var(--st-space-4)] rounded-[var(--st-radius-pill)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
-                style={{
-                  backgroundColor: "var(--st-accent-soft)",
-                  color: "var(--st-accent-text)",
-                }}
-              >
-                {lang.app.platformLabel(hostPlatform)}
-              </span>
-              <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
-                {lang.app.tagline}
-              </span>
-            </div>
+            <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
+              {lang.app.tagline}
+            </span>
           </div>
 
           <h1 className="m-0 text-[length:var(--st-text-2xl)] leading-[var(--st-leading-2xl)] font-bold text-[color:var(--st-text-primary)]">
