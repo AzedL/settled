@@ -61,25 +61,28 @@ export function getCommandRuntime(
 }
 
 /**
- * Evaluates whether an item matches the selected scope, tag, and search query.
+ * Evaluates whether an item matches the selected scope, tags, and search query.
  */
 export function matchesItemFilters(
   item: WorkspaceItem,
   options: {
     scope: ScopeMode;
     search: string;
-    selectedTag: string | null;
+    selectedTags: string[];
   }
 ): boolean {
   if (options.scope === "current" && !item.applicable) {
     return false;
   }
 
-  if (options.selectedTag && !item.tags.includes(options.selectedTag)) {
+  if (
+    options.selectedTags.length > 0 &&
+    !options.selectedTags.every((tag) => item.tags.includes(tag))
+  ) {
     return false;
   }
 
-  const query = options.search.trim().toLowerCase();
+  const query = options.search.trim().replace(/^#+/, "").toLowerCase();
   if (query.length > 0) {
     const haystack = [item.name, item.description ?? "", ...item.tags]
       .join(" ")

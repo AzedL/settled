@@ -39,12 +39,13 @@ export const lang = {
   },
 
   filters: {
-    searchPlaceholder: "搜索条目名称、描述或标签...",
-    allTags: "全部标签",
+    searchPlaceholder: "搜索名称、描述或标签...",
     moreTagsCount: (count: number): string => `+${count}`,
     itemsSummary: (shown: number, total: number): string =>
       `${shown}/${total}`,
-    clearSearchAria: "清空搜索关键词",
+    clearSearchAria: "清空搜索与标签筛选",
+    toggleTagsAria: "选择标签筛选",
+    removeTagAria: (tag: string): string => `移除标签 ${tag}`,
   },
 
   sidebar: {

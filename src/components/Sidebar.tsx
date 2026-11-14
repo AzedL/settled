@@ -1,4 +1,4 @@
-import { AlertCircle, Search, Tag, X } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { lang } from "../lang";
 import type {
   CommandRuntimeState,
@@ -8,10 +8,9 @@ import type {
   WorkspaceSnapshot,
 } from "../types";
 import { getCommandRuntime } from "../utils/itemStatus";
-import { TagChip } from "./TagChip";
+import { TagOverflowList } from "./TagOverflowList";
+import { TagSearchInput } from "./TagSearchInput";
 import { TrafficLed } from "./TrafficLed";
-
-const MAX_SIDEBAR_ITEM_TAGS = 6;
 
 interface SidebarProps {
   workspace: WorkspaceSnapshot;
@@ -19,12 +18,12 @@ interface SidebarProps {
   scopedCount: number;
   scope: ScopeMode;
   search: string;
-  selectedTag: string | null;
+  selectedTags: string[];
   selectedItemId: string | null;
   runtimeMap: Record<string, CommandRuntimeState>;
   onChangeScope: (scope: ScopeMode) => void;
   onSearchChange: (value: string) => void;
-  onSelectTag: (tag: string | null) => void;
+  onChangeSelectedTags: (tags: string[]) => void;
   onSelectItem: (itemId: string) => void;
 }
 
@@ -34,12 +33,12 @@ export function Sidebar({
   scopedCount,
   scope,
   search,
-  selectedTag,
+  selectedTags,
   selectedItemId,
   runtimeMap,
   onChangeScope,
   onSearchChange,
-  onSelectTag,
+  onChangeSelectedTags,
   onSelectItem,
 }: SidebarProps) {
 
@@ -55,60 +54,13 @@ export function Sidebar({
         className="p-[var(--st-space-12)] border-b flex flex-col gap-[var(--st-space-10)] shrink-0"
         style={{ borderColor: "var(--st-border-subtle)" }}
       >
-        <div
-          className={`h-[var(--st-control-h)] flex items-center gap-[var(--st-space-8)] pl-[var(--st-space-10)] ${
-            search.length > 0
-              ? "pr-[var(--st-space-4)]"
-              : "pr-[var(--st-space-10)]"
-          } rounded-[var(--st-radius-md)] border st-search-box`}
-        >
-          <Search
-            className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
-            style={{ color: "var(--st-text-muted)" }}
-          />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={lang.filters.searchPlaceholder}
-            className="w-full min-w-0 bg-transparent outline-none text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] placeholder:text-[color:var(--st-text-muted)]"
-          />
-          {search.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onSearchChange("")}
-              aria-label={lang.filters.clearSearchAria}
-              className="p-[var(--st-space-4)] rounded-[var(--st-radius-sm)] shrink-0 cursor-pointer st-control st-icon-ghost"
-            >
-              <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-            </button>
-          )}
-        </div>
-
-        {workspace.allTags.length > 0 && (
-          <div className="max-h-[var(--st-tags-filter-max-h)] overflow-y-auto min-w-0 flex flex-wrap items-start content-start gap-[var(--st-space-6)]">
-            <TagChip
-              label={lang.filters.allTags}
-              icon={<Tag className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />}
-              mono={false}
-              ghost
-              selected={selectedTag === null ? "neutral" : undefined}
-              onClick={() => onSelectTag(null)}
-            />
-
-            {workspace.allTags.map((tag, index) => {
-              const active = selectedTag === tag;
-              return (
-                <TagChip
-                  key={`${tag}-${index}`}
-                  label={tag}
-                  selected={active ? "accent" : undefined}
-                  onClick={() => onSelectTag(active ? null : tag)}
-                />
-              );
-            })}
-          </div>
-        )}
+        <TagSearchInput
+          allTags={workspace.allTags}
+          selectedTags={selectedTags}
+          search={search}
+          onSearchChange={onSearchChange}
+          onChangeSelectedTags={onChangeSelectedTags}
+        />
 
         <div className="flex items-center justify-between gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
           <div
@@ -235,30 +187,12 @@ export function Sidebar({
                   )}
                 </div>
 
-                {item.tags.length > 0 && (() => {
-                  const visibleTags = item.tags.slice(0, MAX_SIDEBAR_ITEM_TAGS);
-                  const hiddenTags = item.tags.slice(MAX_SIDEBAR_ITEM_TAGS);
-
-                  return (
-                    <div className="w-full min-w-0 flex flex-wrap gap-[var(--st-space-6)]">
-                      {visibleTags.map((tag, index) => (
-                        <TagChip
-                          key={`${tag}-${index}`}
-                          label={tag}
-                          muted={!item.applicable}
-                        />
-                      ))}
-                      {hiddenTags.length > 0 && (
-                        <TagChip
-                          label={lang.filters.moreTagsCount(hiddenTags.length)}
-                          title={hiddenTags.join(", ")}
-                          muted={!item.applicable}
-                          ghost
-                        />
-                      )}
-                    </div>
-                  );
-                })()}
+                {item.tags.length > 0 && (
+                  <TagOverflowList
+                    tags={item.tags}
+                    muted={!item.applicable}
+                  />
+                )}
               </button>
             );
           })

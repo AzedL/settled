@@ -120,7 +120,7 @@ export default function App() {
   const [scope, setScope] = useState<ScopeMode>("current");
   const [themeMode, setThemeMode] = useState<ThemeMode>(readStoredThemeMode);
   const [search, setSearch] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [runtimeMap, setRuntimeMap] = useState<
     Record<string, CommandRuntimeState>
@@ -173,7 +173,11 @@ export default function App() {
 
       if (!isSameRootReload) {
         setSearch("");
-        setSelectedTag(null);
+        setSelectedTags([]);
+      } else {
+        setSelectedTags((prev) =>
+          prev.filter((tag) => snapshot.allTags.includes(tag))
+        );
       }
 
       setSelectedItemId((prevId) => {
@@ -597,10 +601,10 @@ export default function App() {
       matchesItemFilters(item, {
         scope,
         search,
-        selectedTag,
+        selectedTags,
       })
     );
-  }, [scope, search, selectedTag, workspace]);
+  }, [scope, search, selectedTags, workspace]);
 
   const handleRunHeaderChecks = () => {
     if (activeActionRef.current !== null || !workspace) {
@@ -770,12 +774,12 @@ export default function App() {
             scopedCount={scopedCount}
             scope={scope}
             search={search}
-            selectedTag={selectedTag}
+            selectedTags={selectedTags}
             selectedItemId={selectedItemId}
             runtimeMap={runtimeMap}
             onChangeScope={handleChangeScope}
             onSearchChange={setSearch}
-            onSelectTag={setSelectedTag}
+            onChangeSelectedTags={setSelectedTags}
             onSelectItem={setSelectedItemId}
           />
 

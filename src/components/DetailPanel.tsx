@@ -24,7 +24,7 @@ import { getCommandRuntime } from "../utils/itemStatus";
 import { MarkdownView } from "./MarkdownView";
 import { ScriptGroupCard } from "./ScriptGroupCard";
 import { Button } from "./Button";
-import { TagChip } from "./TagChip";
+import { TagOverflowList } from "./TagOverflowList";
 
 interface DetailPanelProps {
   item: WorkspaceItem | null;
@@ -247,8 +247,10 @@ export function DetailPanel({
               <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
                 {lang.detail.createdAtLabel}
               </span>
-              <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] truncate">
-                {createdAtText || lang.detail.createdAtEmpty}
+              <span className="min-h-[var(--st-tag-h)] flex items-center font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] truncate">
+                <span className="truncate">
+                  {createdAtText || lang.detail.createdAtEmpty}
+                </span>
               </span>
             </div>
 
@@ -262,8 +264,8 @@ export function DetailPanel({
               <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
                 {lang.detail.platformsLabel}
               </span>
-              <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-primary)] truncate">
-                {platformsText}
+              <span className="min-h-[var(--st-tag-h)] flex items-center text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-primary)]">
+                <span className="truncate">{platformsText}</span>
               </span>
             </div>
 
@@ -278,13 +280,9 @@ export function DetailPanel({
                 {lang.detail.tagsLabel}
               </span>
               {item.tags.length > 0 ? (
-                <div className="max-h-[var(--st-tags-detail-max-h)] overflow-y-auto min-w-0 flex flex-wrap items-start content-start gap-[var(--st-space-6)]">
-                  {item.tags.map((tag, index) => (
-                    <TagChip key={`${tag}-${index}`} label={tag} />
-                  ))}
-                </div>
+                <TagOverflowList tags={item.tags} focusableBadge />
               ) : (
-                <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
+                <span className="min-h-[var(--st-tag-h)] flex items-center text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">
                   {lang.detail.noTagsValue}
                 </span>
               )}

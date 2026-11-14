@@ -230,37 +230,28 @@ button:focus-visible {
     color: var(--st-text-secondary);
   }
 
-  .st-tag--ghost {
-    background-color: transparent;
-    border-color: var(--st-border-subtle);
-    color: var(--st-text-muted);
-  }
-
   .st-tag--muted {
     border-color: var(--st-border-subtle);
     color: var(--st-text-disabled);
   }
 
-  .st-tag--interactive:hover {
-    background-color: var(--st-bg-surface-hover);
+  .st-tag--token:hover {
     border-color: var(--st-border-strong);
     color: var(--st-text-primary);
   }
 
-  .st-tag--interactive[data-selected="accent"] {
+  .st-tag--token:focus,
+  .st-tag--token[data-active="true"] {
+    outline: none;
     background-color: var(--st-accent-soft);
     border-color: var(--st-border-accent);
     color: var(--st-accent-text);
+    box-shadow: 0 0 0 2px var(--st-focus-ring);
   }
 
-  .st-tag--interactive[data-selected="accent"]:hover {
-    background-color: var(--st-accent-soft-hover);
-  }
-
-  .st-tag--interactive[data-selected="neutral"] {
-    background-color: var(--st-bg-surface-active);
-    border-color: var(--st-border-strong);
-    color: var(--st-text-primary);
+  .st-tag-option:hover,
+  .st-tag-option[data-highlighted="true"] {
+    background-color: var(--st-bg-surface-hover);
   }
 
   .st-sidebar-item {
