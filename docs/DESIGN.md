@@ -72,7 +72,7 @@ type Platform = "windows" | "macos" | "linux";
 
 interface StepObject {
   name?: string;         // Human-readable display label (falls back to `run`)
-  description?: string;  // Optional explanation shown on UI hover
+  description?: string;  // Optional explanation shown inside expanded log details
   run: string;           // Shell command or invocation using `@script/...`
   platforms?: Platform[];
   shell?: string;        // e.g. "pwsh" | "powershell" | "cmd" | "bash" | "sh" | "zsh"
@@ -84,7 +84,7 @@ type ScriptSpec = CommandSpec | CommandSpec[];
 
 interface ItemMeta {
   name: string;
-  description: string;
+  description?: string;
   createAt?: number;     // Unix timestamp (seconds)
   tags?: string[];
   platforms?: Platform[];

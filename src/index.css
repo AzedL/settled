@@ -224,34 +224,40 @@ button:focus-visible {
     border-color: var(--st-border-accent);
   }
 
-  .st-filter-chip {
-    background-color: var(--st-bg-surface);
-    border-color: var(--st-border-subtle);
+  .st-tag {
+    background-color: var(--st-bg-canvas);
+    border-color: var(--st-border-default);
     color: var(--st-text-secondary);
   }
 
-  .st-filter-chip--ghost {
+  .st-tag--ghost {
     background-color: transparent;
+    border-color: var(--st-border-subtle);
     color: var(--st-text-muted);
   }
 
-  .st-filter-chip:hover {
+  .st-tag--muted {
+    border-color: var(--st-border-subtle);
+    color: var(--st-text-disabled);
+  }
+
+  .st-tag--interactive:hover {
     background-color: var(--st-bg-surface-hover);
-    border-color: var(--st-border-default);
+    border-color: var(--st-border-strong);
     color: var(--st-text-primary);
   }
 
-  .st-filter-chip[data-selected="accent"] {
+  .st-tag--interactive[data-selected="accent"] {
     background-color: var(--st-accent-soft);
     border-color: var(--st-border-accent);
     color: var(--st-accent-text);
   }
 
-  .st-filter-chip[data-selected="accent"]:hover {
+  .st-tag--interactive[data-selected="accent"]:hover {
     background-color: var(--st-accent-soft-hover);
   }
 
-  .st-filter-chip[data-selected="neutral"] {
+  .st-tag--interactive[data-selected="neutral"] {
     background-color: var(--st-bg-surface-active);
     border-color: var(--st-border-strong);
     color: var(--st-text-primary);

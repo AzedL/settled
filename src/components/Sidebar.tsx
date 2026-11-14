@@ -8,7 +8,10 @@ import type {
   WorkspaceSnapshot,
 } from "../types";
 import { getCommandRuntime } from "../utils/itemStatus";
+import { TagChip } from "./TagChip";
 import { TrafficLed } from "./TrafficLed";
+
+const MAX_SIDEBAR_ITEM_TAGS = 6;
 
 interface SidebarProps {
   workspace: WorkspaceSnapshot;
@@ -83,31 +86,25 @@ export function Sidebar({
         </div>
 
         {workspace.allTags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-[var(--st-space-6)]">
-            <button
-              type="button"
+          <div className="max-h-[var(--st-tags-filter-max-h)] overflow-y-auto min-w-0 flex flex-wrap items-start content-start gap-[var(--st-space-6)]">
+            <TagChip
+              label={lang.filters.allTags}
+              icon={<Tag className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />}
+              mono={false}
+              ghost
+              selected={selectedTag === null ? "neutral" : undefined}
               onClick={() => onSelectTag(null)}
-              data-selected={selectedTag === null ? "neutral" : undefined}
-              aria-pressed={selectedTag === null}
-              className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer st-control st-filter-chip st-filter-chip--ghost"
-            >
-              <Tag className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-              <span>{lang.filters.allTags}</span>
-            </button>
+            />
 
-            {workspace.allTags.map((tag) => {
+            {workspace.allTags.map((tag, index) => {
               const active = selectedTag === tag;
               return (
-                <button
-                  key={tag}
-                  type="button"
+                <TagChip
+                  key={`${tag}-${index}`}
+                  label={tag}
+                  selected={active ? "accent" : undefined}
                   onClick={() => onSelectTag(active ? null : tag)}
-                  data-selected={active ? "accent" : undefined}
-                  aria-pressed={active}
-                  className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] cursor-pointer st-control st-filter-chip"
-                >
-                  {tag}
-                </button>
+                />
               );
             })}
           </div>
@@ -191,11 +188,11 @@ export function Sidebar({
                 data-selected={isSelected ? "true" : "false"}
                 data-applicable={item.applicable ? "true" : "false"}
                 aria-current={isSelected ? "true" : undefined}
-                className={`w-full text-left px-[var(--st-space-12)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-6)] cursor-pointer st-control st-sidebar-item ${
+                className={`w-full min-w-0 overflow-hidden text-left px-[var(--st-space-12)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-6)] cursor-pointer st-control st-sidebar-item ${
                   !item.applicable ? "border-dashed" : ""
                 }`}
               >
-                <div className="flex items-center justify-between gap-[var(--st-space-8)]">
+                <div className="flex items-center justify-between gap-[var(--st-space-8)] min-w-0">
                   <span
                     className="text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold truncate min-w-0 flex-1"
                     title={item.name}
@@ -253,24 +250,30 @@ export function Sidebar({
                   )}
                 </div>
 
-                {item.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-[var(--st-space-4)]">
-                    {item.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                        style={{
-                          backgroundColor: "var(--st-bg-canvas)",
-                          color: item.applicable
-                            ? "var(--st-text-muted)"
-                            : "var(--st-text-disabled)",
-                        }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {item.tags.length > 0 && (() => {
+                  const visibleTags = item.tags.slice(0, MAX_SIDEBAR_ITEM_TAGS);
+                  const hiddenTags = item.tags.slice(MAX_SIDEBAR_ITEM_TAGS);
+
+                  return (
+                    <div className="w-full min-w-0 flex flex-wrap gap-[var(--st-space-6)]">
+                      {visibleTags.map((tag, index) => (
+                        <TagChip
+                          key={`${tag}-${index}`}
+                          label={tag}
+                          muted={!item.applicable}
+                        />
+                      ))}
+                      {hiddenTags.length > 0 && (
+                        <TagChip
+                          label={lang.filters.moreTagsCount(hiddenTags.length)}
+                          title={hiddenTags.join(", ")}
+                          muted={!item.applicable}
+                          ghost
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
               </button>
             );
           })

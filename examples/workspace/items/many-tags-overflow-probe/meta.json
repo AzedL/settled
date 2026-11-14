@@ -1,0 +1,35 @@
+{
+  "name": "Many Tags Overflow Probe",
+  "description": "Verifies tag pill wrapping, truncation, sidebar +N collapse, and bounded scroll areas across all three tag locations.",
+  "createAt": 1794684000,
+  "tags": [
+    "cross-device",
+    "bootstrap",
+    "windows",
+    "macos",
+    "linux",
+    "pwsh",
+    "bash",
+    "zsh",
+    "node",
+    "rust",
+    "cargo",
+    "tauri",
+    "vite",
+    "git",
+    "ssh",
+    "proxy",
+    "utf8",
+    "path",
+    "permissions",
+    "docker",
+    "very-long-cross-device-environment-tag-for-truncation-verification"
+  ],
+  "scripts": {
+    "check": {
+      "name": "Verify overflow probe",
+      "description": "Confirms runnable check alongside high tag density.",
+      "run": "echo many-tags-probe-ok"
+    }
+  }
+}

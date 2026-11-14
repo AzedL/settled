@@ -81,7 +81,7 @@ export function matchesItemFilters(
 
   const query = options.search.trim().toLowerCase();
   if (query.length > 0) {
-    const haystack = [item.name, item.description, ...item.tags]
+    const haystack = [item.name, item.description ?? "", ...item.tags]
       .join(" ")
       .toLowerCase();
     if (!haystack.includes(query)) {

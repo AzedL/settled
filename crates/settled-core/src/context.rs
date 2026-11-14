@@ -12,8 +12,8 @@ pub fn format_item_context(
     out.push_str(&format!("# Settled Context: {} (`{}`)\n\n", item.name, item.id));
     out.push_str(&format!("- **Host Platform**: `{}`\n", host.as_str()));
     out.push_str(&format!("- **Item Directory**: `{}`\n", item.path));
-    if !item.description.is_empty() {
-        out.push_str(&format!("- **Description**: {}\n", item.description));
+    if let Some(desc) = &item.description {
+        out.push_str(&format!("- **Description**: {desc}\n"));
     }
     if !item.tags.is_empty() {
         out.push_str(&format!("- **Tags**: {}\n", item.tags.join(", ")));
@@ -101,7 +101,7 @@ mod tests {
             readme: "Check user.name and email.".to_string(),
             raw_meta: "{\"name\":\"Git Core\"}".to_string(),
             name: "Git Core".to_string(),
-            description: "Git identity check".to_string(),
+            description: Some("Git identity check".to_string()),
             create_at: Some(1794596400),
             tags: vec!["git".to_string()],
             platforms: vec![Platform::Windows, Platform::Macos],
@@ -132,5 +132,29 @@ mod tests {
         assert!(md.contains("[FAIL] `Check git user` (check)"));
         assert!(md.contains("not set"));
         assert!(md.contains("Check user.name and email."));
+    }
+
+    #[test]
+    fn omits_empty_optional_fields_in_markdown_context() {
+        let item = WorkspaceItem {
+            id: "minimal".to_string(),
+            path: "/tmp/ws/items/minimal".to_string(),
+            meta_path: "/tmp/ws/items/minimal/meta.json".to_string(),
+            readme_path: None,
+            readme: String::new(),
+            raw_meta: "{\"name\":\"Minimal\"}".to_string(),
+            name: "Minimal".to_string(),
+            description: None,
+            create_at: None,
+            tags: Vec::new(),
+            platforms: Vec::new(),
+            applicable: true,
+            script_groups: Vec::new(),
+            parse_error: None,
+        };
+
+        let md = format_item_context(&item, None, Platform::Linux);
+        assert!(!md.contains("**Description**"));
+        assert!(!md.contains("**Tags**"));
     }
 }

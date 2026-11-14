@@ -285,7 +285,7 @@ where
 pub struct ItemMetaRaw {
     pub name: String,
     #[serde(default)]
-    pub description: String,
+    pub description: Option<String>,
     #[serde(default, deserialize_with = "deserialize_optional_unix_timestamp")]
     pub create_at: Option<i64>,
     #[serde(default)]
@@ -334,7 +334,7 @@ pub struct WorkspaceItem {
     pub readme: String,
     pub raw_meta: String,
     pub name: String,
-    pub description: String,
+    pub description: Option<String>,
     pub create_at: Option<i64>,
     pub tags: Vec<String>,
     pub platforms: Vec<Platform>,

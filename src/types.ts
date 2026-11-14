@@ -39,7 +39,7 @@ export interface WorkspaceItem {
   readme: string;
   rawMeta: string;
   name: string;
-  description: string;
+  description: string | null;
   createAt: number | null;
   tags: string[];
   platforms: Platform[];

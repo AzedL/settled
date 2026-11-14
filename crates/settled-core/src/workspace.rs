@@ -237,7 +237,7 @@ fn load_single_item(
         readme,
         raw_meta,
         name: parsed.name,
-        description: parsed.description,
+        description: normalize_optional_text(parsed.description),
         create_at: parsed.create_at,
         tags: parsed.tags,
         platforms: parsed.platforms,
@@ -264,7 +264,7 @@ fn malformed_item(
         readme,
         raw_meta,
         name: id.to_string(),
-        description: String::new(),
+        description: None,
         create_at: None,
         tags: Vec::new(),
         platforms: Vec::new(),
@@ -322,6 +322,17 @@ fn build_script_groups(
     groups
 }
 
+fn normalize_optional_text(value: Option<String>) -> Option<String> {
+    value.and_then(|s| {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
 fn resolve_command(
     item_id: &str,
     key: &str,
@@ -340,7 +351,7 @@ fn resolve_command(
                 .unwrap_or_else(|| step.run.clone());
             (
                 label,
-                step.description.filter(|s| !s.trim().is_empty()),
+                normalize_optional_text(step.description),
                 step.run,
                 step.platforms.unwrap_or_default(),
                 step.shell.filter(|s| !s.trim().is_empty()),
@@ -518,5 +529,69 @@ mod tests {
             r#"{"name":"E","createAt":"not-a-timestamp"}"#,
         );
         assert!(invalid.is_err());
+    }
+
+    #[test]
+    fn normalizes_omitted_null_and_blank_descriptions_on_items_and_steps() {
+        let tmp = TempDir::new().unwrap();
+        let items = tmp.path().join("items");
+
+        let omitted_dir = items.join("omitted-desc");
+        fs::create_dir_all(&omitted_dir).unwrap();
+        fs::write(
+            omitted_dir.join("meta.json"),
+            r#"{
+                "name": "No Description Item",
+                "scripts": {
+                    "check": [
+                        "echo bare",
+                        { "name": "No desc step", "run": "echo ok" },
+                        { "name": "Blank desc step", "description": "   ", "run": "echo ok2" },
+                        { "name": "Null desc step", "description": null, "run": "echo ok3" }
+                    ]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let blank_dir = items.join("blank-desc");
+        fs::create_dir_all(&blank_dir).unwrap();
+        fs::write(
+            blank_dir.join("meta.json"),
+            r#"{
+                "name": "Blank Description Item",
+                "description": "  \n\t ",
+                "tags": []
+            }"#,
+        )
+        .unwrap();
+
+        let null_dir = items.join("null-desc");
+        fs::create_dir_all(&null_dir).unwrap();
+        fs::write(
+            null_dir.join("meta.json"),
+            r#"{
+                "name": "Null Description Item",
+                "description": null
+            }"#,
+        )
+        .unwrap();
+
+        let snapshot = load_workspace(tmp.path()).unwrap();
+        assert_eq!(snapshot.items.len(), 3);
+        assert!(snapshot.scan_warnings.is_empty());
+        assert!(snapshot.all_tags.is_empty());
+
+        for item in &snapshot.items {
+            assert_eq!(item.description, None);
+            assert!(item.tags.is_empty());
+        }
+
+        let omitted = snapshot.items.iter().find(|i| i.id == "omitted-desc").unwrap();
+        let cmds = &omitted.script_groups[0].commands;
+        assert_eq!(cmds.len(), 4);
+        for cmd in cmds {
+            assert_eq!(cmd.description, None);
+        }
     }
 }

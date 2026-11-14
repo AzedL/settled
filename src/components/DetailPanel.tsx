@@ -24,6 +24,7 @@ import { getCommandRuntime } from "../utils/itemStatus";
 import { MarkdownView } from "./MarkdownView";
 import { ScriptGroupCard } from "./ScriptGroupCard";
 import { Button } from "./Button";
+import { TagChip } from "./TagChip";
 
 interface DetailPanelProps {
   item: WorkspaceItem | null;
@@ -177,69 +178,67 @@ export function DetailPanel({
     <main className="flex-1 min-w-0 overflow-y-auto p-[var(--st-space-24)]">
       <div className="max-w-[960px] mx-auto flex flex-col gap-[var(--st-space-20)]">
         <section
-          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)]"
+          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-12)] min-w-0"
           style={{
             backgroundColor: "var(--st-bg-panel)",
             borderColor: "var(--st-border-default)",
           }}
         >
-          <div className="flex flex-col gap-[var(--st-space-6)] min-w-0">
-            <div className="flex items-center justify-between gap-[var(--st-space-16)] min-w-0">
-              <h1
-                className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold text-[color:var(--st-text-primary)] truncate min-w-0 flex-1"
-                title={item.name}
+          <div className="flex items-center justify-between gap-[var(--st-space-16)] min-w-0">
+            <h1
+              className="m-0 text-[length:var(--st-text-xl)] leading-[var(--st-leading-xl)] font-bold text-[color:var(--st-text-primary)] truncate min-w-0 flex-1"
+              title={item.name}
+            >
+              {item.name}
+            </h1>
+
+            <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
+              <Button
+                size="sm"
+                variant="surface"
+                onClick={() => onOpenInVscode(item.path)}
               >
-                {item.name}
-              </h1>
+                <Code2 className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                <span>{lang.detail.openInVscode}</span>
+              </Button>
 
-              <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
-                <Button
-                  size="sm"
-                  variant="surface"
-                  onClick={() => onOpenInVscode(item.path)}
-                >
-                  <Code2 className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-                  <span>{lang.detail.openInVscode}</span>
-                </Button>
+              <Button
+                size="sm"
+                variant="surface"
+                onClick={() => onRevealInExplorer(item.metaPath)}
+              >
+                <FolderSearch className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                <span>{lang.detail.revealInExplorer}</span>
+              </Button>
 
-                <Button
-                  size="sm"
-                  variant="surface"
-                  onClick={() => onRevealInExplorer(item.metaPath)}
-                >
-                  <FolderSearch className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-                  <span>{lang.detail.revealInExplorer}</span>
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant={copiedContext ? "pass-soft" : "accent-soft"}
-                  onClick={handleCopyContext}
-                >
-                  {copiedContext ? (
-                    <Check className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-                  ) : (
-                    <Sparkles className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-                  )}
-                  <span>
-                    {copiedContext
-                      ? lang.detail.copiedAiContext
-                      : lang.detail.copyAiContext}
-                  </span>
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant={copiedContext ? "pass-soft" : "accent-soft"}
+                onClick={handleCopyContext}
+              >
+                {copiedContext ? (
+                  <Check className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                ) : (
+                  <Sparkles className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                )}
+                <span>
+                  {copiedContext
+                    ? lang.detail.copiedAiContext
+                    : lang.detail.copyAiContext}
+                </span>
+              </Button>
             </div>
-
-            {item.description && (
-              <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-secondary)]">
-                {item.description}
-              </p>
-            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--st-space-10)]">
+          {item.description && (
+            <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-secondary)]">
+              {item.description}
+            </p>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--st-space-10)] min-w-0">
             <div
-              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-4)] min-w-0"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -254,7 +253,7 @@ export function DetailPanel({
             </div>
 
             <div
-              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-4)] min-w-0"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -269,7 +268,7 @@ export function DetailPanel({
             </div>
 
             <div
-              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-4)] min-w-0"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -279,14 +278,9 @@ export function DetailPanel({
                 {lang.detail.tagsLabel}
               </span>
               {item.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-[var(--st-space-4)]">
-                  {item.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-accent-text)]"
-                    >
-                      {tag}
-                    </span>
+                <div className="max-h-[var(--st-tags-detail-max-h)] overflow-y-auto min-w-0 flex flex-wrap items-start content-start gap-[var(--st-space-6)]">
+                  {item.tags.map((tag, index) => (
+                    <TagChip key={`${tag}-${index}`} label={tag} />
                   ))}
                 </div>
               ) : (

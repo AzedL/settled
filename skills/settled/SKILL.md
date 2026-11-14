@@ -81,7 +81,7 @@ Field notes:
 - `Step` fields:
   - `run` (required): command string.
   - `name` (optional): short label shown next to the traffic light.
-  - `description` (optional): hover tooltip explaining what the command checks or does.
+  - `description` (optional): concise note shown inside the expanded log details panel.
   - `platforms` (optional): `("windows" | "macos" | "linux")[]`.
   - `shell` (optional): override default shell (`pwsh`/`powershell`/`cmd`/`bash`/`sh`/`zsh`).
   - `encoding` (optional): override default `utf-8` output decoding (e.g. `gbk`).
@@ -94,7 +94,7 @@ Field notes:
 ### Capturing a New Pitfall or Setup Item
 1. Choose a concise kebab-case `<item-id>` under `<workspace>/items/<item-id>/`.
 2. Write `README.md` documenting: symptom, root cause, verified solution across relevant OSes, and any manual steps.
-3. Write `meta.json` with `name`, `description`, `createAt` (current Unix timestamp in seconds, e.g. `1794596400`), `tags`, optional `platforms`, and read-only `scripts.check` (plus optional `scripts.fix` / custom scripts) if automatable.
+3. Write `meta.json` with `name`, optional `description`, `createAt` (current Unix timestamp in seconds, e.g. `1794596400`), optional `tags`, optional `platforms`, and read-only `scripts.check` (plus optional `scripts.fix` / custom scripts) if automatable.
 4. Immediately validate using:
    ```bash
    settled check <item-id> --workspace <workspace> --json

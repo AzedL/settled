@@ -109,7 +109,7 @@ export function CommandRow({
             )}
 
             <code
-              className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] break-all text-[color:var(--st-text-primary)]"
+              className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] break-all text-[color:var(--st-accent-text)]"
               style={{ backgroundColor: "var(--st-bg-terminal)" }}
             >
               {command.rawRun}
