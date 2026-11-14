@@ -730,7 +730,7 @@ export default function App() {
 
       {toast && (
         <div
-          className="px-[var(--st-space-16)] py-[var(--st-space-8)] border-b-2 flex items-center justify-between gap-[var(--st-space-12)] shrink-0"
+          className="px-[var(--st-space-16)] py-[var(--st-space-8)] border-b flex items-center justify-between gap-[var(--st-space-12)] shrink-0"
           style={{
             backgroundColor:
               toast.kind === "error"

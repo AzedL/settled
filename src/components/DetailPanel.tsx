@@ -98,7 +98,7 @@ export function DetailPanel({
     <main className="flex-1 min-w-0 overflow-y-auto p-[var(--st-space-24)]">
       <div className="max-w-[960px] mx-auto flex flex-col gap-[var(--st-space-20)]">
         <section
-          className="rounded-[var(--st-radius-lg)] border-2 p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)]"
+          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-16)]"
           style={{
             backgroundColor: item.applicable
               ? "var(--st-bg-panel)"
@@ -116,7 +116,7 @@ export function DetailPanel({
                 </h1>
                 {!item.applicable && (
                   <span
-                    className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
+                    className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium"
                     style={{
                       backgroundColor: "var(--st-status-disabled-soft)",
                       borderColor: "var(--st-border-subtle)",
@@ -140,7 +140,7 @@ export function DetailPanel({
               <button
                 type="button"
                 onClick={() => onOpenInVscode(item.path)}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
                 style={{
                   backgroundColor: "var(--st-bg-surface)",
                   borderColor: "var(--st-border-default)",
@@ -154,7 +154,7 @@ export function DetailPanel({
               <button
                 type="button"
                 onClick={() => onRevealInExplorer(item.metaPath)}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
                 style={{
                   backgroundColor: "var(--st-bg-surface)",
                   borderColor: "var(--st-border-default)",
@@ -168,7 +168,7 @@ export function DetailPanel({
               <button
                 type="button"
                 onClick={handleCopyContext}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
                 style={{
                   backgroundColor: copiedContext
                     ? "var(--st-status-pass-soft)"
@@ -197,7 +197,7 @@ export function DetailPanel({
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-[var(--st-space-10)]">
             <div
-              className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -212,7 +212,7 @@ export function DetailPanel({
             </div>
 
             <div
-              className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -227,7 +227,7 @@ export function DetailPanel({
             </div>
 
             <div
-              className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -242,7 +242,7 @@ export function DetailPanel({
             </div>
 
             <div
-              className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
+              className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] flex flex-col gap-[var(--st-space-2)]"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-subtle)",
@@ -273,7 +273,7 @@ export function DetailPanel({
 
         {!item.applicable && (
           <section
-            className="rounded-[var(--st-radius-lg)] border-2 border-dashed p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
+            className="rounded-[var(--st-radius-lg)] border border-dashed p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
             style={{
               backgroundColor: "var(--st-bg-disabled)",
               borderColor: "var(--st-border-default)",
@@ -296,7 +296,7 @@ export function DetailPanel({
 
         {item.parseError && (
           <section
-            className="rounded-[var(--st-radius-lg)] border-2 p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
+            className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
             style={{
               backgroundColor: "var(--st-status-fail-soft)",
               borderColor: "var(--st-border-danger)",
@@ -324,7 +324,7 @@ export function DetailPanel({
 
           {item.scriptGroups.length === 0 ? (
             <div
-              className="rounded-[var(--st-radius-lg)] border-2 p-[var(--st-space-16)] text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]"
+              className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]"
               style={{
                 backgroundColor: "var(--st-bg-panel)",
                 borderColor: "var(--st-border-subtle)",
@@ -355,7 +355,7 @@ export function DetailPanel({
         </section>
 
         <section
-          className="rounded-[var(--st-radius-lg)] border-2 p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-12)]"
+          className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-12)]"
           style={{
             backgroundColor: "var(--st-bg-panel)",
             borderColor: "var(--st-border-default)",
@@ -375,7 +375,7 @@ export function DetailPanel({
         </section>
 
         <section
-          className="rounded-[var(--st-radius-lg)] border-2 overflow-hidden"
+          className="rounded-[var(--st-radius-lg)] border overflow-hidden"
           style={{
             backgroundColor: "var(--st-bg-panel)",
             borderColor: "var(--st-border-subtle)",
@@ -401,7 +401,7 @@ export function DetailPanel({
 
           {showRawMeta && (
             <pre
-              className="m-0 p-[var(--st-space-16)] border-t-2 font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] overflow-x-auto"
+              className="m-0 p-[var(--st-space-16)] border-t font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] overflow-x-auto"
               style={{
                 backgroundColor: "var(--st-bg-terminal)",
                 borderColor: "var(--st-border-subtle)",

@@ -26,7 +26,7 @@ export function ConfirmModal({
       aria-modal="true"
     >
       <div
-        className="w-full max-w-[var(--st-modal-w)] rounded-[var(--st-radius-lg)] border-2 p-[var(--st-space-24)] flex flex-col gap-[var(--st-space-16)]"
+        className="w-full max-w-[var(--st-modal-w)] rounded-[var(--st-radius-lg)] border p-[var(--st-space-24)] flex flex-col gap-[var(--st-space-16)]"
         style={{
           backgroundColor: "var(--st-bg-panel)",
           borderColor: "var(--st-border-warn)",
@@ -56,7 +56,7 @@ export function ConfirmModal({
         </div>
 
         <div
-          className="rounded-[var(--st-radius-md)] border-2 p-[var(--st-space-12)] flex flex-col gap-[var(--st-space-8)] max-h-[200px] overflow-y-auto"
+          className="rounded-[var(--st-radius-md)] border p-[var(--st-space-12)] flex flex-col gap-[var(--st-space-8)] max-h-[200px] overflow-y-auto"
           style={{
             backgroundColor: "var(--st-bg-terminal)",
             borderColor: "var(--st-border-subtle)",
@@ -93,7 +93,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer transition-colors"
+            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-medium cursor-pointer transition-colors"
             style={{
               backgroundColor: "var(--st-bg-surface)",
               borderColor: "var(--st-border-default)",
@@ -105,7 +105,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={() => onConfirm(skipFuture)}
-            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer transition-colors"
+            className="px-[var(--st-space-16)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold cursor-pointer transition-colors"
             style={{
               backgroundColor: "var(--st-accent)",
               borderColor: "var(--st-accent)",

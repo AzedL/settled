@@ -55,7 +55,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
 
   return (
     <div
-      className="rounded-[var(--st-radius-md)] border-2 transition-colors"
+      className="rounded-[var(--st-radius-md)] border transition-colors"
       style={{
         backgroundColor: command.applicable
           ? "var(--st-bg-surface)"
@@ -100,7 +100,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
                       aria-label={command.description}
                     />
                     <div
-                      className="pointer-events-none hidden group-hover:block absolute left-0 top-full mt-[var(--st-space-6)] z-30 w-[320px] rounded-[var(--st-radius-md)] border-2 p-[var(--st-space-10)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                      className="pointer-events-none hidden group-hover:block absolute left-0 top-full mt-[var(--st-space-6)] z-30 w-[320px] rounded-[var(--st-radius-md)] border p-[var(--st-space-10)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
                       style={{
                         backgroundColor: "var(--st-bg-panel)",
                         borderColor: "var(--st-border-strong)",
@@ -184,7 +184,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
           <button
             type="button"
             onClick={() => setLogOpen((prev) => !prev)}
-            className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
+            className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
             style={{
               backgroundColor: logOpen ? "var(--st-bg-surface-active)" : "var(--st-bg-panel)",
               borderColor: hasLogs ? "var(--st-border-default)" : "var(--st-border-subtle)",
@@ -204,7 +204,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
             <button
               type="button"
               onClick={onStop}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
+              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
               style={{
                 backgroundColor: "var(--st-status-fail-soft)",
                 borderColor: "var(--st-border-danger)",
@@ -219,7 +219,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               type="button"
               disabled={!command.applicable}
               onClick={onRun}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer"
+              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer"
               style={{
                 backgroundColor: command.applicable
                   ? "var(--st-accent-soft)"
@@ -241,7 +241,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
 
       {logOpen && (
         <div
-          className="border-t-2 p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
+          className="border-t p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
           style={{
             backgroundColor: "var(--st-bg-terminal)",
             borderColor: "var(--st-border-subtle)",

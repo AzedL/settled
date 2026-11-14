@@ -58,7 +58,7 @@
   --st-radius-lg: 12px;
   --st-radius-xl: 16px;
   --st-radius-pill: 9998px;
-  --st-border-w: 2px;
+  --st-border-w: 1px;
 
   /* Light Mode (Default) — mineral paper & mint/jade architectural palette */
   --st-bg-canvas: #f3f5f2;

@@ -77,7 +77,7 @@ export function ScriptGroupCard({
 
   return (
     <section
-      className="rounded-[var(--st-radius-lg)] border-2 p-[var(--st-space-16)] flex flex-col gap-[var(--st-space-12)]"
+      className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex flex-col gap-[var(--st-space-12)]"
       style={{
         backgroundColor: "var(--st-bg-panel)",
         borderColor: isHighlightedFix
@@ -120,7 +120,7 @@ export function ScriptGroupCard({
           type="button"
           disabled={!canRunGroup}
           onClick={() => onRunGroup(group)}
-          className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer shrink-0"
+          className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold transition-colors disabled:cursor-not-allowed cursor-pointer shrink-0"
           style={{
             backgroundColor: !canRunGroup
               ? "var(--st-bg-disabled)"
@@ -146,7 +146,7 @@ export function ScriptGroupCard({
 
       {group.role === "fix" && isVerifyingFix && (
         <div
-          className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-8)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium animate-pulse"
+          className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium animate-pulse"
           style={{
             backgroundColor: "var(--st-status-running-soft)",
             borderColor: "var(--st-border-running)",
@@ -159,7 +159,7 @@ export function ScriptGroupCard({
 
       {visibleCommands.length === 0 ? (
         <div
-          className="rounded-[var(--st-radius-md)] border-2 px-[var(--st-space-12)] py-[var(--st-space-12)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+          className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-12)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
           style={{
             backgroundColor: "var(--st-bg-disabled)",
             borderColor: "var(--st-border-subtle)",

@@ -56,7 +56,7 @@ export function HeaderBar({
 }: HeaderBarProps) {
   return (
     <header
-      className="h-[var(--st-header-h)] shrink-0 border-b-2 px-[var(--st-space-16)] flex items-center justify-between gap-[var(--st-space-16)]"
+      className="h-[var(--st-header-h)] shrink-0 border-b px-[var(--st-space-16)] flex items-center justify-between gap-[var(--st-space-16)]"
       style={{
         backgroundColor: "var(--st-bg-panel)",
         borderColor: "var(--st-border-subtle)",
@@ -76,7 +76,7 @@ export function HeaderBar({
             </span>
             {workspace && (
               <span
-                className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border-2 font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
+                className="px-[var(--st-space-8)] py-[var(--st-space-2)] rounded-[var(--st-radius-pill)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
                 style={{
                   backgroundColor: "var(--st-bg-surface)",
                   borderColor: "var(--st-border-subtle)",
@@ -97,7 +97,7 @@ export function HeaderBar({
         {workspace && (
           <>
             <div
-              className="inline-flex rounded-[var(--st-radius-md)] border-2 p-[var(--st-space-2)]"
+              className="inline-flex rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
               style={{
                 backgroundColor: "var(--st-bg-canvas)",
                 borderColor: "var(--st-border-default)",
@@ -140,7 +140,7 @@ export function HeaderBar({
             <button
               type="button"
               onClick={onRunAllChecks}
-              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
+              className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
               style={{
                 backgroundColor: "var(--st-accent)",
                 borderColor: "var(--st-accent)",
@@ -155,7 +155,7 @@ export function HeaderBar({
               <button
                 type="button"
                 onClick={onRunFailedChecks}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
                 style={{
                   backgroundColor: "var(--st-status-fail-soft)",
                   borderColor: "var(--st-border-danger)",
@@ -171,7 +171,7 @@ export function HeaderBar({
               <button
                 type="button"
                 onClick={onCancelAll}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
+                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer transition-colors"
                 style={{
                   backgroundColor: "var(--st-status-canceled-soft)",
                   borderColor: "var(--st-border-warn)",
@@ -188,7 +188,7 @@ export function HeaderBar({
               onClick={onReload}
               title={lang.header.reload}
               aria-label={lang.header.reload}
-              className="p-[var(--st-space-8)] rounded-[var(--st-radius-md)] border-2 cursor-pointer transition-colors"
+              className="p-[var(--st-space-8)] rounded-[var(--st-radius-md)] border cursor-pointer transition-colors"
               style={{
                 backgroundColor: "var(--st-bg-surface)",
                 borderColor: "var(--st-border-default)",
@@ -204,7 +204,7 @@ export function HeaderBar({
           <button
             type="button"
             onClick={onLoadSample}
-            className="px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
+            className="px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
             style={{
               backgroundColor: "var(--st-bg-surface)",
               borderColor: "var(--st-border-default)",
@@ -218,7 +218,7 @@ export function HeaderBar({
         <button
           type="button"
           onClick={onOpenWorkspace}
-          className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border-2 text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
+          className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer transition-colors"
           style={{
             backgroundColor: "var(--st-bg-surface)",
             borderColor: "var(--st-border-default)",
@@ -232,7 +232,7 @@ export function HeaderBar({
         </button>
 
         <div
-          className="inline-flex rounded-[var(--st-radius-md)] border-2 p-[var(--st-space-2)]"
+          className="inline-flex rounded-[var(--st-radius-md)] border p-[var(--st-space-2)]"
           style={{
             backgroundColor: "var(--st-bg-canvas)",
             borderColor: "var(--st-border-default)",
