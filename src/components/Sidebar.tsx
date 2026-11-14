@@ -129,7 +129,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-[var(--st-space-10)] flex flex-col gap-[var(--st-space-6)]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-[var(--st-space-10)] flex flex-col gap-[var(--st-space-6)]">
         {filteredItems.length === 0 ? (
           <div className="p-[var(--st-space-24)] text-center flex flex-col items-center gap-[var(--st-space-12)]">
             <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]">
@@ -156,7 +156,7 @@ export function Sidebar({
                 data-selected={isSelected ? "true" : "false"}
                 data-applicable={item.applicable ? "true" : "false"}
                 aria-current={isSelected ? "true" : undefined}
-                className={`w-full min-w-0 overflow-hidden text-left px-[var(--st-space-12)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-6)] cursor-pointer st-control st-sidebar-item ${
+                className={`w-full min-w-0 shrink-0 text-left px-[var(--st-space-12)] py-[var(--st-space-10)] rounded-[var(--st-radius-md)] border flex flex-col gap-[var(--st-space-6)] cursor-pointer st-control st-sidebar-item ${
                   !item.applicable ? "border-dashed" : ""
                 }`}
               >
