@@ -49,7 +49,8 @@
   --st-log-max-h: 280px;
   --st-doc-max-h: 360px;
   --st-tag-h: 20px;
-  --st-search-tags-max-h: 92px;
+  --st-tag-row-h: 22px;
+  --st-search-tags-max-h: 100px;
   --st-dropdown-max-h: 200px;
   --st-led-sm: 10px;
   --st-led-md: 12px;

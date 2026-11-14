@@ -77,14 +77,14 @@ export function matchesItemFilters(
 
   if (
     options.selectedTags.length > 0 &&
-    !options.selectedTags.every((tag) => item.tags.includes(tag))
+    !options.selectedTags.some((tag) => item.tags.includes(tag))
   ) {
     return false;
   }
 
   const query = options.search.trim().toLowerCase();
   if (query.length > 0) {
-    const haystack = [item.name, item.description ?? "", ...item.tags]
+    const haystack = [item.name, item.description ?? ""]
       .join(" ")
       .toLowerCase();
     if (!haystack.includes(query)) {

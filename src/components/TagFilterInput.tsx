@@ -346,7 +346,7 @@ export function TagFilterInput({
         }}
         className="min-h-[var(--st-control-h)] flex items-start gap-[var(--st-space-8)] pl-[var(--st-space-10)] pr-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-md)] border st-search-box cursor-text"
       >
-        <span className="h-[var(--st-tag-h)] inline-flex items-center shrink-0">
+        <span className="h-[var(--st-tag-row-h)] inline-flex items-center shrink-0">
           <Tag
             className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]"
             style={{ color: "var(--st-text-muted)" }}
@@ -381,7 +381,7 @@ export function TagFilterInput({
             placeholder={
               selectedTags.length === 0 ? lang.filters.tagFilterPlaceholder : ""
             }
-            className="flex-1 min-w-[72px] h-[var(--st-tag-h)] bg-transparent outline-none text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] placeholder:text-[color:var(--st-text-muted)]"
+            className="flex-1 min-w-[72px] h-[var(--st-tag-row-h)] bg-transparent outline-none text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] placeholder:text-[color:var(--st-text-muted)]"
           />
         </div>
       </div>

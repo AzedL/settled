@@ -39,8 +39,8 @@ export const lang = {
   },
 
   filters: {
-    searchPlaceholder: "搜索条目名称、描述或标签...",
-    tagFilterPlaceholder: "筛选标签...",
+    searchPlaceholder: "搜索条目名称、描述",
+    tagFilterPlaceholder: "筛选标签",
     moreTagsCount: (count: number): string => `+${count}`,
     itemsSummary: (shown: number, total: number): string =>
       `${shown}/${total}`,
