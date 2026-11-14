@@ -124,11 +124,6 @@ button:focus-visible {
 
   .st-btn-panel {
     background-color: var(--st-bg-panel);
-    border-color: var(--st-border-subtle);
-    color: var(--st-text-muted);
-  }
-
-  .st-btn-panel--ready {
     border-color: var(--st-border-default);
     color: var(--st-text-secondary);
   }

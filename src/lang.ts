@@ -127,11 +127,8 @@ export const lang = {
   },
 
   notifications: {
-    workspaceMissingNotice: "未在工作区根目录发现 items/ 子目录",
-    scanWarningsPrefix: "扫描提示：",
     errorPrefix: "操作失败：",
     vscodeFallbackHint: "请确认已安装 VS Code 并将 code 命令加入系统 PATH。",
-    noRunnableChecks: "当前范围内没有可执行的 Check 命令",
     clearToast: "关闭提示",
   },
 } as const;

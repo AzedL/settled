@@ -21,7 +21,6 @@ export function CommandRow({
   onStop,
 }: CommandRowProps) {
   const isRunning = runtime.status === "running";
-  const hasLogs = runtime.logs.length > 0 || runtime.error !== null;
   const [logOpen, setLogOpen] = useState(false);
 
   // Automatically expand logs when a command fails so diagnostics are immediately visible.
@@ -63,11 +62,7 @@ export function CommandRow({
             onClick={() => setLogOpen((prev) => !prev)}
             aria-expanded={logOpen}
             className={`inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-panel ${
-              logOpen
-                ? "st-btn-panel--active"
-                : hasLogs
-                  ? "st-btn-panel--ready"
-                  : ""
+              logOpen ? "st-btn-panel--active" : ""
             }`}
           >
             <Terminal className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />

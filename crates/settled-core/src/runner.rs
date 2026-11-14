@@ -23,16 +23,28 @@ pub struct RunRegistry {
 
 #[derive(Debug, Default)]
 struct RegistryState {
-    commands: HashMap<String, ActiveCommandHandle>,
+    commands: HashMap<(String, String), ActiveCommandHandle>,
     canceled_runs: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
 struct ActiveCommandHandle {
-    run_id: String,
     pid: Option<u32>,
     canceled: bool,
     notify: Arc<Notify>,
+}
+
+async fn terminate_targets(targets: Vec<(Option<u32>, Arc<Notify>)>) -> usize {
+    let count = targets.len();
+    let mut kill_set = JoinSet::new();
+    for (pid, notify) in targets {
+        notify.notify_waiters();
+        if let Some(pid) = pid {
+            kill_set.spawn(terminate_process_tree(pid));
+        }
+    }
+    while kill_set.join_next().await.is_some() {}
+    count
 }
 
 impl RunRegistry {
@@ -45,9 +57,8 @@ impl RunRegistry {
         let mut guard = self.inner.lock().await;
         let canceled = guard.canceled_runs.contains(run_id);
         guard.commands.insert(
-            command_id.to_string(),
+            (run_id.to_string(), command_id.to_string()),
             ActiveCommandHandle {
-                run_id: run_id.to_string(),
                 pid: None,
                 canceled,
                 notify: notify.clone(),
@@ -56,9 +67,12 @@ impl RunRegistry {
         notify
     }
 
-    async fn attach_pid(&self, command_id: &str, pid: u32) -> bool {
+    async fn attach_pid(&self, run_id: &str, command_id: &str, pid: u32) -> bool {
         let mut guard = self.inner.lock().await;
-        if let Some(handle) = guard.commands.get_mut(command_id) {
+        if let Some(handle) = guard
+            .commands
+            .get_mut(&(run_id.to_string(), command_id.to_string()))
+        {
             handle.pid = Some(pid);
             handle.canceled
         } else {
@@ -66,14 +80,19 @@ impl RunRegistry {
         }
     }
 
-    async fn is_canceled(&self, command_id: &str) -> bool {
+    async fn is_canceled(&self, run_id: &str, command_id: &str) -> bool {
         let guard = self.inner.lock().await;
-        guard.commands.get(command_id).is_some_and(|h| h.canceled)
+        guard
+            .commands
+            .get(&(run_id.to_string(), command_id.to_string()))
+            .is_some_and(|h| h.canceled)
     }
 
-    async fn unregister(&self, command_id: &str) {
+    async fn unregister(&self, run_id: &str, command_id: &str) {
         let mut guard = self.inner.lock().await;
-        guard.commands.remove(command_id);
+        guard
+            .commands
+            .remove(&(run_id.to_string(), command_id.to_string()));
     }
 
     async fn clear_canceled_run(&self, run_id: &str) {
@@ -81,27 +100,22 @@ impl RunRegistry {
         guard.canceled_runs.remove(run_id);
     }
 
-    /// Cancels a single running command by `command_id` and terminates its process tree.
+    /// Cancels any active runs of a single command by `command_id` and terminates their process trees.
     pub async fn cancel_command(&self, command_id: &str) -> bool {
-        let pid_and_notify = {
+        let targets: Vec<(Option<u32>, Arc<Notify>)> = {
             let mut guard = self.inner.lock().await;
-            if let Some(handle) = guard.commands.get_mut(command_id) {
-                handle.canceled = true;
-                Some((handle.pid, handle.notify.clone()))
-            } else {
-                None
-            }
+            guard
+                .commands
+                .iter_mut()
+                .filter(|((_, cid), _)| cid == command_id)
+                .map(|(_, handle)| {
+                    handle.canceled = true;
+                    (handle.pid, handle.notify.clone())
+                })
+                .collect()
         };
 
-        if let Some((pid, notify)) = pid_and_notify {
-            if let Some(pid) = pid {
-                terminate_process_tree(pid).await;
-            }
-            notify.notify_waiters();
-            true
-        } else {
-            false
-        }
+        terminate_targets(targets).await > 0
     }
 
     /// Cancels every running command associated with `run_id`, plus any queued tasks for that batch.
@@ -111,23 +125,16 @@ impl RunRegistry {
             guard.canceled_runs.insert(run_id.to_string());
             guard
                 .commands
-                .values_mut()
-                .filter(|handle| handle.run_id == run_id)
-                .map(|handle| {
+                .iter_mut()
+                .filter(|((rid, _), _)| rid == run_id)
+                .map(|(_, handle)| {
                     handle.canceled = true;
                     (handle.pid, handle.notify.clone())
                 })
                 .collect()
         };
 
-        let count = targets.len();
-        for (pid, notify) in targets {
-            if let Some(pid) = pid {
-                terminate_process_tree(pid).await;
-            }
-            notify.notify_waiters();
-        }
-        count
+        terminate_targets(targets).await
     }
 
     /// Cancels all currently running commands across all runs.
@@ -136,8 +143,8 @@ impl RunRegistry {
             let mut guard = self.inner.lock().await;
             let active_run_ids: Vec<String> = guard
                 .commands
-                .values()
-                .map(|handle| handle.run_id.clone())
+                .keys()
+                .map(|(rid, _)| rid.clone())
                 .collect();
             for run_id in active_run_ids {
                 guard.canceled_runs.insert(run_id);
@@ -152,14 +159,7 @@ impl RunRegistry {
                 .collect()
         };
 
-        let count = targets.len();
-        for (pid, notify) in targets {
-            if let Some(pid) = pid {
-                terminate_process_tree(pid).await;
-            }
-            notify.notify_waiters();
-        }
-        count
+        terminate_targets(targets).await
     }
 }
 
@@ -226,8 +226,8 @@ where
         command_index: target.command_index,
     });
 
-    if registry.is_canceled(&target.command_id).await {
-        registry.unregister(&target.command_id).await;
+    if registry.is_canceled(run_id, &target.command_id).await {
+        registry.unregister(run_id, &target.command_id).await;
         return finish_canceled(
             run_id,
             target,
@@ -241,7 +241,7 @@ where
     let mut child = match cmd.spawn() {
         Ok(child) => child,
         Err(err) => {
-            registry.unregister(&target.command_id).await;
+            registry.unregister(run_id, &target.command_id).await;
             let msg = format!("Failed to spawn '{}': {err}", target.shell);
             let duration_ms = start.elapsed().as_millis() as u64;
             on_event(RunEvent::Output {
@@ -282,7 +282,7 @@ where
     };
 
     if let Some(pid) = child.id() {
-        let already_canceled = registry.attach_pid(&target.command_id, pid).await;
+        let already_canceled = registry.attach_pid(run_id, &target.command_id, pid).await;
         if already_canceled {
             terminate_process_tree(pid).await;
         }
@@ -340,8 +340,8 @@ where
     }
 
     let wait_outcome = wait_with_cancel(&mut child, &cancel_notify).await;
-    let was_canceled = registry.is_canceled(&target.command_id).await;
-    registry.unregister(&target.command_id).await;
+    let was_canceled = registry.is_canceled(run_id, &target.command_id).await;
+    registry.unregister(run_id, &target.command_id).await;
 
     let duration_ms = start.elapsed().as_millis() as u64;
     if was_canceled {
@@ -727,5 +727,48 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].status, RunStatus::Canceled);
         assert_eq!(results[1].status, RunStatus::Canceled);
+    }
+
+    #[tokio::test]
+    async fn canceling_previous_run_does_not_affect_overlapping_rerun() {
+        let tmp = TempDir::new().unwrap();
+        let sleep_cmd = match Platform::current() {
+            Platform::Windows => "Start-Sleep -Seconds 30",
+            Platform::Macos | Platform::Linux => "sleep 30",
+        };
+        let old_target = make_target(tmp.path(), "shared-cmd", sleep_cmd);
+        let new_target = make_target(tmp.path(), "shared-cmd", "echo rerun_ok");
+
+        let registry = RunRegistry::new();
+        let reg1 = registry.clone();
+        let reg2 = registry.clone();
+
+        let old_handle = tokio::spawn(async move {
+            run_commands_parallel(
+                "run-old".to_string(),
+                vec![old_target],
+                1,
+                reg1,
+                |_ev| {},
+            )
+            .await
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        assert_eq!(registry.cancel_run("run-old").await, 1);
+
+        let new_results = run_commands_parallel(
+            "run-new".to_string(),
+            vec![new_target],
+            1,
+            reg2,
+            |_ev| {},
+        )
+        .await;
+        let old_results = old_handle.await.unwrap();
+
+        assert_eq!(old_results[0].status, RunStatus::Canceled);
+        assert_eq!(new_results[0].status, RunStatus::Pass);
+        assert!(new_results[0].logs.iter().any(|l| l.text.contains("rerun_ok")));
     }
 }

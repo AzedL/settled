@@ -49,10 +49,6 @@
   --st-doc-max-h: 360px;
   --st-led-sm: 10px;
   --st-led-md: 12px;
-  --st-led-disabled-sm: 12px;
-  --st-led-disabled-md: 14px;
-  --st-led-slot-sm: 12px;
-  --st-led-slot-md: 14px;
   --st-icon-sm: 14px;
   --st-icon-md: 16px;
   --st-icon-lg: 20px;
@@ -127,9 +123,10 @@
   --st-status-idle-soft: #eef2f0;
   --st-status-idle-text: #58676e;
 
-  --st-status-disabled: #a7b3ad;
+  --st-status-disabled: #9ba7a1;
   --st-status-disabled-soft: #eef2f1;
   --st-status-disabled-text: #8d999c;
+  --st-status-disabled-glow: 0 0 0 1px rgba(155, 167, 161, 0.28);
 
   /* Segmented & ghost interactive surfaces */
   --st-seg-hover-bg: rgba(20, 35, 42, 0.05);
@@ -204,9 +201,10 @@
   --st-status-idle-soft: rgba(104, 110, 122, 0.22);
   --st-status-idle-text: #a1a7b3;
 
-  --st-status-disabled: #646c7a;
+  --st-status-disabled: #6e7685;
   --st-status-disabled-soft: rgba(62, 66, 75, 0.28);
   --st-status-disabled-text: #6d7380;
+  --st-status-disabled-glow: 0 0 0 1px rgba(110, 118, 133, 0.24);
 
   /* Segmented & ghost interactive surfaces */
   --st-seg-hover-bg: rgba(255, 255, 255, 0.05);

@@ -43,7 +43,6 @@ import {
 } from "./utils/itemStatus";
 
 interface ToastMessage {
-  kind: "error" | "warn";
   message: string;
 }
 
@@ -139,7 +138,7 @@ export default function App() {
 
   const activeActionRef = useRef<ActiveRunAction | null>(null);
   const activeRunIdRef = useRef<string | null>(null);
-  const canceledActionRef = useRef(false);
+  const canceledRunIdsRef = useRef<Set<string>>(new Set());
   const actionSeqRef = useRef(0);
 
   useEffect(() => {
@@ -185,40 +184,38 @@ export default function App() {
         return firstApplicable?.id ?? snapshot.items[0]?.id ?? null;
       });
 
-      if (!snapshot.itemsDirExists) {
-        setToast({
-          kind: "warn",
-          message: lang.notifications.workspaceMissingNotice,
-        });
-      } else if (snapshot.scanWarnings.length > 0) {
-        setToast({
-          kind: "warn",
-          message: `${lang.notifications.scanWarningsPrefix}${snapshot.scanWarnings.join(" | ")}`,
-        });
-      } else {
-        setToast(null);
-      }
+      setToast(null);
     },
     []
   );
 
-  const handleStopActiveAction = useCallback(async () => {
-    if (activeActionRef.current === null || canceledActionRef.current) {
+  const handleStopActiveAction = useCallback(() => {
+    if (activeActionRef.current === null) {
       return;
     }
-    canceledActionRef.current = true;
     const runId = activeRunIdRef.current;
+    actionSeqRef.current += 1;
+    activeActionRef.current = null;
+    activeRunIdRef.current = null;
+    setActiveAction(null);
+    setVerifyingItemId(null);
+
     if (!runId) {
       return;
     }
-    try {
-      await cancelRun(runId);
-    } catch (err) {
+    const canceledIds = canceledRunIdsRef.current;
+    canceledIds.add(runId);
+    if (canceledIds.size > 100) {
+      const oldest = canceledIds.values().next().value;
+      if (oldest !== undefined) {
+        canceledIds.delete(oldest);
+      }
+    }
+    void cancelRun(runId).catch((err) => {
       setToast({
-        kind: "error",
         message: `${lang.notifications.errorPrefix}${formatError(err)}`,
       });
-    }
+    });
   }, []);
 
   const loadWorkspaceAtPath = useCallback(
@@ -231,12 +228,7 @@ export default function App() {
           previousRoot !== snapshot.rootPath &&
           activeActionRef.current !== null
         ) {
-          void handleStopActiveAction();
-          actionSeqRef.current += 1;
-          activeActionRef.current = null;
-          activeRunIdRef.current = null;
-          canceledActionRef.current = false;
-          setActiveAction(null);
+          handleStopActiveAction();
         }
         applyWorkspaceSnapshot(snapshot, previousRoot === snapshot.rootPath);
         setInitialState((prev) =>
@@ -261,7 +253,6 @@ export default function App() {
           setWorkspace(null);
         }
         setToast({
-          kind: "error",
           message: `${lang.notifications.errorPrefix}${formatError(err)}`,
         });
       }
@@ -279,7 +270,6 @@ export default function App() {
       } catch (err) {
         if (!silentIfMissing) {
           setToast({
-            kind: "error",
             message: `${lang.notifications.errorPrefix}${formatError(err)}`,
           });
         }
@@ -301,6 +291,14 @@ export default function App() {
           setRuntimeMap((prev) => {
             const current = prev[event.commandId] ?? DEFAULT_COMMAND_RUNTIME;
             if (event.kind === "started") {
+              if (
+                canceledRunIdsRef.current.has(event.runId) ||
+                (current.lastRunId !== null &&
+                  current.lastRunId !== event.runId &&
+                  current.status === "running")
+              ) {
+                return prev;
+              }
               return {
                 ...prev,
                 [event.commandId]: {
@@ -374,7 +372,6 @@ export default function App() {
       } catch (err) {
         if (active) {
           setToast({
-            kind: "error",
             message: `${lang.notifications.errorPrefix}${formatError(err)}`,
           });
         }
@@ -392,7 +389,6 @@ export default function App() {
       } catch (err) {
         if (active) {
           setToast({
-            kind: "error",
             message: `${lang.notifications.errorPrefix}${formatError(err)}`,
           });
         }
@@ -456,7 +452,7 @@ export default function App() {
         });
 
         const wasCanceled =
-          canceledActionRef.current ||
+          actionSeqRef.current !== seq ||
           summary.results.some((result) => result.status === "canceled");
 
         if (verifyItemAfterFix && !wasCanceled && actionSeqRef.current === seq) {
@@ -473,17 +469,20 @@ export default function App() {
                 seq
               );
             } finally {
-              setVerifyingItemId((prevId) =>
-                prevId === currentItem.id ? null : prevId
-              );
+              if (actionSeqRef.current === seq) {
+                setVerifyingItemId((prevId) =>
+                  prevId === currentItem.id ? null : prevId
+                );
+              }
             }
           }
         }
       } catch (err) {
-        setToast({
-          kind: "error",
-          message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-        });
+        if (actionSeqRef.current === seq) {
+          setToast({
+            message: `${lang.notifications.errorPrefix}${formatError(err)}`,
+          });
+        }
       }
     },
     []
@@ -501,7 +500,6 @@ export default function App() {
 
       const seq = ++actionSeqRef.current;
       activeActionRef.current = action;
-      canceledActionRef.current = false;
       activeRunIdRef.current = null;
       setActiveAction(action);
 
@@ -511,7 +509,6 @@ export default function App() {
         if (actionSeqRef.current === seq) {
           activeActionRef.current = null;
           activeRunIdRef.current = null;
-          canceledActionRef.current = false;
           setActiveAction(null);
         }
       }
@@ -558,7 +555,6 @@ export default function App() {
       }
     } catch (err) {
       setToast({
-        kind: "error",
         message: `${lang.notifications.errorPrefix}${formatError(err)}`,
       });
     }
@@ -617,10 +613,6 @@ export default function App() {
       }
     }
     if (targets.length === 0) {
-      setToast({
-        kind: "warn",
-        message: lang.notifications.noRunnableChecks,
-      });
       return;
     }
     void startTrackedAction({ kind: "header-checks" }, targets);
@@ -678,7 +670,6 @@ export default function App() {
         );
       } catch (err) {
         setToast({
-          kind: "error",
           message: `${lang.notifications.errorPrefix}${formatError(err)}`,
         });
       }
@@ -692,7 +683,6 @@ export default function App() {
       await openInVscode(path);
     } catch (err) {
       setToast({
-        kind: "error",
         message: `${lang.notifications.errorPrefix}${formatError(err)} ${lang.notifications.vscodeFallbackHint}`,
       });
     }
@@ -703,7 +693,6 @@ export default function App() {
       await revealPathInExplorer(path);
     } catch (err) {
       setToast({
-        kind: "error",
         message: `${lang.notifications.errorPrefix}${formatError(err)}`,
       });
     }
@@ -716,7 +705,6 @@ export default function App() {
       await copyTextToClipboard(markdown);
     } catch (err) {
       setToast({
-        kind: "error",
         message: `${lang.notifications.errorPrefix}${formatError(err)}`,
       });
     }
@@ -752,18 +740,9 @@ export default function App() {
         <div
           className="px-[var(--st-space-16)] py-[var(--st-space-8)] border-b flex items-center justify-between gap-[var(--st-space-12)] shrink-0"
           style={{
-            backgroundColor:
-              toast.kind === "error"
-                ? "var(--st-status-fail-soft)"
-                : "var(--st-status-canceled-soft)",
-            borderColor:
-              toast.kind === "error"
-                ? "var(--st-border-danger)"
-                : "var(--st-border-warn)",
-            color:
-              toast.kind === "error"
-                ? "var(--st-status-fail-text)"
-                : "var(--st-status-canceled-text)",
+            backgroundColor: "var(--st-status-fail-soft)",
+            borderColor: "var(--st-border-danger)",
+            color: "var(--st-status-fail-text)",
           }}
         >
           <div className="flex items-center gap-[var(--st-space-8)] min-w-0">
