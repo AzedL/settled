@@ -1,13 +1,11 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Search, Tag, X } from "lucide-react";
+import { Tag } from "lucide-react";
 import { lang } from "../lang";
 import { SearchTagToken, TagChip } from "./TagChip";
 
-interface TagSearchInputProps {
+interface TagFilterInputProps {
   allTags: string[];
   selectedTags: string[];
-  search: string;
-  onSearchChange: (value: string) => void;
   onChangeSelectedTags: (tags: string[]) => void;
 }
 
@@ -17,29 +15,27 @@ type PendingFocusTarget =
   | null;
 
 function isPrintableKey(e: React.KeyboardEvent): boolean {
-  return (
-    e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey
-  );
+  return e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
 }
 
 /**
- * Combined search box & tag-token selector with full keyboard support:
- * type to match items/tags, ArrowUp/ArrowDown + Enter to pick tags,
- * ArrowLeft/ArrowRight to move focus onto selected tag chips, and Backspace/Delete to remove them.
+ * Multi-tag filter input bounded to 4 wrapped rows with vertical scroll and full keyboard navigation:
+ * type to filter available tags, ArrowUp/ArrowDown + Enter to select,
+ * ArrowLeft/ArrowRight to move focus onto selected tokens, and Backspace/Delete to remove them.
  */
-export function TagSearchInput({
+export function TagFilterInput({
   allTags,
   selectedTags,
-  search,
-  onSearchChange,
   onChangeSelectedTags,
-}: TagSearchInputProps) {
+}: TagFilterInputProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const tagRefs = useRef<Array<HTMLDivElement | null>>([]);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pendingFocusRef = useRef<PendingFocusTarget>(null);
+  const suppressFocusOpenRef = useRef(false);
 
+  const [query, setQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [focusedTagIndex, setFocusedTagIndex] = useState<number | null>(null);
@@ -49,23 +45,23 @@ export function TagSearchInput({
     [allTags, selectedTags]
   );
 
-  const normalizedTagQuery = search.trim().replace(/^#+/, "").toLowerCase();
+  const normalizedQuery = query.trim().toLowerCase();
 
   const candidates = useMemo(() => {
-    if (normalizedTagQuery.length === 0) {
+    if (normalizedQuery.length === 0) {
       return unselectedTags;
     }
     return unselectedTags
-      .filter((tag) => tag.toLowerCase().includes(normalizedTagQuery))
+      .filter((tag) => tag.toLowerCase().includes(normalizedQuery))
       .sort((a, b) => {
-        const aStarts = a.toLowerCase().startsWith(normalizedTagQuery) ? 0 : 1;
-        const bStarts = b.toLowerCase().startsWith(normalizedTagQuery) ? 0 : 1;
+        const aStarts = a.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
+        const bStarts = b.toLowerCase().startsWith(normalizedQuery) ? 0 : 1;
         if (aStarts !== bStarts) {
           return aStarts - bStarts;
         }
         return a.localeCompare(b);
       });
-  }, [normalizedTagQuery, unselectedTags]);
+  }, [normalizedQuery, unselectedTags]);
 
   const showDropdown = dropdownOpen && candidates.length > 0;
   const clampedHighlight =
@@ -87,6 +83,7 @@ export function TagSearchInput({
     } else {
       const input = inputRef.current;
       if (input) {
+        suppressFocusOpenRef.current = true;
         input.focus();
         input.scrollIntoView({ block: "nearest" });
         const clampedPos = Math.min(
@@ -96,7 +93,7 @@ export function TagSearchInput({
         input.setSelectionRange(clampedPos, clampedPos);
       }
     }
-  }, [selectedTags, focusedTagIndex, search]);
+  }, [selectedTags, focusedTagIndex, query]);
 
   useLayoutEffect(() => {
     if (!showDropdown || clampedHighlight < 0) {
@@ -107,8 +104,12 @@ export function TagSearchInput({
     });
   }, [showDropdown, clampedHighlight]);
 
-  const focusInputAt = (pos: number) => {
+  const focusInputAt = (pos: number, openDropdown = false) => {
     setFocusedTagIndex(null);
+    if (openDropdown && candidates.length > 0) {
+      setDropdownOpen(true);
+      setHighlightedIndex(0);
+    }
     pendingFocusRef.current = { type: "input", pos };
   };
 
@@ -123,18 +124,21 @@ export function TagSearchInput({
     if (!selectedTags.includes(tag)) {
       onChangeSelectedTags([...selectedTags, tag]);
     }
-    onSearchChange("");
+    setQuery("");
     setDropdownOpen(false);
     setHighlightedIndex(-1);
     focusInputAt(0);
   };
 
-  const removeTagAt = (index: number, mode: "backspace" | "delete" | "click") => {
+  const removeTagAt = (
+    index: number,
+    mode: "backspace" | "delete" | "click"
+  ) => {
     const nextTags = selectedTags.filter((_, idx) => idx !== index);
     onChangeSelectedTags(nextTags);
 
     if (mode === "click") {
-      focusInputAt(search.length);
+      focusInputAt(query.length);
       return;
     }
 
@@ -149,7 +153,6 @@ export function TagSearchInput({
       return;
     }
 
-    // Delete mode moves focus into the tag that slid into `index`, or back to the input.
     if (index < nextTags.length) {
       focusTagAt(index);
     } else {
@@ -157,16 +160,27 @@ export function TagSearchInput({
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextValue = e.target.value;
-    onSearchChange(nextValue);
+  const handleInputFocus = () => {
     setFocusedTagIndex(null);
-
-    const query = nextValue.trim();
-    if (query.length > 0 && unselectedTags.length > 0) {
+    if (suppressFocusOpenRef.current) {
+      suppressFocusOpenRef.current = false;
+      return;
+    }
+    if (candidates.length > 0) {
       setDropdownOpen(true);
       setHighlightedIndex(0);
-    } else if (query.length === 0) {
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = e.target.value;
+    setQuery(nextValue);
+    setFocusedTagIndex(null);
+
+    if (unselectedTags.length > 0) {
+      setDropdownOpen(true);
+      setHighlightedIndex(0);
+    } else {
       setDropdownOpen(false);
       setHighlightedIndex(-1);
     }
@@ -218,7 +232,11 @@ export function TagSearchInput({
     }
 
     if (e.key === "Enter") {
-      if (showDropdown && clampedHighlight >= 0 && candidates[clampedHighlight]) {
+      if (
+        showDropdown &&
+        clampedHighlight >= 0 &&
+        candidates[clampedHighlight]
+      ) {
         e.preventDefault();
         selectCandidate(candidates[clampedHighlight]);
       }
@@ -230,6 +248,9 @@ export function TagSearchInput({
         e.preventDefault();
         setDropdownOpen(false);
         setHighlightedIndex(-1);
+      } else if (query.length > 0) {
+        e.preventDefault();
+        setQuery("");
       }
     }
   };
@@ -264,7 +285,7 @@ export function TagSearchInput({
 
     if (e.key === "End") {
       e.preventDefault();
-      focusInputAt(search.length);
+      focusInputAt(query.length);
       return;
     }
 
@@ -282,17 +303,17 @@ export function TagSearchInput({
 
     if (e.key === "Escape") {
       e.preventDefault();
-      focusInputAt(search.length);
+      focusInputAt(query.length);
       return;
     }
 
     if (isPrintableKey(e)) {
       e.preventDefault();
-      const nextSearch = `${search}${e.key}`;
-      onSearchChange(nextSearch);
+      const nextQuery = `${query}${e.key}`;
+      setQuery(nextQuery);
       setDropdownOpen(unselectedTags.length > 0);
       setHighlightedIndex(0);
-      focusInputAt(nextSearch.length);
+      focusInputAt(nextQuery.length);
     }
   };
 
@@ -306,32 +327,6 @@ export function TagSearchInput({
     setFocusedTagIndex(null);
   };
 
-  const handleClearAll = () => {
-    onChangeSelectedTags([]);
-    onSearchChange("");
-    setDropdownOpen(false);
-    setHighlightedIndex(-1);
-    focusInputAt(0);
-  };
-
-  const handleToggleDropdown = () => {
-    if (candidates.length === 0) {
-      focusInputAt(search.length);
-      return;
-    }
-    if (showDropdown) {
-      setDropdownOpen(false);
-      setHighlightedIndex(-1);
-      focusInputAt(search.length);
-    } else {
-      setDropdownOpen(true);
-      setHighlightedIndex(0);
-      focusInputAt(search.length);
-    }
-  };
-
-  const hasFilters = selectedTags.length > 0 || search.length > 0;
-
   return (
     <div
       ref={containerRef}
@@ -341,20 +336,24 @@ export function TagSearchInput({
       <div
         onClick={(e) => {
           if (e.target === inputRef.current) {
+            if (!showDropdown && candidates.length > 0) {
+              setDropdownOpen(true);
+              setHighlightedIndex(0);
+            }
             return;
           }
-          focusInputAt(search.length);
+          focusInputAt(query.length, !showDropdown);
         }}
-        className="min-h-[var(--st-control-h)] flex items-start gap-[var(--st-space-8)] pl-[var(--st-space-10)] pr-[var(--st-space-4)] py-[var(--st-space-2)] rounded-[var(--st-radius-md)] border st-search-box cursor-text"
+        className="min-h-[var(--st-control-h)] flex items-start gap-[var(--st-space-8)] pl-[var(--st-space-10)] pr-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-md)] border st-search-box cursor-text"
       >
-        <span className="my-[var(--st-space-2)] h-[var(--st-tag-h)] inline-flex items-center shrink-0">
-          <Search
+        <span className="h-[var(--st-tag-h)] inline-flex items-center shrink-0">
+          <Tag
             className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]"
             style={{ color: "var(--st-text-muted)" }}
           />
         </span>
 
-        <div className="flex-1 min-w-0 max-h-[var(--st-search-tags-max-h)] overflow-y-auto p-[var(--st-space-2)] flex flex-wrap items-center gap-[var(--st-space-4)]">
+        <div className="flex-1 min-w-0 max-h-[var(--st-search-tags-max-h)] overflow-y-auto flex flex-wrap items-center gap-[var(--st-space-4)]">
           {selectedTags.map((tag, index) => (
             <SearchTagToken
               key={tag}
@@ -375,48 +374,15 @@ export function TagSearchInput({
             role="combobox"
             aria-expanded={showDropdown}
             aria-autocomplete="list"
-            value={search}
+            value={query}
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
-            onFocus={() => setFocusedTagIndex(null)}
+            onFocus={handleInputFocus}
             placeholder={
-              selectedTags.length === 0 ? lang.filters.searchPlaceholder : ""
+              selectedTags.length === 0 ? lang.filters.tagFilterPlaceholder : ""
             }
             className="flex-1 min-w-[72px] h-[var(--st-tag-h)] bg-transparent outline-none text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] placeholder:text-[color:var(--st-text-muted)]"
           />
-        </div>
-
-        <div className="my-[var(--st-space-2)] h-[var(--st-tag-h)] inline-flex items-center gap-[var(--st-space-2)] shrink-0">
-          {hasFilters && (
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleClearAll();
-              }}
-              aria-label={lang.filters.clearSearchAria}
-              className="w-[var(--st-tag-h)] h-[var(--st-tag-h)] inline-flex items-center justify-center rounded-[var(--st-radius-sm)] shrink-0 cursor-pointer st-control st-icon-ghost"
-            >
-              <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-            </button>
-          )}
-
-          {unselectedTags.length > 0 && (
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleToggleDropdown();
-              }}
-              aria-label={lang.filters.toggleTagsAria}
-              aria-expanded={showDropdown}
-              className="w-[var(--st-tag-h)] h-[var(--st-tag-h)] inline-flex items-center justify-center rounded-[var(--st-radius-sm)] shrink-0 cursor-pointer st-control st-icon-ghost"
-            >
-              <Tag className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -447,7 +413,7 @@ export function TagSearchInput({
                   selectCandidate(tag);
                 }}
                 onMouseEnter={() => setHighlightedIndex(index)}
-                className="w-full px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] text-left flex items-center justify-between gap-[var(--st-space-8)] cursor-pointer st-tag-option"
+                className="w-full px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] text-left flex items-center gap-[var(--st-space-8)] cursor-pointer st-tag-option"
               >
                 <TagChip label={tag} />
               </button>

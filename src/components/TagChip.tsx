@@ -57,7 +57,7 @@ interface SearchTagTokenProps {
 }
 
 /**
- * Keyboard-focusable and removable tag token rendered inside `TagSearchInput`.
+ * Keyboard-focusable and removable tag token rendered inside `TagFilterInput`.
  * Uses a focusable `<div>` wrapper so the remove icon can safely stay a `<button>`.
  */
 export function SearchTagToken({

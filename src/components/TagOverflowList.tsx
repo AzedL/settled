@@ -26,8 +26,8 @@ function getViewportSafePosition(
   popoverWidth: number,
   popoverHeight: number
 ) {
-  const margin = 8;
-  const gap = 6;
+  const margin = 24;
+  const gap = 8;
   const maxLeft = Math.max(margin, window.innerWidth - popoverWidth - margin);
   const left = Math.min(Math.max(margin, anchor.left), maxLeft);
 
@@ -65,7 +65,7 @@ function TagHoverPopover({
     <div
       ref={popoverRef}
       role="tooltip"
-      className="fixed z-50 pointer-events-none max-w-[min(520px,calc(100vw-16px))] rounded-[var(--st-radius-md)] border p-[var(--st-space-8)] flex flex-wrap gap-[var(--st-space-6)]"
+      className="fixed z-50 pointer-events-none max-w-[min(520px,calc(100vw-48px))] rounded-[var(--st-radius-md)] border p-[var(--st-space-8)] flex flex-wrap gap-[var(--st-space-6)]"
       style={{
         left: `${coords.left}px`,
         top: `${coords.top}px`,

@@ -243,10 +243,9 @@ button:focus-visible {
   .st-tag--token:focus,
   .st-tag--token[data-active="true"] {
     outline: none;
-    background-color: var(--st-accent-soft);
+    background-color: var(--st-bg-surface-active);
     border-color: var(--st-border-accent);
-    color: var(--st-accent-text);
-    box-shadow: 0 0 0 2px var(--st-focus-ring);
+    color: var(--st-text-primary);
   }
 
   .st-tag-option:hover,

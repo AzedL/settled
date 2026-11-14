@@ -82,7 +82,7 @@ export function matchesItemFilters(
     return false;
   }
 
-  const query = options.search.trim().replace(/^#+/, "").toLowerCase();
+  const query = options.search.trim().toLowerCase();
   if (query.length > 0) {
     const haystack = [item.name, item.description ?? "", ...item.tags]
       .join(" ")

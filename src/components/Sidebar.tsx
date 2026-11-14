@@ -1,4 +1,4 @@
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Search, X } from "lucide-react";
 import { lang } from "../lang";
 import type {
   CommandRuntimeState,
@@ -8,8 +8,8 @@ import type {
   WorkspaceSnapshot,
 } from "../types";
 import { getCommandRuntime } from "../utils/itemStatus";
+import { TagFilterInput } from "./TagFilterInput";
 import { TagOverflowList } from "./TagOverflowList";
-import { TagSearchInput } from "./TagSearchInput";
 import { TrafficLed } from "./TrafficLed";
 
 interface SidebarProps {
@@ -54,13 +54,44 @@ export function Sidebar({
         className="p-[var(--st-space-12)] border-b flex flex-col gap-[var(--st-space-10)] shrink-0"
         style={{ borderColor: "var(--st-border-subtle)" }}
       >
-        <TagSearchInput
-          allTags={workspace.allTags}
-          selectedTags={selectedTags}
-          search={search}
-          onSearchChange={onSearchChange}
-          onChangeSelectedTags={onChangeSelectedTags}
-        />
+        <div
+          className={`h-[var(--st-control-h)] flex items-center gap-[var(--st-space-8)] pl-[var(--st-space-10)] ${
+            search.length > 0
+              ? "pr-[var(--st-space-4)]"
+              : "pr-[var(--st-space-10)]"
+          } rounded-[var(--st-radius-md)] border st-search-box`}
+        >
+          <Search
+            className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
+            style={{ color: "var(--st-text-muted)" }}
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={lang.filters.searchPlaceholder}
+            className="w-full min-w-0 bg-transparent outline-none text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] placeholder:text-[color:var(--st-text-muted)]"
+          />
+          {search.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onSearchChange("")}
+              aria-label={lang.filters.clearSearchAria}
+              className="p-[var(--st-space-4)] rounded-[var(--st-radius-sm)] shrink-0 cursor-pointer st-control st-icon-ghost"
+            >
+              <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
+            </button>
+          )}
+        </div>
+
+        {workspace.allTags.length > 0 && (
+          <TagFilterInput
+            key={workspace.rootPath}
+            allTags={workspace.allTags}
+            selectedTags={selectedTags}
+            onChangeSelectedTags={onChangeSelectedTags}
+          />
+        )}
 
         <div className="flex items-center justify-between gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
           <div
