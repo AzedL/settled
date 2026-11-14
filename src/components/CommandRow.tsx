@@ -8,11 +8,18 @@ import { TrafficLed } from "./TrafficLed";
 interface CommandRowProps {
   command: ResolvedCommand;
   runtime: CommandRuntimeState;
+  isActiveStop: boolean;
   onRun: () => void;
   onStop: () => void;
 }
 
-export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps) {
+export function CommandRow({
+  command,
+  runtime,
+  isActiveStop,
+  onRun,
+  onStop,
+}: CommandRowProps) {
   const isRunning = runtime.status === "running";
   const hasLogs = runtime.logs.length > 0 || runtime.error !== null;
   const [logOpen, setLogOpen] = useState(false);
@@ -72,26 +79,24 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
             )}
           </button>
 
-          {command.applicable &&
-            (isRunning ? (
-              <button
-                type="button"
-                onClick={onStop}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-danger-soft"
-              >
-                <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                <span>{lang.scripts.stopSingle}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onRun}
-                className="inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-accent-soft"
-              >
-                <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                <span>{lang.scripts.runSingle}</span>
-              </button>
-            ))}
+          {command.applicable && (
+            <button
+              type="button"
+              onClick={isActiveStop ? onStop : onRun}
+              className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control ${
+                isActiveStop ? "st-btn-warn-soft" : "st-btn-accent-soft"
+              }`}
+            >
+              {isActiveStop ? (
+                <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+              ) : (
+                <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+              )}
+              <span>
+                {isActiveStop ? lang.scripts.stopSingle : lang.scripts.runSingle}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -114,7 +119,7 @@ export function CommandRow({ command, runtime, onRun, onStop }: CommandRowProps)
               className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] px-[var(--st-space-8)] py-[var(--st-space-4)] rounded-[var(--st-radius-sm)] break-all text-[color:var(--st-text-primary)]"
               style={{ backgroundColor: "var(--st-bg-terminal)" }}
             >
-              {command.resolvedRun}
+              {command.rawRun}
             </code>
 
             <div className="flex flex-wrap items-center gap-x-[var(--st-space-16)] gap-y-[var(--st-space-4)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)]">

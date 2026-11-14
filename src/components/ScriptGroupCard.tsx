@@ -1,6 +1,7 @@
-import { Play, ShieldCheck, Wrench, TerminalSquare } from "lucide-react";
+import { Play, ShieldCheck, Square, Wrench, TerminalSquare } from "lucide-react";
 import { lang } from "../lang";
 import type {
+  ActiveRunAction,
   CommandRuntimeState,
   ResolvedCommand,
   ScopeMode,
@@ -11,27 +12,31 @@ import { getCommandRuntime } from "../utils/itemStatus";
 import { CommandRow } from "./CommandRow";
 
 interface ScriptGroupCardProps {
+  itemId: string;
   group: ScriptGroup;
   itemApplicable: boolean;
   scope: ScopeMode;
   runtimeMap: Record<string, CommandRuntimeState>;
+  activeAction: ActiveRunAction | null;
   hasFailingCheck: boolean;
   isVerifyingFix: boolean;
   onRunGroup: (group: ScriptGroup) => void;
   onRunCommand: (group: ScriptGroup, cmd: ResolvedCommand) => void;
-  onStopCommand: (commandId: string) => void;
+  onStopActiveRun: () => void;
 }
 
 export function ScriptGroupCard({
+  itemId,
   group,
   itemApplicable,
   scope,
   runtimeMap,
+  activeAction,
   hasFailingCheck,
   isVerifyingFix,
   onRunGroup,
   onRunCommand,
-  onStopCommand,
+  onStopActiveRun,
 }: ScriptGroupCardProps) {
   const applicableCommands = group.commands.filter((c) => c.applicable);
   const visibleCommands =
@@ -42,6 +47,11 @@ export function ScriptGroupCard({
 
   const title = formatScriptGroupTitle(group.key);
   const runGroupLabel = lang.scripts.runGroup(title);
+  const stopGroupLabel = lang.scripts.stopGroup(title);
+  const isGroupActiveStop =
+    activeAction?.kind === "group" &&
+    activeAction.itemId === itemId &&
+    activeAction.groupKey === group.key;
 
   const GroupIcon =
     group.role === "check"
@@ -49,10 +59,6 @@ export function ScriptGroupCard({
       : group.role === "fix"
         ? Wrench
         : TerminalSquare;
-
-  const anyRunning = applicableCommands.some(
-    (c) => getCommandRuntime(runtimeMap, c.commandId).status === "running"
-  );
 
   const canRunGroup = itemApplicable && applicableCommands.length > 0;
 
@@ -95,14 +101,19 @@ export function ScriptGroupCard({
         {canRunGroup && (
           <button
             type="button"
-            disabled={anyRunning}
-            onClick={() => onRunGroup(group)}
-            className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold disabled:cursor-not-allowed cursor-pointer shrink-0 st-control ${
-              group.role === "fix" ? "st-btn-warn-soft" : "st-btn-primary"
+            onClick={isGroupActiveStop ? onStopActiveRun : () => onRunGroup(group)}
+            className={`inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-14)] py-[var(--st-space-8)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer shrink-0 st-control ${
+              isGroupActiveStop || group.role === "fix"
+                ? "st-btn-warn-soft"
+                : "st-btn-primary"
             }`}
           >
-            <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-            <span>{runGroupLabel}</span>
+            {isGroupActiveStop ? (
+              <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+            ) : (
+              <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+            )}
+            <span>{isGroupActiveStop ? stopGroupLabel : runGroupLabel}</span>
           </button>
         )}
       </div>
@@ -138,8 +149,12 @@ export function ScriptGroupCard({
               key={cmd.commandId}
               command={cmd}
               runtime={getCommandRuntime(runtimeMap, cmd.commandId)}
+              isActiveStop={
+                activeAction?.kind === "command" &&
+                activeAction.commandId === cmd.commandId
+              }
               onRun={() => onRunCommand(group, cmd)}
-              onStop={() => onStopCommand(cmd.commandId)}
+              onStop={onStopActiveRun}
             />
           ))}
         </div>

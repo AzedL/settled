@@ -8,8 +8,16 @@ interface TrafficLedProps {
 }
 
 export function TrafficLed({ status, size = "md", title }: TrafficLedProps) {
-  const dimensionClass =
+  const isDisabled = status === "disabled";
+  const slotClass =
     size === "sm"
+      ? "w-[var(--st-led-slot-sm)] h-[var(--st-led-slot-sm)]"
+      : "w-[var(--st-led-slot-md)] h-[var(--st-led-slot-md)]";
+  const dimensionClass = isDisabled
+    ? size === "sm"
+      ? "w-[var(--st-led-disabled-sm)] h-[var(--st-led-disabled-sm)]"
+      : "w-[var(--st-led-disabled-md)] h-[var(--st-led-disabled-md)]"
+    : size === "sm"
       ? "w-[var(--st-led-sm)] h-[var(--st-led-sm)]"
       : "w-[var(--st-led-md)] h-[var(--st-led-md)]";
 
@@ -46,12 +54,16 @@ export function TrafficLed({ status, size = "md", title }: TrafficLedProps) {
 
   return (
     <span
-      className={`inline-block shrink-0 rounded-full ${dimensionClass} ${
-        status === "running" ? "animate-pulse" : ""
-      }`}
-      style={statusStyles[status]}
+      className={`inline-flex items-center justify-center shrink-0 ${slotClass}`}
       title={title ?? label}
       aria-label={title ?? label}
-    />
+    >
+      <span
+        className={`block rounded-full ${dimensionClass} ${
+          status === "running" ? "animate-pulse" : ""
+        }`}
+        style={statusStyles[status]}
+      />
+    </span>
   );
 }

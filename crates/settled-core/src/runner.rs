@@ -2,7 +2,7 @@ use crate::model::{
     CommandExecutionTarget, CommandResult, LogStream, OutputLine, Platform, RunEvent, RunStatus,
 };
 use encoding_rs::Encoding;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Instant;
@@ -18,7 +18,13 @@ pub const DEFAULT_CONCURRENCY: usize = 6;
 /// Tracks active runs and child PIDs so callers can cancel a single command or a whole run batch.
 #[derive(Debug, Default, Clone)]
 pub struct RunRegistry {
-    inner: Arc<Mutex<HashMap<String, ActiveCommandHandle>>>,
+    inner: Arc<Mutex<RegistryState>>,
+}
+
+#[derive(Debug, Default)]
+struct RegistryState {
+    commands: HashMap<String, ActiveCommandHandle>,
+    canceled_runs: HashSet<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -37,12 +43,13 @@ impl RunRegistry {
     async fn register(&self, run_id: &str, command_id: &str) -> Arc<Notify> {
         let notify = Arc::new(Notify::new());
         let mut guard = self.inner.lock().await;
-        guard.insert(
+        let canceled = guard.canceled_runs.contains(run_id);
+        guard.commands.insert(
             command_id.to_string(),
             ActiveCommandHandle {
                 run_id: run_id.to_string(),
                 pid: None,
-                canceled: false,
+                canceled,
                 notify: notify.clone(),
             },
         );
@@ -51,7 +58,7 @@ impl RunRegistry {
 
     async fn attach_pid(&self, command_id: &str, pid: u32) -> bool {
         let mut guard = self.inner.lock().await;
-        if let Some(handle) = guard.get_mut(command_id) {
+        if let Some(handle) = guard.commands.get_mut(command_id) {
             handle.pid = Some(pid);
             handle.canceled
         } else {
@@ -61,19 +68,24 @@ impl RunRegistry {
 
     async fn is_canceled(&self, command_id: &str) -> bool {
         let guard = self.inner.lock().await;
-        guard.get(command_id).is_some_and(|h| h.canceled)
+        guard.commands.get(command_id).is_some_and(|h| h.canceled)
     }
 
     async fn unregister(&self, command_id: &str) {
         let mut guard = self.inner.lock().await;
-        guard.remove(command_id);
+        guard.commands.remove(command_id);
+    }
+
+    async fn clear_canceled_run(&self, run_id: &str) {
+        let mut guard = self.inner.lock().await;
+        guard.canceled_runs.remove(run_id);
     }
 
     /// Cancels a single running command by `command_id` and terminates its process tree.
     pub async fn cancel_command(&self, command_id: &str) -> bool {
         let pid_and_notify = {
             let mut guard = self.inner.lock().await;
-            if let Some(handle) = guard.get_mut(command_id) {
+            if let Some(handle) = guard.commands.get_mut(command_id) {
                 handle.canceled = true;
                 Some((handle.pid, handle.notify.clone()))
             } else {
@@ -92,11 +104,13 @@ impl RunRegistry {
         }
     }
 
-    /// Cancels every running command associated with `run_id`.
+    /// Cancels every running command associated with `run_id`, plus any queued tasks for that batch.
     pub async fn cancel_run(&self, run_id: &str) -> usize {
         let targets: Vec<(Option<u32>, Arc<Notify>)> = {
             let mut guard = self.inner.lock().await;
+            guard.canceled_runs.insert(run_id.to_string());
             guard
+                .commands
                 .values_mut()
                 .filter(|handle| handle.run_id == run_id)
                 .map(|handle| {
@@ -120,7 +134,16 @@ impl RunRegistry {
     pub async fn cancel_all(&self) -> usize {
         let targets: Vec<(Option<u32>, Arc<Notify>)> = {
             let mut guard = self.inner.lock().await;
+            let active_run_ids: Vec<String> = guard
+                .commands
+                .values()
+                .map(|handle| handle.run_id.clone())
+                .collect();
+            for run_id in active_run_ids {
+                guard.canceled_runs.insert(run_id);
+            }
             guard
+                .commands
                 .values_mut()
                 .map(|handle| {
                     handle.canceled = true;
@@ -177,6 +200,7 @@ where
             ordered.push(item);
         }
     }
+    registry.clear_canceled_run(&run_id).await;
     ordered.sort_by_key(|(order, _)| *order);
     ordered.into_iter().map(|(_, res)| res).collect()
 }
@@ -671,5 +695,37 @@ mod tests {
         let results = handle.await.unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].status, RunStatus::Canceled);
+    }
+
+    #[tokio::test]
+    async fn cancels_both_running_and_queued_commands_in_run_batch() {
+        let tmp = TempDir::new().unwrap();
+        let sleep_cmd = match Platform::current() {
+            Platform::Windows => "Start-Sleep -Seconds 30",
+            Platform::Macos | Platform::Linux => "sleep 30",
+        };
+        let first = make_target(tmp.path(), "batch-1", sleep_cmd);
+        let second = make_target(tmp.path(), "batch-2", "echo should_not_pass");
+        let registry = RunRegistry::new();
+        let reg_clone = registry.clone();
+
+        let handle = tokio::spawn(async move {
+            run_commands_parallel(
+                "run-batch-cancel".to_string(),
+                vec![first, second],
+                1,
+                reg_clone,
+                |_ev| {},
+            )
+            .await
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        assert_eq!(registry.cancel_run("run-batch-cancel").await, 1);
+
+        let results = handle.await.unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].status, RunStatus::Canceled);
+        assert_eq!(results[1].status, RunStatus::Canceled);
     }
 }

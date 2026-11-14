@@ -49,6 +49,10 @@
   --st-doc-max-h: 360px;
   --st-led-sm: 10px;
   --st-led-md: 12px;
+  --st-led-disabled-sm: 12px;
+  --st-led-disabled-md: 14px;
+  --st-led-slot-sm: 12px;
+  --st-led-slot-md: 14px;
   --st-icon-sm: 14px;
   --st-icon-md: 16px;
   --st-icon-lg: 20px;
@@ -105,7 +109,6 @@
 
   --st-status-fail: #e05548;
   --st-status-fail-soft: #fff1f0;
-  --st-status-fail-soft-hover: #ffe3e0;
   --st-status-fail-text: #b42318;
   --st-status-fail-glow: 0 0 0 2px rgba(224, 85, 72, 0.20);
 
@@ -124,7 +127,7 @@
   --st-status-idle-soft: #eef2f0;
   --st-status-idle-text: #58676e;
 
-  --st-status-disabled: #b4beb9;
+  --st-status-disabled: #a7b3ad;
   --st-status-disabled-soft: #eef2f1;
   --st-status-disabled-text: #8d999c;
 
@@ -183,7 +186,6 @@
 
   --st-status-fail: #e05d56;
   --st-status-fail-soft: rgba(224, 93, 86, 0.16);
-  --st-status-fail-soft-hover: rgba(224, 93, 86, 0.25);
   --st-status-fail-text: #f08e88;
   --st-status-fail-glow: 0 0 0 2px rgba(224, 93, 86, 0.24);
 
@@ -202,7 +204,7 @@
   --st-status-idle-soft: rgba(104, 110, 122, 0.22);
   --st-status-idle-text: #a1a7b3;
 
-  --st-status-disabled: #585f6b;
+  --st-status-disabled: #646c7a;
   --st-status-disabled-soft: rgba(62, 66, 75, 0.28);
   --st-status-disabled-text: #6d7380;
 

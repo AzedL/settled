@@ -28,9 +28,8 @@ export const lang = {
     scopeLabel: "视图范围",
     scopeCurrent: "当前设备",
     scopeAll: "全部平台",
-    runAllChecks: "全部 Check",
-    cancelAll: "中止运行",
-    activeRunsCount: (count: number): string => `运行中 (${count})`,
+    runChecks: "运行 Check",
+    stopChecks: "中止 Check",
     selectWorkspaceTitle: "选择 Settled Workspace 目录",
     noWorkspaceLoaded: "未打开工作区",
     themeGroupAria: "主题外观",
@@ -44,7 +43,6 @@ export const lang = {
     allTags: "全部标签",
     itemsSummary: (shown: number, total: number): string =>
       `${shown}/${total}`,
-    runFilteredChecks: (count: number): string => `运行当前筛选 Check (${count})`,
     clearSearchAria: "清空搜索关键词",
   },
 
@@ -77,6 +75,7 @@ export const lang = {
 
   scripts: {
     runGroup: (title: string): string => `运行 ${title}`,
+    stopGroup: (title: string): string => `中止 ${title}`,
     runSingle: "运行",
     stopSingle: "中止",
     autoVerifyingFix: "修复动作执行完毕，正在自动重跑当前条目 check 验收...",

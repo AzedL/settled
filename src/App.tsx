@@ -2,8 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import {
   buildAiContext,
-  cancelAllRuns,
-  cancelCommand,
+  cancelRun,
   copyTextToClipboard,
   getInitialState,
   openInVscode,
@@ -23,6 +22,7 @@ import { Sidebar } from "./components/Sidebar";
 import { WelcomeView } from "./components/WelcomeView";
 import { lang } from "./lang";
 import type {
+  ActiveRunAction,
   CommandExecutionTarget,
   CommandRuntimeState,
   InitialAppState,
@@ -38,7 +38,7 @@ import {
   collectItemCommandResults,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
-  getCommandRuntime,
+  matchesItemFilters,
   toExecutionTarget,
 } from "./utils/itemStatus";
 
@@ -48,6 +48,7 @@ interface ToastMessage {
 }
 
 interface PendingConfirmState {
+  action: ActiveRunAction;
   item: WorkspaceItem;
   role: ScriptRole;
   targets: CommandExecutionTarget[];
@@ -126,6 +127,9 @@ export default function App() {
     Record<string, CommandRuntimeState>
   >({});
   const [verifyingItemId, setVerifyingItemId] = useState<string | null>(null);
+  const [activeAction, setActiveAction] = useState<ActiveRunAction | null>(
+    null
+  );
   const [pendingConfirm, setPendingConfirm] =
     useState<PendingConfirmState | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -133,8 +137,10 @@ export default function App() {
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
   workspaceRef.current = workspace;
 
-  const runtimeMapRef = useRef<Record<string, CommandRuntimeState>>(runtimeMap);
-  runtimeMapRef.current = runtimeMap;
+  const activeActionRef = useRef<ActiveRunAction | null>(null);
+  const activeRunIdRef = useRef<string | null>(null);
+  const canceledActionRef = useRef(false);
+  const actionSeqRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -196,11 +202,42 @@ export default function App() {
     []
   );
 
+  const handleStopActiveAction = useCallback(async () => {
+    if (activeActionRef.current === null || canceledActionRef.current) {
+      return;
+    }
+    canceledActionRef.current = true;
+    const runId = activeRunIdRef.current;
+    if (!runId) {
+      return;
+    }
+    try {
+      await cancelRun(runId);
+    } catch (err) {
+      setToast({
+        kind: "error",
+        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
+      });
+    }
+  }, []);
+
   const loadWorkspaceAtPath = useCallback(
     async (path: string, clearOnFailure = false) => {
       try {
         const previousRoot = workspaceRef.current?.rootPath;
         const snapshot = await openWorkspace(path);
+        if (
+          previousRoot &&
+          previousRoot !== snapshot.rootPath &&
+          activeActionRef.current !== null
+        ) {
+          void handleStopActiveAction();
+          actionSeqRef.current += 1;
+          activeActionRef.current = null;
+          activeRunIdRef.current = null;
+          canceledActionRef.current = false;
+          setActiveAction(null);
+        }
         applyWorkspaceSnapshot(snapshot, previousRoot === snapshot.rootPath);
         setInitialState((prev) =>
           prev
@@ -229,7 +266,7 @@ export default function App() {
         });
       }
     },
-    [applyWorkspaceSnapshot]
+    [applyWorkspaceSnapshot, handleStopActiveAction]
   );
 
   const handleReloadWorkspace = useCallback(
@@ -373,21 +410,19 @@ export default function App() {
   const executeTargets = useCallback(
     async (
       targets: CommandExecutionTarget[],
+      seq: number,
       verifyItemAfterFix?: WorkspaceItem
     ) => {
-      const runnable = targets.filter(
-        (target) =>
-          getCommandRuntime(runtimeMapRef.current, target.commandId).status !==
-          "running"
-      );
-      if (runnable.length === 0) {
+      if (targets.length === 0 || actionSeqRef.current !== seq) {
         return;
       }
 
       const runId = createRunId(verifyItemAfterFix ? "fix" : "run");
+      activeRunIdRef.current = runId;
+
       setRuntimeMap((prev) => {
         const next = { ...prev };
-        for (const target of runnable) {
+        for (const target of targets) {
           next[target.commandId] = {
             status: "running",
             exitCode: null,
@@ -401,7 +436,7 @@ export default function App() {
       });
 
       try {
-        const summary = await runCommands(runId, runnable);
+        const summary = await runCommands(runId, targets);
         setRuntimeMap((prev) => {
           const next = { ...prev };
           for (const result of summary.results) {
@@ -420,7 +455,11 @@ export default function App() {
           return next;
         });
 
-        if (verifyItemAfterFix) {
+        const wasCanceled =
+          canceledActionRef.current ||
+          summary.results.some((result) => result.status === "canceled");
+
+        if (verifyItemAfterFix && !wasCanceled && actionSeqRef.current === seq) {
           const currentItem =
             workspaceRef.current?.items.find(
               (candidate) => candidate.id === verifyItemAfterFix.id
@@ -430,7 +469,8 @@ export default function App() {
             setVerifyingItemId(currentItem.id);
             try {
               await executeTargets(
-                verifyCommands.map((cmd) => toExecutionTarget(currentItem, cmd))
+                verifyCommands.map((cmd) => toExecutionTarget(currentItem, cmd)),
+                seq
               );
             } finally {
               setVerifyingItemId((prevId) =>
@@ -449,28 +489,63 @@ export default function App() {
     []
   );
 
+  const startTrackedAction = useCallback(
+    async (
+      action: ActiveRunAction,
+      targets: CommandExecutionTarget[],
+      verifyItemAfterFix?: WorkspaceItem
+    ) => {
+      if (activeActionRef.current !== null || targets.length === 0) {
+        return;
+      }
+
+      const seq = ++actionSeqRef.current;
+      activeActionRef.current = action;
+      canceledActionRef.current = false;
+      activeRunIdRef.current = null;
+      setActiveAction(action);
+
+      try {
+        await executeTargets(targets, seq, verifyItemAfterFix);
+      } finally {
+        if (actionSeqRef.current === seq) {
+          activeActionRef.current = null;
+          activeRunIdRef.current = null;
+          canceledActionRef.current = false;
+          setActiveAction(null);
+        }
+      }
+    },
+    [executeTargets]
+  );
+
   const triggerWithOptionalConfirm = useCallback(
     (
+      action: ActiveRunAction,
       item: WorkspaceItem,
       role: ScriptRole,
       targets: CommandExecutionTarget[]
     ) => {
-      if (targets.length === 0) {
+      if (activeActionRef.current !== null || targets.length === 0) {
         return;
       }
       if (role === "check") {
-        void executeTargets(targets);
+        void startTrackedAction(action, targets);
         return;
       }
 
       const shouldConfirm = initialState?.prefs.confirmMutatingRuns ?? true;
       if (shouldConfirm) {
-        setPendingConfirm({ item, role, targets });
+        setPendingConfirm({ action, item, role, targets });
       } else {
-        void executeTargets(targets, role === "fix" ? item : undefined);
+        void startTrackedAction(
+          action,
+          targets,
+          role === "fix" ? item : undefined
+        );
       }
     },
-    [executeTargets, initialState?.prefs.confirmMutatingRuns]
+    [initialState?.prefs.confirmMutatingRuns, startTrackedAction]
   );
 
   const handleOpenWorkspaceDialog = async () => {
@@ -509,29 +584,34 @@ export default function App() {
     }
   };
 
-  const handleRunAllChecks = () => {
+  const scopedCount = useMemo(() => {
     if (!workspace) {
-      return;
+      return 0;
     }
-    const targets: CommandExecutionTarget[] = [];
-    for (const item of workspace.items) {
-      for (const cmd of getApplicableCheckCommands(item)) {
-        targets.push(toExecutionTarget(item, cmd));
-      }
-    }
-    if (targets.length === 0) {
-      setToast({
-        kind: "warn",
-        message: lang.notifications.noRunnableChecks,
-      });
-      return;
-    }
-    void executeTargets(targets);
-  };
+    return scope === "current"
+      ? workspace.items.filter((item) => item.applicable).length
+      : workspace.items.length;
+  }, [scope, workspace]);
 
-  const handleRunFilteredChecks = (items: WorkspaceItem[]) => {
+  const filteredItems = useMemo(() => {
+    if (!workspace) {
+      return [];
+    }
+    return workspace.items.filter((item) =>
+      matchesItemFilters(item, {
+        scope,
+        search,
+        selectedTag,
+      })
+    );
+  }, [scope, search, selectedTag, workspace]);
+
+  const handleRunHeaderChecks = () => {
+    if (activeActionRef.current !== null || !workspace) {
+      return;
+    }
     const targets: CommandExecutionTarget[] = [];
-    for (const item of items) {
+    for (const item of filteredItems) {
       for (const cmd of getApplicableCheckCommands(item)) {
         targets.push(toExecutionTarget(item, cmd));
       }
@@ -543,17 +623,22 @@ export default function App() {
       });
       return;
     }
-    void executeTargets(targets);
+    void startTrackedAction({ kind: "header-checks" }, targets);
   };
 
   const handleRunGroup = (item: WorkspaceItem, group: ScriptGroup) => {
-    if (!item.applicable) {
+    if (activeActionRef.current !== null || !item.applicable) {
       return;
     }
     const targets = group.commands
       .filter((cmd) => cmd.applicable)
       .map((cmd) => toExecutionTarget(item, cmd));
-    triggerWithOptionalConfirm(item, group.role, targets);
+    triggerWithOptionalConfirm(
+      { kind: "group", itemId: item.id, groupKey: group.key },
+      item,
+      group.role,
+      targets
+    );
   };
 
   const handleRunSingleCommand = (
@@ -561,34 +646,15 @@ export default function App() {
     group: ScriptGroup,
     cmd: ResolvedCommand
   ) => {
-    if (!item.applicable || !cmd.applicable) {
+    if (activeActionRef.current !== null || !item.applicable || !cmd.applicable) {
       return;
     }
-    triggerWithOptionalConfirm(item, group.role, [
-      toExecutionTarget(item, cmd),
-    ]);
-  };
-
-  const handleStopCommand = async (commandId: string) => {
-    try {
-      await cancelCommand(commandId);
-    } catch (err) {
-      setToast({
-        kind: "error",
-        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-      });
-    }
-  };
-
-  const handleCancelAll = async () => {
-    try {
-      await cancelAllRuns();
-    } catch (err) {
-      setToast({
-        kind: "error",
-        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-      });
-    }
+    triggerWithOptionalConfirm(
+      { kind: "command", commandId: cmd.commandId },
+      item,
+      group.role,
+      [toExecutionTarget(item, cmd)]
+    );
   };
 
   const handleConfirmModalSubmit = async (skipFuture: boolean) => {
@@ -597,6 +663,12 @@ export default function App() {
     }
     const pending = pendingConfirm;
     setPendingConfirm(null);
+
+    const runPromise = startTrackedAction(
+      pending.action,
+      pending.targets,
+      pending.role === "fix" ? pending.item : undefined
+    );
 
     if (skipFuture) {
       try {
@@ -612,10 +684,7 @@ export default function App() {
       }
     }
 
-    await executeTargets(
-      pending.targets,
-      pending.role === "fix" ? pending.item : undefined
-    );
+    await runPromise;
   };
 
   const handleOpenInVscode = async (path: string) => {
@@ -653,13 +722,6 @@ export default function App() {
     }
   };
 
-  const totalRunningCount = useMemo(
-    () =>
-      Object.values(runtimeMap).filter((state) => state.status === "running")
-        .length,
-    [runtimeMap]
-  );
-
   const selectedItem = useMemo(
     () => workspace?.items.find((item) => item.id === selectedItemId) ?? null,
     [workspace, selectedItemId]
@@ -676,14 +738,14 @@ export default function App() {
       <HeaderBar
         workspace={workspace}
         themeMode={themeMode}
-        runningCount={totalRunningCount}
+        isCheckingActive={activeAction?.kind === "header-checks"}
         hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
         onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
         onLoadSample={handleLoadSample}
         onReload={() => void handleReloadWorkspace(false)}
-        onRunAllChecks={handleRunAllChecks}
-        onCancelAll={() => void handleCancelAll()}
+        onRunChecks={handleRunHeaderChecks}
+        onStopChecks={() => void handleStopActiveAction()}
       />
 
       {toast && (
@@ -725,6 +787,8 @@ export default function App() {
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <Sidebar
             workspace={workspace}
+            filteredItems={filteredItems}
+            scopedCount={scopedCount}
             scope={scope}
             search={search}
             selectedTag={selectedTag}
@@ -734,17 +798,17 @@ export default function App() {
             onSearchChange={setSearch}
             onSelectTag={setSelectedTag}
             onSelectItem={setSelectedItemId}
-            onRunFilteredChecks={handleRunFilteredChecks}
           />
 
           <DetailPanel
             item={selectedItem}
             scope={scope}
             runtimeMap={runtimeMap}
+            activeAction={activeAction}
             verifyingItemId={verifyingItemId}
             onRunGroup={handleRunGroup}
             onRunCommand={handleRunSingleCommand}
-            onStopCommand={(commandId) => void handleStopCommand(commandId)}
+            onStopActiveRun={() => void handleStopActiveAction()}
             onOpenInVscode={(path) => void handleOpenInVscode(path)}
             onRevealInExplorer={(path) => void handleRevealInExplorer(path)}
             onCopyAiContext={handleCopyAiContext}

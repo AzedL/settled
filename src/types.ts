@@ -135,3 +135,8 @@ export interface CommandRuntimeState {
   error: string | null;
   lastRunId: string | null;
 }
+
+export type ActiveRunAction =
+  | { kind: "header-checks" }
+  | { kind: "group"; itemId: string; groupKey: string }
+  | { kind: "command"; commandId: string };

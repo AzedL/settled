@@ -13,14 +13,14 @@ import type { ThemeMode, WorkspaceSnapshot } from "../types";
 interface HeaderBarProps {
   workspace: WorkspaceSnapshot | null;
   themeMode: ThemeMode;
-  runningCount: number;
+  isCheckingActive: boolean;
   hasSampleWorkspace: boolean;
   onChangeThemeMode: (mode: ThemeMode) => void;
   onOpenWorkspace: () => void;
   onLoadSample: () => void;
   onReload: () => void;
-  onRunAllChecks: () => void;
-  onCancelAll: () => void;
+  onRunChecks: () => void;
+  onStopChecks: () => void;
 }
 
 const THEME_OPTIONS: {
@@ -36,14 +36,14 @@ const THEME_OPTIONS: {
 export function HeaderBar({
   workspace,
   themeMode,
-  runningCount,
+  isCheckingActive,
   hasSampleWorkspace,
   onChangeThemeMode,
   onOpenWorkspace,
   onLoadSample,
   onReload,
-  onRunAllChecks,
-  onCancelAll,
+  onRunChecks,
+  onStopChecks,
 }: HeaderBarProps) {
   return (
     <header
@@ -75,23 +75,22 @@ export function HeaderBar({
           <>
             <button
               type="button"
-              onClick={onRunAllChecks}
-              className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-primary"
+              onClick={isCheckingActive ? onStopChecks : onRunChecks}
+              className={`h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control ${
+                isCheckingActive ? "st-btn-warn-soft" : "st-btn-primary"
+              }`}
             >
-              <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-              <span>{lang.header.runAllChecks}</span>
+              {isCheckingActive ? (
+                <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+              ) : (
+                <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+              )}
+              <span>
+                {isCheckingActive
+                  ? lang.header.stopChecks
+                  : lang.header.runChecks}
+              </span>
             </button>
-
-            {runningCount > 0 && (
-              <button
-                type="button"
-                onClick={onCancelAll}
-                className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-6)] px-[var(--st-space-12)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-semibold cursor-pointer st-control st-btn-warn-soft"
-              >
-                <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-                <span>{lang.header.cancelAll}</span>
-              </button>
-            )}
 
             <button
               type="button"

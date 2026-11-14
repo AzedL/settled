@@ -1,10 +1,4 @@
-import {
-  AlertCircle,
-  Play,
-  Search,
-  Tag,
-  X,
-} from "lucide-react";
+import { AlertCircle, Search, Tag, X } from "lucide-react";
 import { lang } from "../lang";
 import type {
   CommandRuntimeState,
@@ -13,15 +7,13 @@ import type {
   WorkspaceItem,
   WorkspaceSnapshot,
 } from "../types";
-import {
-  getApplicableCheckCommands,
-  getCommandRuntime,
-  matchesItemFilters,
-} from "../utils/itemStatus";
+import { getCommandRuntime } from "../utils/itemStatus";
 import { TrafficLed } from "./TrafficLed";
 
 interface SidebarProps {
   workspace: WorkspaceSnapshot;
+  filteredItems: WorkspaceItem[];
+  scopedCount: number;
   scope: ScopeMode;
   search: string;
   selectedTag: string | null;
@@ -31,11 +23,12 @@ interface SidebarProps {
   onSearchChange: (value: string) => void;
   onSelectTag: (tag: string | null) => void;
   onSelectItem: (itemId: string) => void;
-  onRunFilteredChecks: (items: WorkspaceItem[]) => void;
 }
 
 export function Sidebar({
   workspace,
+  filteredItems,
+  scopedCount,
   scope,
   search,
   selectedTag,
@@ -45,27 +38,7 @@ export function Sidebar({
   onSearchChange,
   onSelectTag,
   onSelectItem,
-  onRunFilteredChecks,
 }: SidebarProps) {
-  const scopedItems =
-    scope === "current"
-      ? workspace.items.filter((item) => item.applicable)
-      : workspace.items;
-
-  const filteredItems = workspace.items.filter((item) =>
-    matchesItemFilters(item, {
-      scope,
-      search,
-      selectedTag,
-    })
-  );
-
-  const hasActiveFilters = search.trim().length > 0 || selectedTag !== null;
-
-  const filteredRunnableCheckCount = filteredItems.reduce(
-    (sum, item) => sum + getApplicableCheckCommands(item).length,
-    0
-  );
 
   return (
     <aside
@@ -140,52 +113,39 @@ export function Sidebar({
           </div>
         )}
 
-        <div className="flex flex-col gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
-          <div className="flex items-center justify-between gap-[var(--st-space-8)]">
-            <div
-              className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-4)] rounded-[var(--st-radius-md)] border p-[var(--st-space-4)]"
-              style={{
-                backgroundColor: "var(--st-bg-canvas)",
-                borderColor: "var(--st-border-default)",
-              }}
-              role="group"
-              aria-label={lang.header.scopeLabel}
-            >
-              <button
-                type="button"
-                onClick={() => onChangeScope("current")}
-                aria-pressed={scope === "current"}
-                data-active={scope === "current" ? "true" : "false"}
-                className="h-full inline-flex items-center px-[var(--st-space-8)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
-              >
-                {lang.header.scopeCurrent}
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeScope("all")}
-                aria-pressed={scope === "all"}
-                data-active={scope === "all" ? "true" : "false"}
-                className="h-full inline-flex items-center px-[var(--st-space-8)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
-              >
-                {lang.header.scopeAll}
-              </button>
-            </div>
-
-            <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-muted)] tabular-nums">
-              {lang.filters.itemsSummary(filteredItems.length, scopedItems.length)}
-            </span>
-          </div>
-
-          {hasActiveFilters && filteredRunnableCheckCount > 0 && (
+        <div className="flex items-center justify-between gap-[var(--st-space-8)] pt-[var(--st-space-2)]">
+          <div
+            className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-4)] rounded-[var(--st-radius-md)] border p-[var(--st-space-4)]"
+            style={{
+              backgroundColor: "var(--st-bg-canvas)",
+              borderColor: "var(--st-border-default)",
+            }}
+            role="group"
+            aria-label={lang.header.scopeLabel}
+          >
             <button
               type="button"
-              onClick={() => onRunFilteredChecks(filteredItems)}
-              className="w-full inline-flex items-center justify-center gap-[var(--st-space-6)] px-[var(--st-space-10)] py-[var(--st-space-6)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-btn-accent-soft"
+              onClick={() => onChangeScope("current")}
+              aria-pressed={scope === "current"}
+              data-active={scope === "current" ? "true" : "false"}
+              className="h-full inline-flex items-center px-[var(--st-space-8)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
             >
-              <Play className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-              <span>{lang.filters.runFilteredChecks(filteredRunnableCheckCount)}</span>
+              {lang.header.scopeCurrent}
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => onChangeScope("all")}
+              aria-pressed={scope === "all"}
+              data-active={scope === "all" ? "true" : "false"}
+              className="h-full inline-flex items-center px-[var(--st-space-8)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium cursor-pointer st-control st-segmented-btn"
+            >
+              {lang.header.scopeAll}
+            </button>
+          </div>
+
+          <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-muted)] tabular-nums">
+            {lang.filters.itemsSummary(filteredItems.length, scopedCount)}
+          </span>
         </div>
       </div>
 

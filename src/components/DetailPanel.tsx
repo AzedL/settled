@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { lang } from "../lang";
 import type {
+  ActiveRunAction,
   CommandRuntimeState,
   ResolvedCommand,
   ScopeMode,
@@ -27,6 +28,7 @@ interface DetailPanelProps {
   item: WorkspaceItem | null;
   scope: ScopeMode;
   runtimeMap: Record<string, CommandRuntimeState>;
+  activeAction: ActiveRunAction | null;
   verifyingItemId: string | null;
   onRunGroup: (item: WorkspaceItem, group: ScriptGroup) => void;
   onRunCommand: (
@@ -34,7 +36,7 @@ interface DetailPanelProps {
     group: ScriptGroup,
     cmd: ResolvedCommand
   ) => void;
-  onStopCommand: (commandId: string) => void;
+  onStopActiveRun: () => void;
   onOpenInVscode: (path: string) => void;
   onRevealInExplorer: (path: string) => void;
   onCopyAiContext: (item: WorkspaceItem) => Promise<void>;
@@ -118,10 +120,11 @@ export function DetailPanel({
   item,
   scope,
   runtimeMap,
+  activeAction,
   verifyingItemId,
   onRunGroup,
   onRunCommand,
-  onStopCommand,
+  onStopActiveRun,
   onOpenInVscode,
   onRevealInExplorer,
   onCopyAiContext,
@@ -336,17 +339,19 @@ export function DetailPanel({
               {item.scriptGroups.map((group) => (
                 <ScriptGroupCard
                   key={group.key}
+                  itemId={item.id}
                   group={group}
                   itemApplicable={item.applicable}
                   scope={scope}
                   runtimeMap={runtimeMap}
+                  activeAction={activeAction}
                   hasFailingCheck={hasFailingCheck}
                   isVerifyingFix={isVerifyingFix}
                   onRunGroup={(targetGroup) => onRunGroup(item, targetGroup)}
                   onRunCommand={(targetGroup, cmd) =>
                     onRunCommand(item, targetGroup, cmd)
                   }
-                  onStopCommand={onStopCommand}
+                  onStopActiveRun={onStopActiveRun}
                 />
               ))}
             </div>

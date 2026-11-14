@@ -178,16 +178,6 @@ button:focus-visible {
     color: var(--st-status-pass-text);
   }
 
-  .st-btn-danger-soft {
-    background-color: var(--st-status-fail-soft);
-    border-color: var(--st-border-danger);
-    color: var(--st-status-fail-text);
-  }
-
-  .st-btn-danger-soft:hover:not(:disabled) {
-    background-color: var(--st-status-fail-soft-hover);
-  }
-
   .st-btn-warn-soft {
     background-color: var(--st-status-canceled-soft);
     border-color: var(--st-border-warn);
