@@ -49,13 +49,11 @@ export const lang = {
 
   sidebar: {
     noItemsMatch: "没有符合条件的条目",
-    noItemsInWorkspace: "当前工作区的 items/ 下暂无条目",
-    missingItemsDirHint: "当前目录中尚未发现 items/ 聚合目录，请先创建 items/<item-id>/。",
     parseErrorBadge: "配置异常",
   },
 
   detail: {
-    selectItemPrompt: "从左侧选择一条环境条目以查看详情与独立红绿灯控制",
+    selectItemPrompt: "请选择左侧条目",
     createdAtLabel: "创建时间",
     platformsLabel: "目标平台",
     tagsLabel: "分类标签",

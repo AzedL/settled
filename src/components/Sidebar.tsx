@@ -146,26 +146,11 @@ export function Sidebar({
         </div>
       </div>
 
-      {!workspace.itemsDirExists && (
-        <div
-          className="m-[var(--st-space-10)] p-[var(--st-space-10)] rounded-[var(--st-radius-md)] border text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-          style={{
-            backgroundColor: "var(--st-status-canceled-soft)",
-            borderColor: "var(--st-border-warn)",
-            color: "var(--st-status-canceled-text)",
-          }}
-        >
-          {lang.sidebar.missingItemsDirHint}
-        </div>
-      )}
-
       <div className="flex-1 overflow-y-auto p-[var(--st-space-10)] flex flex-col gap-[var(--st-space-6)]">
         {filteredItems.length === 0 ? (
           <div className="p-[var(--st-space-24)] text-center flex flex-col items-center gap-[var(--st-space-12)]">
             <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]">
-              {workspace.items.length === 0
-                ? lang.sidebar.noItemsInWorkspace
-                : lang.sidebar.noItemsMatch}
+              {lang.sidebar.noItemsMatch}
             </p>
           </div>
         ) : (
