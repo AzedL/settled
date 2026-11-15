@@ -1,4 +1,11 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  Suspense,
+  lazy,
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   AlertTriangle,
   Braces,
@@ -21,10 +28,13 @@ import type {
 } from "../types";
 import { formatLocalDateTime, formatPlatforms } from "../utils/format";
 import { getCommandRuntime } from "../utils/itemStatus";
-import { MarkdownView } from "./MarkdownView";
 import { ScriptGroupCard } from "./ScriptGroupCard";
 import { Button } from "./Button";
 import { TagOverflowList } from "./TagOverflowList";
+
+const LazyMarkdownView = lazy(() =>
+  import("./MarkdownView").then((m) => ({ default: m.MarkdownView }))
+);
 
 interface DetailPanelProps {
   item: WorkspaceItem | null;
@@ -363,7 +373,17 @@ export function DetailPanel({
           bodyClassName="p-[var(--st-space-20)] overflow-y-auto"
           bodyStyle={{ backgroundColor: "var(--st-bg-panel)" }}
         >
-          <MarkdownView content={item.readme} />
+          <Suspense
+            fallback={
+              hasReadme ? (
+                <pre className="m-0 font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] whitespace-pre-wrap break-words">
+                  {item.readme}
+                </pre>
+              ) : null
+            }
+          >
+            <LazyMarkdownView content={item.readme} />
+          </Suspense>
         </CollapsibleDetailCard>
 
         <CollapsibleDetailCard

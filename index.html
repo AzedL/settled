@@ -20,6 +20,33 @@
         } catch (_) {}
       })();
     </script>
+    <style>
+      html,
+      body,
+      #root {
+        margin: 0;
+        height: 100%;
+      }
+      html[data-resolved-theme="dark"],
+      html[data-resolved-theme="dark"] body,
+      html[data-resolved-theme="dark"] #root {
+        background-color: #18191b;
+        color-scheme: dark;
+      }
+      html[data-resolved-theme="light"],
+      html[data-resolved-theme="light"] body,
+      html[data-resolved-theme="light"] #root {
+        background-color: #f3f5f2;
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-resolved-theme]),
+        html:not([data-resolved-theme]) body {
+          background-color: #18191b;
+          color-scheme: dark;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

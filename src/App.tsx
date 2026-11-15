@@ -12,8 +12,10 @@ import {
   revealPathInExplorer,
   runCommands,
   setConfirmMutatingRuns,
+  showMainWindow,
   subscribeRunEvents,
   subscribeWorkspaceChanges,
+  syncWindowTheme,
 } from "./api/tauri";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { DetailPanel } from "./components/DetailPanel";
@@ -103,7 +105,7 @@ function readStoredThemeMode(): ThemeMode {
   return "system";
 }
 
-function applyResolvedTheme(mode: ThemeMode) {
+function applyResolvedTheme(mode: ThemeMode): "light" | "dark" {
   const prefersDark =
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
@@ -112,11 +114,13 @@ function applyResolvedTheme(mode: ThemeMode) {
     mode === "dark" || (mode === "system" && prefersDark) ? "dark" : "light";
   document.documentElement.dataset.resolvedTheme = resolved;
   document.documentElement.style.colorScheme = resolved;
+  return resolved;
 }
 
 export default function App() {
   const [initialState, setInitialState] = useState<InitialAppState | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [scope, setScope] = useState<ScopeMode>("current");
   const [themeMode, setThemeMode] = useState<ThemeMode>(readStoredThemeMode);
   const [search, setSearch] = useState("");
@@ -147,7 +151,8 @@ export default function App() {
     } catch {
       // Ignore storage write errors.
     }
-    applyResolvedTheme(themeMode);
+    const resolved = applyResolvedTheme(themeMode);
+    void syncWindowTheme(resolved).catch(() => {});
 
     if (
       themeMode !== "system" ||
@@ -158,10 +163,35 @@ export default function App() {
     }
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const onSystemThemeChange = () => applyResolvedTheme("system");
+    const onSystemThemeChange = () => {
+      const nextResolved = applyResolvedTheme("system");
+      void syncWindowTheme(nextResolved).catch(() => {});
+    };
     mediaQuery.addEventListener("change", onSystemThemeChange);
     return () => mediaQuery.removeEventListener("change", onSystemThemeChange);
   }, [themeMode]);
+
+  useEffect(() => {
+    const resolved =
+      document.documentElement.dataset.resolvedTheme === "dark"
+        ? "dark"
+        : "light";
+    const reveal = () => void showMainWindow(resolved).catch(() => {});
+
+    if (!isBootstrapping) {
+      let raf2 = 0;
+      const raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(reveal);
+      });
+      return () => {
+        window.cancelAnimationFrame(raf1);
+        window.cancelAnimationFrame(raf2);
+      };
+    }
+
+    const fallbackTimer = window.setTimeout(reveal, 1500);
+    return () => window.clearTimeout(fallbackTimer);
+  }, [isBootstrapping]);
 
   const applyWorkspaceSnapshot = useCallback(
     (snapshot: WorkspaceSnapshot, isSameRootReload: boolean) => {
@@ -395,6 +425,10 @@ export default function App() {
           setToast({
             message: `${lang.notifications.errorPrefix}${formatError(err)}`,
           });
+        }
+      } finally {
+        if (active) {
+          setIsBootstrapping(false);
         }
       }
     })();
@@ -797,6 +831,8 @@ export default function App() {
             onCopyAiContext={handleCopyAiContext}
           />
         </div>
+      ) : isBootstrapping ? (
+        <div className="flex-1 min-h-0" />
       ) : (
         <WelcomeView
           recentWorkspaces={initialState?.prefs.recentWorkspaces ?? []}

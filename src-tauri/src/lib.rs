@@ -9,11 +9,15 @@ use settled_core::{
 };
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use tauri::{AppHandle, Emitter, State};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+use tauri::{window::Color, AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex;
 use watcher::WorkspaceWatcher;
 
 const RUN_EVENT_NAME: &str = "settled://run-event";
+const FALLBACK_WINDOW_SHOW_SECS: u64 = 10;
 
 /// Shared runtime state managed by the Tauri application.
 #[derive(Default)]
@@ -21,6 +25,22 @@ pub struct AppState {
     registry: RunRegistry,
     active_workspace: Mutex<Option<PathBuf>>,
     watcher: Mutex<Option<WorkspaceWatcher>>,
+    main_window_shown: Arc<AtomicBool>,
+}
+
+fn theme_background_color(resolved_theme: &str) -> Color {
+    if resolved_theme == "dark" {
+        Color(24, 25, 27, 255)
+    } else {
+        Color(243, 245, 242, 255)
+    }
+}
+
+async fn load_workspace_blocking(path: PathBuf) -> Result<WorkspaceSnapshot, String> {
+    tokio::task::spawn_blocking(move || load_workspace(&path))
+        .await
+        .map_err(|e| format!("Failed to join workspace loader task: {e}"))?
+        .map_err(|e| e.to_string())
 }
 
 #[derive(Debug, Serialize)]
@@ -56,20 +76,44 @@ fn set_confirm_mutating_runs(confirm: bool, app: AppHandle) -> Result<AppPrefs, 
 }
 
 #[tauri::command]
+fn show_main_window(resolved_theme: String, app: AppHandle, state: State<'_, AppState>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_background_color(Some(theme_background_color(&resolved_theme)));
+        if !state.main_window_shown.swap(true, Ordering::AcqRel) {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
+#[tauri::command]
+fn sync_window_theme(resolved_theme: String, app: AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_background_color(Some(theme_background_color(&resolved_theme)));
+    }
+}
+
+#[tauri::command]
 async fn open_workspace(
     path: String,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<WorkspaceSnapshot, String> {
     let workspace_path = PathBuf::from(&path);
-    let snapshot = load_workspace(&workspace_path).map_err(|e| e.to_string())?;
+    let snapshot = load_workspace_blocking(workspace_path.clone()).await?;
 
     {
         let mut active = state.active_workspace.lock().await;
         *active = Some(workspace_path.clone());
     }
 
-    let new_watcher = WorkspaceWatcher::start(app.clone(), workspace_path).ok();
+    let watcher_app = app.clone();
+    let new_watcher = tokio::task::spawn_blocking(move || {
+        WorkspaceWatcher::start(watcher_app, workspace_path).ok()
+    })
+    .await
+    .ok()
+    .flatten();
     {
         let mut guard = state.watcher.lock().await;
         *guard = new_watcher;
@@ -83,10 +127,7 @@ async fn open_workspace(
 async fn reload_workspace(state: State<'_, AppState>) -> Result<Option<WorkspaceSnapshot>, String> {
     let maybe_path = state.active_workspace.lock().await.clone();
     match maybe_path {
-        Some(path) => {
-            let snapshot = load_workspace(&path).map_err(|e| e.to_string())?;
-            Ok(Some(snapshot))
-        }
+        Some(path) => Ok(Some(load_workspace_blocking(path).await?)),
         None => Ok(None),
     }
 }
@@ -141,7 +182,7 @@ async fn build_ai_context(
         .await
         .clone()
         .ok_or_else(|| "No active workspace is open".to_string())?;
-    let snapshot = load_workspace(&workspace_path).map_err(|e| e.to_string())?;
+    let snapshot = load_workspace_blocking(workspace_path).await?;
     let item = snapshot
         .items
         .iter()
@@ -217,9 +258,24 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .setup(|app| {
+            let app_handle = app.handle().clone();
+            let shown_flag = Arc::clone(&app.state::<AppState>().main_window_shown);
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_secs(FALLBACK_WINDOW_SHOW_SECS)).await;
+                if !shown_flag.swap(true, Ordering::AcqRel) {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.show();
+                    }
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_initial_state,
             set_confirm_mutating_runs,
+            show_main_window,
+            sync_window_theme,
             open_workspace,
             reload_workspace,
             run_commands,

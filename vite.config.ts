@@ -17,7 +17,10 @@ export default defineConfig(() => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
+    host: host || "127.0.0.1",
+    warmup: {
+      clientFiles: ["./src/main.tsx", "./src/App.tsx", "./src/index.css"],
+    },
     hmr: host
       ? {
           protocol: "ws",
@@ -26,8 +29,14 @@ export default defineConfig(() => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // 3. tell Vite to ignore watching `src-tauri` and Cargo/workspace artifacts
+      ignored: [
+        "**/src-tauri/**",
+        "**/target/**",
+        "**/crates/**",
+        "**/dist/**",
+        "**/examples/**",
+      ],
     },
   },
 }));

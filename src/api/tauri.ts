@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -15,6 +15,24 @@ import type {
 export interface RunBatchResponse {
   runId: string;
   results: CommandResult[];
+}
+
+export async function showMainWindow(
+  resolvedTheme: "light" | "dark"
+): Promise<void> {
+  if (!isTauri()) {
+    return;
+  }
+  await invoke<void>("show_main_window", { resolvedTheme });
+}
+
+export async function syncWindowTheme(
+  resolvedTheme: "light" | "dark"
+): Promise<void> {
+  if (!isTauri()) {
+    return;
+  }
+  await invoke<void>("sync_window_theme", { resolvedTheme });
 }
 
 export async function getInitialState(): Promise<InitialAppState> {
