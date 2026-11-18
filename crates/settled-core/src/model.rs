@@ -340,7 +340,6 @@ pub struct WorkspaceItem {
     pub platforms: Vec<Platform>,
     pub applicable: bool,
     pub script_groups: Vec<ScriptGroup>,
-    pub parse_error: Option<String>,
 }
 
 /// Complete snapshot of a scanned Settled workspace.

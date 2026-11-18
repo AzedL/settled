@@ -40,7 +40,7 @@ export function toExecutionTarget(
  * Returns all `check` commands on an item that apply to the current host platform.
  */
 export function getApplicableCheckCommands(item: WorkspaceItem): ResolvedCommand[] {
-  if (!item.applicable || item.parseError) {
+  if (!item.applicable) {
     return [];
   }
   const checkGroup = item.scriptGroups.find((group) => group.role === "check");

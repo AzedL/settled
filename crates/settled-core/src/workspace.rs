@@ -125,7 +125,9 @@ pub fn load_workspace(root: &Path) -> Result<WorkspaceSnapshot, SettledError> {
                 continue;
             }
 
-            let item = load_single_item(&item_dir, &id, host_platform, &default_shell);
+            let Some(item) = load_single_item(&item_dir, &id, host_platform, &default_shell) else {
+                continue;
+            };
             for tag in &item.tags {
                 tag_set.insert(tag.clone());
             }
@@ -186,50 +188,23 @@ fn load_single_item(
     id: &str,
     host_platform: Platform,
     default_shell: &str,
-) -> WorkspaceItem {
+) -> Option<WorkspaceItem> {
     let meta_path = item_dir.join("meta.json");
+    let raw_meta = fs::read_to_string(&meta_path).ok()?;
+    let parsed: ItemMetaRaw = serde_json::from_str(&raw_meta).ok()?;
+
     let readme_path = find_readme_path(item_dir);
     let readme = readme_path
         .as_ref()
         .and_then(|p| fs::read_to_string(p).ok())
         .unwrap_or_default();
 
-    let raw_meta = match fs::read_to_string(&meta_path) {
-        Ok(content) => content,
-        Err(err) => {
-            return malformed_item(
-                id,
-                item_dir,
-                &meta_path,
-                readme_path.as_ref(),
-                readme,
-                String::new(),
-                format!("Failed to read meta.json: {err}"),
-            );
-        }
-    };
-
-    let parsed: ItemMetaRaw = match serde_json::from_str(&raw_meta) {
-        Ok(meta) => meta,
-        Err(err) => {
-            return malformed_item(
-                id,
-                item_dir,
-                &meta_path,
-                readme_path.as_ref(),
-                readme,
-                raw_meta,
-                format!("Invalid meta.json: {err}"),
-            );
-        }
-    };
-
     let item_applicable =
         parsed.platforms.is_empty() || parsed.platforms.contains(&host_platform);
     let script_groups =
         build_script_groups(id, parsed.scripts, item_applicable, host_platform, default_shell);
 
-    WorkspaceItem {
+    Some(WorkspaceItem {
         id: id.to_string(),
         path: item_dir.to_string_lossy().into_owned(),
         meta_path: meta_path.to_string_lossy().into_owned(),
@@ -243,35 +218,7 @@ fn load_single_item(
         platforms: parsed.platforms,
         applicable: item_applicable,
         script_groups,
-        parse_error: None,
-    }
-}
-
-fn malformed_item(
-    id: &str,
-    item_dir: &Path,
-    meta_path: &Path,
-    readme_path: Option<&PathBuf>,
-    readme: String,
-    raw_meta: String,
-    error: String,
-) -> WorkspaceItem {
-    WorkspaceItem {
-        id: id.to_string(),
-        path: item_dir.to_string_lossy().into_owned(),
-        meta_path: meta_path.to_string_lossy().into_owned(),
-        readme_path: readme_path.map(|p| p.to_string_lossy().into_owned()),
-        readme,
-        raw_meta,
-        name: id.to_string(),
-        description: None,
-        create_at: None,
-        tags: Vec::new(),
-        platforms: Vec::new(),
-        applicable: true,
-        script_groups: Vec::new(),
-        parse_error: Some(error),
-    }
+    })
 }
 
 fn build_script_groups(
@@ -406,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn loads_workspace_items_with_mixed_script_shapes_and_graceful_errors() {
+    fn loads_workspace_items_and_skips_malformed_meta_directories() {
         let tmp = TempDir::new().unwrap();
         let items = tmp.path().join("items");
         fs::create_dir_all(items.join(".hidden")).unwrap();
@@ -448,18 +395,12 @@ mod tests {
 
         let snapshot = load_workspace(tmp.path()).unwrap();
         assert!(snapshot.items_dir_exists);
-        assert_eq!(snapshot.items.len(), 2);
+        assert_eq!(snapshot.items.len(), 1);
         assert_eq!(snapshot.scan_warnings.len(), 1);
         assert_eq!(snapshot.all_tags, vec!["git", "init"]);
 
-        let broken = &snapshot.items[0];
-        assert_eq!(broken.id, "broken-item");
-        assert!(broken.parse_error.is_some());
-        assert_eq!(broken.readme, "Lowercase fallback.");
-
-        let git = &snapshot.items[1];
+        let git = &snapshot.items[0];
         assert_eq!(git.id, "git-core");
-        assert!(git.parse_error.is_none());
         assert_eq!(git.create_at, Some(1794596400));
         assert_eq!(git.readme, "# Git Core\nDetails here.");
         assert_eq!(git.script_groups.len(), 3);

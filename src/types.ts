@@ -45,7 +45,6 @@ export interface WorkspaceItem {
   platforms: Platform[];
   applicable: boolean;
   scriptGroups: ScriptGroup[];
-  parseError: string | null;
 }
 
 export interface WorkspaceSnapshot {

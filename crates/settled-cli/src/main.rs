@@ -199,8 +199,6 @@ fn handle_list(snapshot: &WorkspaceSnapshot, args: &ListArgs, as_json: bool) -> 
             .unwrap_or(0);
         let status_label = if !item.applicable {
             "disabled-os"
-        } else if item.parse_error.is_some() {
-            "parse-error"
         } else if applicable_checks == 0 {
             "manual/no-check"
         } else {
@@ -415,7 +413,7 @@ fn collect_targets(
         if !tags.is_empty() && !tags.iter().any(|t| item.tags.contains(t)) {
             continue;
         }
-        if !item.applicable || item.parse_error.is_some() {
+        if !item.applicable {
             continue;
         }
 

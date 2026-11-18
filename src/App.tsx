@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, X } from "lucide-react";
 import {
   buildAiContext,
   cancelRun,
@@ -44,10 +43,6 @@ import {
   toExecutionTarget,
 } from "./utils/itemStatus";
 
-interface ToastMessage {
-  message: string;
-}
-
 interface PendingConfirmState {
   title: string;
   action: ActiveRunAction;
@@ -61,13 +56,6 @@ function createRunId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID()}`;
   }
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function formatError(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message;
-  }
-  return String(err);
 }
 
 function reconcileRuntimeWithSnapshot(
@@ -135,7 +123,6 @@ export default function App() {
   );
   const [pendingConfirm, setPendingConfirm] =
     useState<PendingConfirmState | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
   workspaceRef.current = workspace;
@@ -217,8 +204,6 @@ export default function App() {
         const firstApplicable = snapshot.items.find((item) => item.applicable);
         return firstApplicable?.id ?? snapshot.items[0]?.id ?? null;
       });
-
-      setToast(null);
     },
     []
   );
@@ -244,11 +229,7 @@ export default function App() {
         canceledIds.delete(oldest);
       }
     }
-    void cancelRun(runId).catch((err) => {
-      setToast({
-        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-      });
-    });
+    void cancelRun(runId).catch(() => {});
   }, []);
 
   const loadWorkspaceAtPath = useCallback(
@@ -281,35 +262,25 @@ export default function App() {
               }
             : prev
         );
-      } catch (err) {
+      } catch {
         if (clearOnFailure) {
           setWorkspace(null);
         }
-        setToast({
-          message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-        });
       }
     },
     [applyWorkspaceSnapshot, handleStopActiveAction]
   );
 
-  const handleReloadWorkspace = useCallback(
-    async (silentIfMissing = false) => {
-      try {
-        const snapshot = await reloadWorkspace();
-        if (snapshot) {
-          applyWorkspaceSnapshot(snapshot, true);
-        }
-      } catch (err) {
-        if (!silentIfMissing) {
-          setToast({
-            message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-          });
-        }
+  const handleReloadWorkspace = useCallback(async () => {
+    try {
+      const snapshot = await reloadWorkspace();
+      if (snapshot) {
+        applyWorkspaceSnapshot(snapshot, true);
       }
-    },
-    [applyWorkspaceSnapshot]
-  );
+    } catch {
+      // Ignore transient reload errors silently.
+    }
+  }, [applyWorkspaceSnapshot]);
 
   useEffect(() => {
     let active = true;
@@ -394,7 +365,7 @@ export default function App() {
             return;
           }
           if (workspaceRef.current?.rootPath === rootPath) {
-            void handleReloadWorkspace(true);
+            void handleReloadWorkspace();
           }
         });
         if (!active) {
@@ -402,12 +373,8 @@ export default function App() {
           return;
         }
         unlisteners.push(unlistenWatch);
-      } catch (err) {
-        if (active) {
-          setToast({
-            message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-          });
-        }
+      } catch {
+        // Ignore event subscription errors when running outside Tauri.
       }
 
       try {
@@ -419,12 +386,8 @@ export default function App() {
         if (state.prefs.lastWorkspace) {
           await loadWorkspaceAtPath(state.prefs.lastWorkspace, true);
         }
-      } catch (err) {
-        if (active) {
-          setToast({
-            message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-          });
-        }
+      } catch {
+        // Ignore bootstrap errors outside Tauri or when no previous workspace is readable.
       } finally {
         if (active) {
           setIsBootstrapping(false);
@@ -505,12 +468,8 @@ export default function App() {
             );
           }
         }
-      } catch (err) {
-        if (actionSeqRef.current === seq) {
-          setToast({
-            message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-          });
-        }
+      } catch {
+        // Command failures are reflected directly in command runtime state.
       }
     },
     []
@@ -576,10 +535,8 @@ export default function App() {
       if (selected) {
         await loadWorkspaceAtPath(selected);
       }
-    } catch (err) {
-      setToast({
-        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-      });
+    } catch {
+      // Ignore cancelled or failed folder dialog invocations.
     }
   };
 
@@ -689,33 +646,23 @@ export default function App() {
   const handleOpenInVscode = async (path: string) => {
     try {
       await openInVscode(path);
-    } catch (err) {
-      setToast({
-        message: `${lang.notifications.errorPrefix}${formatError(err)} ${lang.notifications.vscodeFallbackHint}`,
-      });
+    } catch {
+      // Ignore launcher errors when VS Code CLI is unavailable.
     }
   };
 
   const handleRevealInExplorer = async (path: string) => {
     try {
       await revealPathInExplorer(path);
-    } catch (err) {
-      setToast({
-        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-      });
+    } catch {
+      // Ignore file-manager opener errors.
     }
   };
 
   const handleCopyAiContext = async (item: WorkspaceItem) => {
-    try {
-      const latestResults = collectItemCommandResults(item, runtimeMap);
-      const markdown = await buildAiContext(item.id, latestResults);
-      await copyTextToClipboard(markdown);
-    } catch (err) {
-      setToast({
-        message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-      });
-    }
+    const latestResults = collectItemCommandResults(item, runtimeMap);
+    const markdown = await buildAiContext(item.id, latestResults);
+    await copyTextToClipboard(markdown);
   };
 
   const selectedItem = useMemo(
@@ -739,36 +686,10 @@ export default function App() {
         onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
         onLoadSample={handleLoadSample}
-        onReload={() => void handleReloadWorkspace(false)}
+        onReload={() => void handleReloadWorkspace()}
         onRunChecks={handleRunHeaderChecks}
         onStopChecks={() => void handleStopActiveAction()}
       />
-
-      {toast && (
-        <div
-          className="px-[var(--st-space-16)] py-[var(--st-space-8)] border-b flex items-center justify-between gap-[var(--st-space-12)] shrink-0"
-          style={{
-            backgroundColor: "var(--st-status-fail-soft)",
-            borderColor: "var(--st-border-danger)",
-            color: "var(--st-status-fail-text)",
-          }}
-        >
-          <div className="flex items-center gap-[var(--st-space-8)] min-w-0">
-            <AlertTriangle className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-            <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] truncate">
-              {toast.message}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setToast(null)}
-            aria-label={lang.notifications.clearToast}
-            className="p-[var(--st-space-4)] rounded-[var(--st-radius-sm)] cursor-pointer shrink-0 st-control hover:opacity-70"
-          >
-            <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)]" />
-          </button>
-        </div>
-      )}
 
       {workspace ? (
         <div className="flex-1 flex min-h-0 overflow-hidden">

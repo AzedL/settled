@@ -25,10 +25,6 @@ pub fn format_item_context(
         out.push_str("- **Target Platforms**: all\n");
     }
 
-    if let Some(err) = &item.parse_error {
-        out.push_str(&format!("\n> **meta.json Parse Error**: `{err}`\n"));
-    }
-
     if let Some(results) = results
         && !results.is_empty()
     {
@@ -107,7 +103,6 @@ mod tests {
             platforms: vec![Platform::Windows, Platform::Macos],
             applicable: true,
             script_groups: Vec::new(),
-            parse_error: None,
         };
         let results = vec![CommandResult {
             run_id: "r1".to_string(),
@@ -150,7 +145,6 @@ mod tests {
             platforms: Vec::new(),
             applicable: true,
             script_groups: Vec::new(),
-            parse_error: None,
         };
 
         let md = format_item_context(&item, None, Platform::Linux);

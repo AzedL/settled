@@ -53,7 +53,7 @@ Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, 
 - Hidden directories starting with `.` are skipped.
 - Only directories containing `meta.json` are loaded as items.
 - Item documentation prefers `README.md` by convention while remaining compatible with lowercase `readme.md`.
-- Malformed `meta.json` files surface an isolated parse-error item card without breaking the rest of the workspace.
+- Malformed or unreadable `meta.json` directories are ignored cleanly without breaking the rest of the workspace.
 
 ### 2.2 Canonical Platform Values
 The program enforces exact canonical platform strings:

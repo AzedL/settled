@@ -1,4 +1,4 @@
-import { AlertCircle, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { lang } from "../lang";
 import type {
   CommandRuntimeState,
@@ -173,47 +173,30 @@ export function Sidebar({
                     {item.name}
                   </span>
 
-                  {(displayedCheckCommands.length > 0 || item.parseError) && (
+                  {displayedCheckCommands.length > 0 && (
                     <div className="flex items-center gap-[var(--st-space-6)] shrink-0">
-                      {displayedCheckCommands.length > 0 && (
-                        <div className="flex items-center gap-[var(--st-space-6)]">
-                          {displayedCheckCommands.map((cmd) => {
-                            const effectiveApplicable =
-                              item.applicable && cmd.applicable;
-                            const status: RunStatus | "disabled" =
-                              effectiveApplicable
-                                ? getCommandRuntime(runtimeMap, cmd.commandId).status
-                                : "disabled";
-                            const title = effectiveApplicable
-                              ? `${cmd.name}: ${lang.status.label(
-                                  getCommandRuntime(runtimeMap, cmd.commandId).status
-                                )}`
-                              : `${cmd.name}: ${lang.status.disabled}`;
+                      {displayedCheckCommands.map((cmd) => {
+                        const effectiveApplicable =
+                          item.applicable && cmd.applicable;
+                        const status: RunStatus | "disabled" =
+                          effectiveApplicable
+                            ? getCommandRuntime(runtimeMap, cmd.commandId).status
+                            : "disabled";
+                        const title = effectiveApplicable
+                          ? `${cmd.name}: ${lang.status.label(
+                              getCommandRuntime(runtimeMap, cmd.commandId).status
+                            )}`
+                          : `${cmd.name}: ${lang.status.disabled}`;
 
-                            return (
-                              <TrafficLed
-                                key={cmd.commandId}
-                                status={status}
-                                size="sm"
-                                title={title}
-                              />
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {item.parseError && (
-                        <span
-                          className="inline-flex items-center gap-[var(--st-space-4)] px-[var(--st-space-6)] py-[var(--st-space-2)] rounded-[var(--st-radius-sm)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-                          style={{
-                            backgroundColor: "var(--st-status-fail-soft)",
-                            color: "var(--st-status-fail-text)",
-                          }}
-                        >
-                          <AlertCircle className="w-[var(--st-space-12)] h-[var(--st-space-12)]" />
-                          <span>{lang.sidebar.parseErrorBadge}</span>
-                        </span>
-                      )}
+                        return (
+                          <TrafficLed
+                            key={cmd.commandId}
+                            status={status}
+                            size="sm"
+                            title={title}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -1,6 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import {
-  AlertTriangle,
   Braces,
   Check,
   ChevronDown,
@@ -48,7 +47,6 @@ interface CollapsibleDetailCardProps {
   icon: ReactNode;
   open: boolean;
   onToggle: () => void;
-  rightHint?: string;
   bodyStyle?: CSSProperties;
   bodyClassName?: string;
   children: ReactNode;
@@ -59,7 +57,6 @@ function CollapsibleDetailCard({
   icon,
   open,
   onToggle,
-  rightHint,
   bodyStyle,
   bodyClassName = "",
   children,
@@ -76,30 +73,22 @@ function CollapsibleDetailCard({
         type="button"
         onClick={onToggle}
         aria-expanded={open}
-        className="w-full px-[var(--st-space-16)] py-[var(--st-space-12)] flex items-center justify-between gap-[var(--st-space-12)] text-left cursor-pointer st-control st-raw-toggle"
+        className="w-full px-[var(--st-space-16)] py-[var(--st-space-12)] flex items-center gap-[var(--st-space-8)] text-left cursor-pointer st-control st-raw-toggle min-w-0"
       >
-        <div className="flex items-center gap-[var(--st-space-8)] min-w-0">
-          {open ? (
-            <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-          ) : (
-            <ChevronRight className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-          )}
-          <span
-            className="inline-flex items-center shrink-0"
-            style={{ color: "var(--st-text-muted)" }}
-          >
-            {icon}
-          </span>
-          <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium truncate">
-            {title}
-          </span>
-        </div>
-
-        {rightHint && (
-          <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] shrink-0">
-            {rightHint}
-          </span>
+        {open ? (
+          <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+        ) : (
+          <ChevronRight className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
         )}
+        <span
+          className="inline-flex items-center shrink-0"
+          style={{ color: "var(--st-text-muted)" }}
+        >
+          {icon}
+        </span>
+        <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium truncate">
+          {title}
+        </span>
       </button>
 
       {open && (
@@ -162,12 +151,21 @@ export function DetailPanel({
   const platformsText = formatPlatforms(item.platforms, lang.app.platformLabel);
 
   const createdAtText = formatLocalDateTime(item.createAt);
-  const hasReadme = item.readme.trim().length > 0;
+  const visibleScriptGroups =
+    scope === "current"
+      ? item.scriptGroups.filter((group) =>
+          group.commands.some((cmd) => cmd.applicable)
+        )
+      : item.scriptGroups.filter((group) => group.commands.length > 0);
 
   const handleCopyContext = async () => {
-    await onCopyAiContext(item);
-    setCopiedContext(true);
-    window.setTimeout(() => setCopiedContext(false), 2000);
+    try {
+      await onCopyAiContext(item);
+      setCopiedContext(true);
+      window.setTimeout(() => setCopiedContext(false), 2000);
+    } catch {
+      // Ignore clipboard/IPC errors silently without flashing status banners.
+    }
   };
 
   return (
@@ -286,35 +284,12 @@ export function DetailPanel({
           </div>
         </section>
 
-        {item.parseError && (
-          <section
-            className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] flex items-start gap-[var(--st-space-12)]"
-            style={{
-              backgroundColor: "var(--st-status-fail-soft)",
-              borderColor: "var(--st-border-danger)",
-            }}
-          >
-            <AlertTriangle
-              className="w-[var(--st-icon-md)] h-[var(--st-icon-md)] shrink-0 mt-[var(--st-space-2)]"
-              style={{ color: "var(--st-status-fail-text)" }}
-            />
-            <div className="flex flex-col gap-[var(--st-space-4)] min-w-0">
-              <h2 className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] font-semibold text-[color:var(--st-status-fail-text)]">
-                {lang.detail.parseErrorTitle}
-              </h2>
-              <pre className="m-0 font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-primary)] whitespace-pre-wrap break-all">
-                {item.parseError}
-              </pre>
-            </div>
-          </section>
-        )}
-
         <section className="flex flex-col gap-[var(--st-space-12)]">
           <h2 className="m-0 text-[length:var(--st-text-base)] leading-[var(--st-leading-base)] font-semibold text-[color:var(--st-text-primary)]">
             {lang.detail.scriptsSectionTitle}
           </h2>
 
-          {item.scriptGroups.length === 0 ? (
+          {visibleScriptGroups.length === 0 ? (
             <div
               className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-16)] text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]"
               style={{
@@ -326,7 +301,7 @@ export function DetailPanel({
             </div>
           ) : (
             <div className="flex flex-col gap-[var(--st-space-12)]">
-              {item.scriptGroups.map((group) => (
+              {visibleScriptGroups.map((group) => (
                 <ScriptGroupCard
                   key={group.key}
                   itemId={item.id}
@@ -354,8 +329,7 @@ export function DetailPanel({
           }
           open={showReadme}
           onToggle={() => setShowReadme((prev) => !prev)}
-          rightHint={!hasReadme ? lang.detail.readmeEmptyHint : undefined}
-          bodyClassName="p-[var(--st-space-20)] overflow-y-auto"
+          bodyClassName="p-[var(--st-space-20)] min-h-[var(--st-doc-min-h)] overflow-y-auto"
           bodyStyle={{ backgroundColor: "var(--st-bg-panel)" }}
         >
           <MarkdownView content={item.readme} />

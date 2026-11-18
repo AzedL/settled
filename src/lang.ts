@@ -50,7 +50,6 @@ export const lang = {
 
   sidebar: {
     noItemsMatch: "没有符合条件的条目",
-    parseErrorBadge: "配置异常",
   },
 
   detail: {
@@ -59,15 +58,12 @@ export const lang = {
     platformsLabel: "目标平台",
     tagsLabel: "分类标签",
     noTagsValue: "无标签",
-    createdAtEmpty: "未填写",
+    createdAtEmpty: "无",
     openInVscode: "在 VS Code 中打开",
     revealInExplorer: "在文件管理器中定位",
     copyAiContext: "复制 AI 上下文",
     copiedAiContext: "已复制上下文",
-    parseErrorTitle: "meta.json 解析失败",
     readmeTitle: "README.md",
-    readmeEmptyHint: "未编写",
-    emptyReadme: "该条目暂未编写 README.md。",
     scriptsSectionTitle: "命令",
     noScriptsNotice: "该条目未注册命令",
     rawMetaTitle: "meta.json",
@@ -78,7 +74,6 @@ export const lang = {
     stopGroup: (title: string): string => `中止 ${title}`,
     runSingle: "运行",
     stopSingle: "中止",
-    noApplicableInGroup: "当前设备平台下无适用命令",
     exitCodeLabel: (code: number): string => `exit ${code}`,
     durationTitle: "执行时间",
     durationLabel: (ms: number): string => `${ms} ms`,
@@ -120,11 +115,5 @@ export const lang = {
     recentTitle: "最近打开的工作区",
     protocolHintTitle: "目录约定",
     protocolHintBody: "<workspace>/items/<item-id>/meta.json + README.md + scripts/ (@script/)",
-  },
-
-  notifications: {
-    errorPrefix: "操作失败：",
-    vscodeFallbackHint: "请确认已安装 VS Code 并将 code 命令加入系统 PATH。",
-    clearToast: "关闭提示",
   },
 } as const;

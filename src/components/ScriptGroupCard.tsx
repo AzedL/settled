@@ -41,6 +41,10 @@ export function ScriptGroupCard({
   const visibleCommands =
     scope === "current" ? applicableCommands : group.commands;
 
+  if (visibleCommands.length === 0) {
+    return null;
+  }
+
   const isHighlightedFix =
     group.role === "fix" && hasFailingCheck && applicableCommands.length > 0;
 
@@ -117,34 +121,21 @@ export function ScriptGroupCard({
         )}
       </div>
 
-      {visibleCommands.length === 0 ? (
-        <div
-          className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-12)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)]"
-          style={{
-            backgroundColor: "var(--st-bg-disabled)",
-            borderColor: "var(--st-border-subtle)",
-            color: "var(--st-text-muted)",
-          }}
-        >
-          {lang.scripts.noApplicableInGroup}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-[var(--st-space-8)]">
-          {visibleCommands.map((cmd) => (
-            <CommandRow
-              key={cmd.commandId}
-              command={cmd}
-              runtime={getCommandRuntime(runtimeMap, cmd.commandId)}
-              isActiveStop={
-                activeAction?.kind === "command" &&
-                activeAction.commandId === cmd.commandId
-              }
-              onRun={() => onRunCommand(group, cmd)}
-              onStop={onStopActiveRun}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-[var(--st-space-8)]">
+        {visibleCommands.map((cmd) => (
+          <CommandRow
+            key={cmd.commandId}
+            command={cmd}
+            runtime={getCommandRuntime(runtimeMap, cmd.commandId)}
+            isActiveStop={
+              activeAction?.kind === "command" &&
+              activeAction.commandId === cmd.commandId
+            }
+            onRun={() => onRunCommand(group, cmd)}
+            onStop={onStopActiveRun}
+          />
+        ))}
+      </div>
     </section>
   );
 }
