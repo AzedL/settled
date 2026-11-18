@@ -307,15 +307,6 @@ button:focus-visible {
     color: var(--st-text-primary);
   }
 
-  .st-link-action {
-    color: var(--st-accent-text);
-  }
-
-  .st-link-action:hover {
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
   .st-icon-ghost {
     background-color: transparent;
     color: var(--st-text-muted);

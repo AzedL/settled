@@ -459,10 +459,8 @@ async fn run_batch(
         DEFAULT_CONCURRENCY,
         registry,
         move |event| {
-            if print_live {
-                if let RunEvent::Output { command_id, text, .. } = event {
-                    println!("  [{command_id}] {text}");
-                }
+            if print_live && let RunEvent::Output { command_id, text, .. } = event {
+                println!("  [{command_id}] {text}");
             }
         },
     )

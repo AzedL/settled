@@ -156,18 +156,8 @@ async fn run_commands(
 }
 
 #[tauri::command]
-async fn cancel_command(command_id: String, state: State<'_, AppState>) -> Result<bool, String> {
-    Ok(state.registry.cancel_command(&command_id).await)
-}
-
-#[tauri::command]
 async fn cancel_run(run_id: String, state: State<'_, AppState>) -> Result<usize, String> {
     Ok(state.registry.cancel_run(&run_id).await)
-}
-
-#[tauri::command]
-async fn cancel_all_runs(state: State<'_, AppState>) -> Result<usize, String> {
-    Ok(state.registry.cancel_all().await)
 }
 
 #[tauri::command]
@@ -211,9 +201,9 @@ fn open_in_vscode(path: String) -> Result<(), String> {
             .creation_flags(CREATE_NO_WINDOW)
             .spawn();
 
-        return try_code_cmd
+        try_code_cmd
             .map(|_| ())
-            .map_err(|e| format!("Failed to launch VS Code ('code' CLI): {e}"));
+            .map_err(|e| format!("Failed to launch VS Code ('code' CLI): {e}"))
     }
 
     #[cfg(target_os = "macos")]
@@ -263,10 +253,10 @@ pub fn run() {
             let shown_flag = Arc::clone(&app.state::<AppState>().main_window_shown);
             tauri::async_runtime::spawn(async move {
                 tokio::time::sleep(Duration::from_secs(FALLBACK_WINDOW_SHOW_SECS)).await;
-                if !shown_flag.swap(true, Ordering::AcqRel) {
-                    if let Some(window) = app_handle.get_webview_window("main") {
-                        let _ = window.show();
-                    }
+                if !shown_flag.swap(true, Ordering::AcqRel)
+                    && let Some(window) = app_handle.get_webview_window("main")
+                {
+                    let _ = window.show();
                 }
             });
             Ok(())
@@ -279,9 +269,7 @@ pub fn run() {
             open_workspace,
             reload_workspace,
             run_commands,
-            cancel_command,
             cancel_run,
-            cancel_all_runs,
             build_ai_context,
             open_in_vscode,
         ])

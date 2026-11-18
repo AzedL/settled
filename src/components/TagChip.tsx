@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 import { lang } from "../lang";
 
-export const TAG_CHIP_CLASS =
+const TAG_CHIP_CLASS =
   "inline-flex items-center gap-[var(--st-space-4)] h-[var(--st-tag-h)] px-[var(--st-space-6)] rounded-[var(--st-radius-sm)] border font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-w-full min-w-0 st-tag";
 
 interface TagChipProps {

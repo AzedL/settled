@@ -1,6 +1,6 @@
 import type { Platform } from "../types";
 
-export const ALL_PLATFORMS: Platform[] = ["windows", "macos", "linux"];
+const ALL_PLATFORMS: Platform[] = ["windows", "macos", "linux"];
 
 /**
  * Formats target platforms as a slash-separated list, expanding an omitted/empty list to all platforms.

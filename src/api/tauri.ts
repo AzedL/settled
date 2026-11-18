@@ -58,16 +58,8 @@ export async function runCommands(
   return invoke<RunBatchResponse>("run_commands", { runId, targets });
 }
 
-export async function cancelCommand(commandId: string): Promise<boolean> {
-  return invoke<boolean>("cancel_command", { commandId });
-}
-
 export async function cancelRun(runId: string): Promise<number> {
   return invoke<number>("cancel_run", { runId });
-}
-
-export async function cancelAllRuns(): Promise<number> {
-  return invoke<number>("cancel_all_runs");
 }
 
 export async function buildAiContext(
