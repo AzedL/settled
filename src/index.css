@@ -286,15 +286,17 @@ button:focus-visible {
     opacity: 0.9;
   }
 
-  .st-recent-item {
-    background-color: var(--st-bg-surface);
-    border-color: var(--st-border-subtle);
+  .st-dropdown-item {
+    background-color: transparent;
     color: var(--st-text-primary);
   }
 
-  .st-recent-item:hover {
+  .st-dropdown-item:hover {
     background-color: var(--st-bg-surface-hover);
-    border-color: var(--st-border-accent);
+  }
+
+  .st-dropdown-item[data-active="true"] {
+    background-color: var(--st-bg-surface-active);
   }
 
   .st-raw-toggle {

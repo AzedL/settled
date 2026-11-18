@@ -19,7 +19,6 @@ import { ConfirmModal } from "./components/ConfirmModal";
 import { DetailPanel } from "./components/DetailPanel";
 import { HeaderBar } from "./components/HeaderBar";
 import { Sidebar } from "./components/Sidebar";
-import { WelcomeView } from "./components/WelcomeView";
 import { lang } from "./lang";
 import type {
   ActiveRunAction,
@@ -680,18 +679,22 @@ export default function App() {
     >
       <HeaderBar
         workspace={workspace}
+        recentWorkspaces={initialState?.prefs.recentWorkspaces ?? []}
         themeMode={themeMode}
         isCheckingActive={activeAction?.kind === "header-checks"}
         hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
         onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
+        onOpenRecent={(path) => void loadWorkspaceAtPath(path)}
         onLoadSample={handleLoadSample}
         onReload={() => void handleReloadWorkspace()}
         onRunChecks={handleRunHeaderChecks}
         onStopChecks={() => void handleStopActiveAction()}
       />
 
-      {workspace ? (
+      {isBootstrapping && !workspace ? (
+        <div className="flex-1 min-h-0" />
+      ) : (
         <div className="flex-1 flex min-h-0 overflow-hidden">
           <Sidebar
             workspace={workspace}
@@ -710,6 +713,7 @@ export default function App() {
 
           <DetailPanel
             item={selectedItem}
+            hasWorkspace={Boolean(workspace)}
             scope={scope}
             runtimeMap={runtimeMap}
             activeAction={activeAction}
@@ -721,16 +725,6 @@ export default function App() {
             onCopyAiContext={handleCopyAiContext}
           />
         </div>
-      ) : isBootstrapping ? (
-        <div className="flex-1 min-h-0" />
-      ) : (
-        <WelcomeView
-          recentWorkspaces={initialState?.prefs.recentWorkspaces ?? []}
-          hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
-          onOpenWorkspace={() => void handleOpenWorkspaceDialog()}
-          onLoadSample={() => void handleLoadSample()}
-          onOpenRecent={(path) => void loadWorkspaceAtPath(path)}
-        />
       )}
 
       {pendingConfirm && (

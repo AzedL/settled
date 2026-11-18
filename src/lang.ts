@@ -7,7 +7,6 @@ import type { Platform, RunStatus } from "./types";
 export const lang = {
   app: {
     name: "Settled",
-    tagline: "跨设备环境检查与问题台账驾驶舱",
     platformLabel: (platform: Platform): string => {
       switch (platform) {
         case "windows":
@@ -23,6 +22,9 @@ export const lang = {
   header: {
     openWorkspace: "打开工作区",
     switchWorkspace: "切换工作区",
+    recentWorkspacesAria: "最近打开的工作区",
+    recentWorkspacesTitle: "最近打开的工作区",
+    recentWorkspacesEmpty: "暂无最近打开的工作区",
     loadSample: "载入示例库",
     reload: "刷新扫描",
     scopeLabel: "视图范围",
@@ -105,15 +107,5 @@ export const lang = {
     subtitle: "运行此命令可能会修改本机配置、文件或依赖，请确认：",
     confirmBtn: "确认执行",
     cancelBtn: "取消",
-  },
-
-  welcome: {
-    title: "Settled 环境驾驶舱",
-    subtitle: "打开一个包含 items/<id>/meta.json 的工作区目录，即刻获取本机独立命令红绿灯与跨设备环境清晰度。",
-    openFolderBtn: "选择 Workspace 目录",
-    loadSampleBtn: "打开内置示例 Workspace",
-    recentTitle: "最近打开的工作区",
-    protocolHintTitle: "目录约定",
-    protocolHintBody: "<workspace>/items/<item-id>/meta.json + README.md + scripts/ (@script/)",
   },
 } as const;

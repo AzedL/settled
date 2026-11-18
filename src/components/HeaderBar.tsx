@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import {
+  Check,
+  ChevronDown,
   FolderOpen,
   Monitor,
   Moon,
@@ -13,15 +16,22 @@ import { Button } from "./Button";
 
 interface HeaderBarProps {
   workspace: WorkspaceSnapshot | null;
+  recentWorkspaces: string[];
   themeMode: ThemeMode;
   isCheckingActive: boolean;
   hasSampleWorkspace: boolean;
   onChangeThemeMode: (mode: ThemeMode) => void;
   onOpenWorkspace: () => void;
+  onOpenRecent: (path: string) => void;
   onLoadSample: () => void;
   onReload: () => void;
   onRunChecks: () => void;
   onStopChecks: () => void;
+}
+
+function getWorkspaceDisplayName(workspacePath: string): string {
+  const segments = workspacePath.split(/[\\/]+/).filter(Boolean);
+  return segments[segments.length - 1] ?? workspacePath;
 }
 
 const THEME_OPTIONS: {
@@ -36,16 +46,48 @@ const THEME_OPTIONS: {
 
 export function HeaderBar({
   workspace,
+  recentWorkspaces,
   themeMode,
   isCheckingActive,
   hasSampleWorkspace,
   onChangeThemeMode,
   onOpenWorkspace,
+  onOpenRecent,
   onLoadSample,
   onReload,
   onRunChecks,
   onStopChecks,
 }: HeaderBarProps) {
+  const [recentMenuOpen, setRecentMenuOpen] = useState(false);
+  const recentMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!recentMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        recentMenuRef.current &&
+        !recentMenuRef.current.contains(event.target as Node)
+      ) {
+        setRecentMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setRecentMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [recentMenuOpen]);
+
   return (
     <header
       className="h-[var(--st-header-h)] shrink-0 border-b px-[var(--st-space-16)] flex items-center justify-between gap-[var(--st-space-16)]"
@@ -110,12 +152,99 @@ export function HeaderBar({
           </Button>
         )}
 
-        <Button size="md" variant="surface" onClick={onOpenWorkspace}>
-          <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-          <span>
-            {workspace ? lang.header.switchWorkspace : lang.header.openWorkspace}
-          </span>
-        </Button>
+        <div ref={recentMenuRef} className="relative inline-flex">
+          <div
+            className="h-[var(--st-control-h)] inline-flex items-stretch rounded-[var(--st-radius-md)] border overflow-hidden"
+            style={{ borderColor: "var(--st-border-default)" }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setRecentMenuOpen(false);
+                onOpenWorkspace();
+              }}
+              className="h-full px-[var(--st-space-12)] inline-flex items-center gap-[var(--st-space-6)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium whitespace-nowrap cursor-pointer st-control st-btn-surface border-0"
+            >
+              <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+              <span>
+                {workspace
+                  ? lang.header.switchWorkspace
+                  : lang.header.openWorkspace}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRecentMenuOpen((prev) => !prev)}
+              aria-expanded={recentMenuOpen}
+              aria-haspopup="menu"
+              aria-label={lang.header.recentWorkspacesAria}
+              title={lang.header.recentWorkspacesAria}
+              className="h-full w-[var(--st-control-h-sm)] inline-flex items-center justify-center border-l cursor-pointer st-control st-btn-surface"
+              style={{ borderLeftColor: "var(--st-border-default)" }}
+            >
+              <ChevronDown className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+            </button>
+          </div>
+
+          {recentMenuOpen && (
+            <div
+              role="menu"
+              aria-label={lang.header.recentWorkspacesTitle}
+              className="absolute right-0 top-[calc(100%+var(--st-space-6))] z-50 w-[340px] max-w-[calc(100vw-32px)] rounded-[var(--st-radius-md)] border p-[var(--st-space-6)] flex flex-col gap-[var(--st-space-4)]"
+              style={{
+                backgroundColor: "var(--st-bg-panel)",
+                borderColor: "var(--st-border-default)",
+                boxShadow: "var(--st-shadow-card)",
+              }}
+            >
+              <div className="px-[var(--st-space-8)] py-[var(--st-space-4)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-muted)]">
+                {lang.header.recentWorkspacesTitle}
+              </div>
+
+              {recentWorkspaces.length === 0 ? (
+                <div className="px-[var(--st-space-8)] py-[var(--st-space-12)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] text-center">
+                  {lang.header.recentWorkspacesEmpty}
+                </div>
+              ) : (
+                <div className="max-h-[var(--st-dropdown-max-h)] overflow-y-auto flex flex-col gap-[var(--st-space-2)]">
+                  {recentWorkspaces.map((path) => {
+                    const isCurrent = workspace?.rootPath === path;
+                    return (
+                      <button
+                        key={path}
+                        type="button"
+                        role="menuitem"
+                        title={path}
+                        data-active={isCurrent ? "true" : "false"}
+                        onClick={() => {
+                          setRecentMenuOpen(false);
+                          onOpenRecent(path);
+                        }}
+                        className="w-full text-left px-[var(--st-space-8)] py-[var(--st-space-6)] rounded-[var(--st-radius-sm)] flex items-center justify-between gap-[var(--st-space-8)] cursor-pointer st-control st-dropdown-item"
+                      >
+                        <div className="min-w-0 flex-1 flex flex-col gap-[var(--st-space-2)]">
+                          <span className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-primary)] truncate">
+                            {getWorkspaceDisplayName(path)}
+                          </span>
+                          <span className="font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] text-[color:var(--st-text-muted)] truncate">
+                            {path}
+                          </span>
+                        </div>
+                        {isCurrent && (
+                          <Check
+                            className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
+                            style={{ color: "var(--st-accent-text)" }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div
           className="h-[var(--st-control-h)] inline-flex items-center gap-[var(--st-space-4)] rounded-[var(--st-radius-md)] border p-[var(--st-space-4)]"

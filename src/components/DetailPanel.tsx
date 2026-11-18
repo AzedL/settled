@@ -27,6 +27,7 @@ import { TagOverflowList } from "./TagOverflowList";
 
 interface DetailPanelProps {
   item: WorkspaceItem | null;
+  hasWorkspace: boolean;
   scope: ScopeMode;
   runtimeMap: Record<string, CommandRuntimeState>;
   activeAction: ActiveRunAction | null;
@@ -108,6 +109,7 @@ function CollapsibleDetailCard({
 
 export function DetailPanel({
   item,
+  hasWorkspace,
   scope,
   runtimeMap,
   activeAction,
@@ -129,6 +131,9 @@ export function DetailPanel({
   }, [item?.id]);
 
   if (!item) {
+    if (!hasWorkspace) {
+      return <main className="flex-1 min-w-0" />;
+    }
     return (
       <main className="flex-1 min-w-0 flex items-center justify-center p-[var(--st-space-32)]">
         <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)] text-center">
