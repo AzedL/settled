@@ -6,6 +6,9 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Subdirectory inside a workspace root storing item manifests and scripts.
+pub const ITEMS_DIR_NAME: &str = "settled-items";
+
 /// Detects the default shell for the current operating system.
 ///
 /// On Windows, prefers `pwsh` when available on `PATH` and falls back to built-in `powershell`.
@@ -88,7 +91,7 @@ fn is_valid_suffix_boundary(bytes: &[u8], after: usize) -> bool {
     matches!(bytes[after], b' ' | b'\t' | b'\n' | b'\r' | b'"' | b'\'' | b')' | b';' | b'&' | b'|')
 }
 
-/// Scans `<workspace>/items/*/` and returns a deterministic snapshot for the host platform.
+/// Scans `<workspace>/settled-items/*/` and returns a deterministic snapshot for the host platform.
 pub fn load_workspace(root: &Path) -> Result<WorkspaceSnapshot, SettledError> {
     if !root.is_dir() {
         return Err(SettledError::InvalidWorkspace(
@@ -98,7 +101,7 @@ pub fn load_workspace(root: &Path) -> Result<WorkspaceSnapshot, SettledError> {
 
     let host_platform = Platform::current();
     let default_shell = detect_default_shell();
-    let items_dir = root.join("items");
+    let items_dir = root.join(ITEMS_DIR_NAME);
     let items_dir_exists = items_dir.is_dir();
 
     let mut items = Vec::new();
@@ -355,7 +358,7 @@ mod tests {
     #[test]
     fn loads_workspace_items_and_skips_malformed_meta_directories() {
         let tmp = TempDir::new().unwrap();
-        let items = tmp.path().join("items");
+        let items = tmp.path().join(ITEMS_DIR_NAME);
         fs::create_dir_all(items.join(".hidden")).unwrap();
         fs::create_dir_all(items.join("no-meta")).unwrap();
 
@@ -420,7 +423,7 @@ mod tests {
     #[test]
     fn filters_platform_applicability_cleanly() {
         let tmp = TempDir::new().unwrap();
-        let item_dir = tmp.path().join("items").join("other-os");
+        let item_dir = tmp.path().join(ITEMS_DIR_NAME).join("other-os");
         fs::create_dir_all(&item_dir).unwrap();
         let non_host = match Platform::current() {
             Platform::Windows => "macos",
@@ -475,7 +478,7 @@ mod tests {
     #[test]
     fn normalizes_omitted_null_and_blank_descriptions_on_items_and_steps() {
         let tmp = TempDir::new().unwrap();
-        let items = tmp.path().join("items");
+        let items = tmp.path().join(ITEMS_DIR_NAME);
 
         let omitted_dir = items.join("omitted-desc");
         fs::create_dir_all(&omitted_dir).unwrap();

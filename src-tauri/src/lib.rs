@@ -117,7 +117,15 @@ async fn open_workspace(
 async fn reload_workspace(state: State<'_, AppState>) -> Result<Option<WorkspaceSnapshot>, String> {
     let maybe_path = state.active_workspace.lock().await.clone();
     match maybe_path {
-        Some(path) => Ok(Some(load_workspace_blocking(path).await?)),
+        Some(path) => {
+            {
+                let mut guard = state.watcher.lock().await;
+                if let Some(watcher) = guard.as_mut() {
+                    watcher.sync_items_watch();
+                }
+            }
+            Ok(Some(load_workspace_blocking(path).await?))
+        }
         None => Ok(None),
     }
 }

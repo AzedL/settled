@@ -3,7 +3,7 @@ use serde::Serialize;
 use settled_core::{
     format_item_context, load_workspace, run_commands_parallel, CommandExecutionTarget,
     CommandResult, Platform, RunEvent, RunRegistry, RunStatus, ScriptRole, WorkspaceItem,
-    WorkspaceSnapshot, DEFAULT_CONCURRENCY,
+    WorkspaceSnapshot, DEFAULT_CONCURRENCY, ITEMS_DIR_NAME,
 };
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -11,7 +11,7 @@ use std::process::ExitCode;
 #[derive(Debug, Parser)]
 #[command(name = "settled", version, about = "Cross-device environment cockpit CLI")]
 struct Cli {
-    /// Path to a Settled workspace directory (defaults to SETTLED_WORKSPACE or nearest ancestor with items/)
+    /// Path to a Settled workspace directory (defaults to SETTLED_WORKSPACE or nearest ancestor with settled-items/)
     #[arg(long, short = 'w', global = true, env = "SETTLED_WORKSPACE")]
     workspace: Option<PathBuf>,
 
@@ -145,7 +145,7 @@ fn resolve_workspace_path(explicit: Option<PathBuf>) -> Result<PathBuf, String> 
     let cwd = std::env::current_dir().map_err(|e| format!("Failed to get cwd: {e}"))?;
     let mut cursor: Option<&Path> = Some(cwd.as_path());
     while let Some(dir) = cursor {
-        if dir.join("items").is_dir() {
+        if dir.join(ITEMS_DIR_NAME).is_dir() {
             return Ok(dir.to_path_buf());
         }
         cursor = dir.parent();
@@ -525,8 +525,8 @@ mod tests {
     #[test]
     fn collects_targets_filtered_by_tags_and_step_index() {
         let tmp = TempDir::new().unwrap();
-        let a_dir = tmp.path().join("items").join("alpha");
-        let b_dir = tmp.path().join("items").join("beta");
+        let a_dir = tmp.path().join(ITEMS_DIR_NAME).join("alpha");
+        let b_dir = tmp.path().join(ITEMS_DIR_NAME).join("beta");
         fs::create_dir_all(&a_dir).unwrap();
         fs::create_dir_all(&b_dir).unwrap();
 

@@ -39,7 +39,7 @@ Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, 
 <workspace>/
 ├── README.md                    # Optional user documentation
 ├── .gitignore                   # Optional VCS rules
-└── items/                       # Aggregation directory for all Settled items
+└── settled-items/               # Aggregation directory for all Settled items
     └── <item-id>/               # Folder name = unique item ID (flat, tagged)
         ├── meta.json            # Required manifest & explicit script registry
         ├── README.md            # Problem background, symptoms, manual steps, notes
@@ -49,7 +49,7 @@ Users own the `workspace/` folder and sync it however they prefer (Git, iCloud, 
 ```
 
 ### 2.1 Discovery Rules
-- `Settled` scans `<workspace>/items/*/`.
+- `Settled` scans `<workspace>/settled-items/*/`.
 - Hidden directories starting with `.` are skipped.
 - Only directories containing `meta.json` are loaded as items.
 - Item documentation prefers `README.md` by convention while remaining compatible with lowercase `readme.md`.
@@ -94,7 +94,7 @@ interface ItemMeta {
 
 ### 2.4 Explicit Registration & `@script/` Convention
 - Only commands explicitly declared in `meta.json` under `scripts` are recognized and runnable. Arbitrary files in `scripts/` are never auto-discovered or executed.
-- `@script/<subpath>` inside `run` resolves to `./scripts/<subpath>` (or `.\scripts\<subpath>` when `shell` is `cmd`), with `cwd` always fixed to `<workspace>/items/<item-id>/`.
+- `@script/<subpath>` inside `run` resolves to `./scripts/<subpath>` (or `.\scripts\<subpath>` when `shell` is `cmd`), with `cwd` always fixed to `<workspace>/settled-items/<item-id>/`.
 
 ---
 

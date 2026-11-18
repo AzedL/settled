@@ -4,7 +4,7 @@
 
 ## 核心能力
 
-- **工作区协议清晰可读**：所有环境条目存放在用户自主管理的 `<workspace>/items/<item-id>/` 目录中（通过 `meta.json`、`README.md` 和可选 `scripts/` 组织），运行态检查结果不污染配置仓库，方便通过 Git / 网盘跨设备同步。
+- **工作区协议清晰可读**：所有环境条目存放在用户自主管理的 `<workspace>/settled-items/<item-id>/` 目录中（通过 `meta.json`、`README.md` 和可选 `scripts/` 组织），运行态检查结果不污染配置仓库，方便通过 Git / 网盘跨设备同步。
 - **独立命令与红绿灯**：每条 `check` 命令独立并发执行，实时流式输出日志并展示各自状态灯（未运行 / 运行中 / 通过 / 失败 / 已中止）。
 - **修复后自动复检**：支持 `fix` 与自定义脚本分组执行；执行 `fix` 完成后若存在适用 `check`，会自动重跑 `check` 验收，并支持一键复制包含命令结果与文档在内的结构化 AI 上下文。
 - **跨平台范围切换**：支持仅看「当前设备」适用条目，或在「全部平台」视图中查看其他系统条目（自动置灰并阻止误执行）。
@@ -28,7 +28,7 @@ settled/
 
 ```text
 <workspace>/
-└── items/
+└── settled-items/
     └── <item-id>/
         ├── meta.json     # 必填：名称、描述、平台、标签与显式声明的 scripts
         ├── README.md     # 可选：问题背景、排查记录与手动步骤（只读预览）
@@ -67,7 +67,7 @@ cargo check --workspace
 
 ## CLI (`settled`) 用法
 
-可通过 `SETTLED_WORKSPACE` 环境变量或 `-w <path>` 指定工作区（未指定时自动向上查找包含 `items/` 的目录），所有子命令均支持 `--json` 输出：
+可通过 `SETTLED_WORKSPACE` 环境变量或 `-w <path>` 指定工作区（未指定时自动向上查找包含 `settled-items/` 的目录），所有子命令均支持 `--json` 输出：
 
 ```bash
 # 列出工作区条目（可按标签或 --all-platforms 过滤）

@@ -1,21 +1,33 @@
 use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
-use std::path::{Path, PathBuf};
+use settled_core::ITEMS_DIR_NAME;
+use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
 pub const WORKSPACE_CHANGED_EVENT: &str = "settled://workspace-changed";
 
-/// Watches a Settled workspace for file changes under `items/` and notifies the frontend.
+/// Precision two-layer watcher for a Settled workspace:
+/// - `<root>` watched non-recursively so large trees (`node_modules`, `.git`, `target`) are never traversed;
+/// - `<root>/settled-items` watched recursively when present, scoped to item directories, `meta.json`, and `README.md`.
 pub struct WorkspaceWatcher {
-    _debouncer: Debouncer<notify::RecommendedWatcher>,
+    debouncer: Debouncer<notify::RecommendedWatcher>,
+    items_dir: PathBuf,
+    items_watched: bool,
+    resync_items_dir: Arc<AtomicBool>,
 }
 
 impl WorkspaceWatcher {
     pub fn start(app: AppHandle, workspace_root: PathBuf) -> Result<Self, String> {
-        let items_dir = workspace_root.join("items");
+        let items_dir = workspace_root.join(ITEMS_DIR_NAME);
         let root_str = workspace_root.to_string_lossy().into_owned();
-        let watch_target = workspace_root.clone();
+        let resync_items_dir = Arc::new(AtomicBool::new(false));
+
+        let cb_root = workspace_root.clone();
+        let cb_items_dir = items_dir.clone();
+        let cb_resync = Arc::clone(&resync_items_dir);
 
         let mut debouncer = new_debouncer(
             Duration::from_millis(280),
@@ -23,10 +35,13 @@ impl WorkspaceWatcher {
                 let Ok(events) = res else {
                     return;
                 };
-                let touches_items = events.iter().any(|ev| {
-                    is_relevant_path(&ev.path, &workspace_root, &items_dir)
-                });
-                if touches_items {
+                if events.iter().any(|ev| ev.path == cb_items_dir) {
+                    cb_resync.store(true, Ordering::Release);
+                }
+                let relevant = events
+                    .iter()
+                    .any(|ev| is_relevant_path(&ev.path, &cb_root, &cb_items_dir));
+                if relevant {
                     let _ = app.emit(WORKSPACE_CHANGED_EVENT, root_str.clone());
                 }
             },
@@ -35,20 +50,125 @@ impl WorkspaceWatcher {
 
         debouncer
             .watcher()
-            .watch(&watch_target, RecursiveMode::Recursive)
+            .watch(&workspace_root, RecursiveMode::NonRecursive)
             .map_err(|e| format!("Failed to watch workspace directory: {e}"))?;
 
+        let items_watched = if items_dir.is_dir() {
+            debouncer
+                .watcher()
+                .watch(&items_dir, RecursiveMode::Recursive)
+                .map_err(|e| format!("Failed to watch {ITEMS_DIR_NAME} directory: {e}"))?;
+            true
+        } else {
+            false
+        };
+
         Ok(Self {
-            _debouncer: debouncer,
+            debouncer,
+            items_dir,
+            items_watched,
+            resync_items_dir,
         })
+    }
+
+    /// Synchronizes the recursive watch on `<root>/settled-items` when created, removed, or replaced.
+    pub fn sync_items_watch(&mut self) {
+        let dir_exists = self.items_dir.is_dir();
+        let force_resync = self.resync_items_dir.swap(false, Ordering::AcqRel);
+        if !force_resync && self.items_watched == dir_exists {
+            return;
+        }
+
+        if self.items_watched {
+            let _ = self.debouncer.watcher().unwatch(&self.items_dir);
+            self.items_watched = false;
+        }
+
+        if dir_exists
+            && self
+                .debouncer
+                .watcher()
+                .watch(&self.items_dir, RecursiveMode::Recursive)
+                .is_ok()
+        {
+            self.items_watched = true;
+        }
     }
 }
 
 fn is_relevant_path(changed: &Path, root: &Path, items_dir: &Path) -> bool {
-    if changed == items_dir || changed.starts_with(items_dir) {
-        return !changed
-            .components()
-            .any(|c| c.as_os_str() == ".git" || c.as_os_str() == "node_modules");
+    if changed == root || changed == items_dir {
+        return true;
     }
-    changed == root
+
+    let Ok(rel) = changed.strip_prefix(items_dir) else {
+        return false;
+    };
+
+    let parts: Vec<&std::ffi::OsStr> = rel
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(os) => Some(os),
+            _ => None,
+        })
+        .collect();
+
+    if parts.is_empty() {
+        return true;
+    }
+
+    if parts
+        .iter()
+        .any(|os| os.to_str().is_some_and(|s| s.starts_with('.')) || *os == "node_modules")
+    {
+        return false;
+    }
+
+    match parts.as_slice() {
+        [_item_id] => !changed.is_file(),
+        [_item_id, file_name] => file_name
+            .to_str()
+            .is_some_and(|name| name == "meta.json" || name.eq_ignore_ascii_case("readme.md")),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_relevant_path;
+    use settled_core::ITEMS_DIR_NAME;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn filters_root_noise_and_scopes_to_settled_items_entries() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+        let items_dir = root.join(ITEMS_DIR_NAME);
+        let item_dir = items_dir.join("git-core");
+        fs::create_dir_all(item_dir.join("scripts")).unwrap();
+        fs::write(item_dir.join("meta.json"), "{}").unwrap();
+        fs::write(item_dir.join("README.md"), "# Git").unwrap();
+        fs::write(items_dir.join("stray.txt"), "ignore me").unwrap();
+
+        assert!(is_relevant_path(root, root, &items_dir));
+        assert!(is_relevant_path(&items_dir, root, &items_dir));
+        assert!(is_relevant_path(&item_dir, root, &items_dir));
+        assert!(is_relevant_path(&item_dir.join("meta.json"), root, &items_dir));
+        assert!(is_relevant_path(&item_dir.join("README.md"), root, &items_dir));
+        assert!(is_relevant_path(&item_dir.join("readme.md"), root, &items_dir));
+        // Removed item directory no longer exists on disk and should still trigger reload.
+        assert!(is_relevant_path(&items_dir.join("deleted-item"), root, &items_dir));
+
+        // Root-level project files, node_modules, target, and .git must be ignored.
+        assert!(!is_relevant_path(&root.join("package.json"), root, &items_dir));
+        assert!(!is_relevant_path(&root.join(".git").join("index"), root, &items_dir));
+        assert!(!is_relevant_path(&root.join("node_modules").join("pkg"), root, &items_dir));
+
+        // Loose files directly under settled-items/, hidden folders, scripts, and runtime logs are ignored.
+        assert!(!is_relevant_path(&items_dir.join("stray.txt"), root, &items_dir));
+        assert!(!is_relevant_path(&items_dir.join(".hidden").join("meta.json"), root, &items_dir));
+        assert!(!is_relevant_path(&item_dir.join("scripts").join("check.sh"), root, &items_dir));
+        assert!(!is_relevant_path(&item_dir.join("output.log"), root, &items_dir));
+    }
 }

@@ -91,9 +91,9 @@ mod tests {
     fn builds_structured_markdown_context_with_logs() {
         let item = WorkspaceItem {
             id: "git-core".to_string(),
-            path: "/tmp/ws/items/git-core".to_string(),
-            meta_path: "/tmp/ws/items/git-core/meta.json".to_string(),
-            readme_path: Some("/tmp/ws/items/git-core/README.md".to_string()),
+            path: "/tmp/ws/settled-items/git-core".to_string(),
+            meta_path: "/tmp/ws/settled-items/git-core/meta.json".to_string(),
+            readme_path: Some("/tmp/ws/settled-items/git-core/README.md".to_string()),
             readme: "Check user.name and email.".to_string(),
             raw_meta: "{\"name\":\"Git Core\"}".to_string(),
             name: "Git Core".to_string(),
@@ -133,8 +133,8 @@ mod tests {
     fn omits_empty_optional_fields_in_markdown_context() {
         let item = WorkspaceItem {
             id: "minimal".to_string(),
-            path: "/tmp/ws/items/minimal".to_string(),
-            meta_path: "/tmp/ws/items/minimal/meta.json".to_string(),
+            path: "/tmp/ws/settled-items/minimal".to_string(),
+            meta_path: "/tmp/ws/settled-items/minimal/meta.json".to_string(),
             readme_path: None,
             readme: String::new(),
             raw_meta: "{\"name\":\"Minimal\"}".to_string(),

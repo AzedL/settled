@@ -279,7 +279,7 @@ where
     deserializer.deserialize_any(TimestampVisitor)
 }
 
-/// Raw `meta.json` manifest stored inside `<workspace>/items/<item-id>/meta.json`.
+/// Raw `meta.json` manifest stored inside `<workspace>/settled-items/<item-id>/meta.json`.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemMetaRaw {
@@ -323,7 +323,7 @@ pub struct ScriptGroup {
     pub commands: Vec<ResolvedCommand>,
 }
 
-/// Loaded item directory from `<workspace>/items/<id>/`.
+/// Loaded item directory from `<workspace>/settled-items/<id>/`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceItem {

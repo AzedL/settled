@@ -1,6 +1,6 @@
 ---
 name: settled
-description: Create, inspect, check, and troubleshoot cross-device environment items inside a Settled workspace using the `settled` CLI and the `items/<item-id>/` specification.
+description: Create, inspect, check, and troubleshoot cross-device environment items inside a Settled workspace using the `settled` CLI and the `settled-items/<item-id>/` specification.
 ---
 
 # Settled Agent Skill
@@ -13,11 +13,11 @@ Use this skill whenever the user wants to:
 
 ## 1. Workspace Layout & Rules
 
-A Settled workspace stores all definitions under `<workspace>/items/`:
+A Settled workspace stores all definitions under `<workspace>/settled-items/`:
 
 ```text
 <workspace>/
-└── items/
+└── settled-items/
     └── <item-id>/            # Lowercase kebab-case directory name = unique ID
         ├── meta.json         # Explicit metadata & command registry
         ├── README.md         # Detailed background, symptoms, manual steps, references
@@ -28,7 +28,7 @@ A Settled workspace stores all definitions under `<workspace>/items/`:
 1. **Never store device-specific pass/fail/ignored state inside `meta.json` or `README.md`.** Definitions are shared across devices.
 2. **Use exact platform enum values**: only `"windows"`, `"macos"`, `"linux"`. Never use `"win32"`, `"darwin"`, `"mac"`, or `"win64"`.
 3. **Explicit registration only**: Settled only recognizes commands listed under `scripts` in `meta.json`. Unregistered files inside `scripts/` are never executed automatically.
-4. **Always use `@script/` for local script paths** (e.g. `bash @script/check.sh`, `pwsh -File @script/fix.ps1`, `node @script/verify.mjs`). Never hardcode absolute paths. Execution `cwd` is always `<workspace>/items/<item-id>/`.
+4. **Always use `@script/` for local script paths** (e.g. `bash @script/check.sh`, `pwsh -File @script/fix.ps1`, `node @script/verify.mjs`). Never hardcode absolute paths. Execution `cwd` is always `<workspace>/settled-items/<item-id>/`.
 5. **Independent & Idempotent Commands**:
    - All commands inside any `scripts.<key>` array run **independently and in parallel** (no sibling failure halts other commands).
    - Therefore, every command entry in an array MUST be safe to run independently, concurrently, and repeatedly (idempotent).
@@ -92,7 +92,7 @@ Field notes:
 ## 3. CLI Workflows (`settled`)
 
 ### Capturing a New Pitfall or Setup Item
-1. Choose a concise kebab-case `<item-id>` under `<workspace>/items/<item-id>/`.
+1. Choose a concise kebab-case `<item-id>` under `<workspace>/settled-items/<item-id>/`.
 2. Write `README.md` documenting: symptom, root cause, verified solution across relevant OSes, and any manual steps.
 3. Write `meta.json` with `name`, optional `description`, `createAt` (current Unix timestamp in seconds, e.g. `1794596400`), optional `tags`, optional `platforms`, and read-only `scripts.check` (plus optional `scripts.fix` / custom scripts) if automatable.
 4. Immediately validate using:
