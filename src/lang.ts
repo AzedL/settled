@@ -21,11 +21,9 @@ export const lang = {
 
   header: {
     openWorkspace: "打开工作区",
-    switchWorkspace: "切换工作区",
     recentWorkspacesAria: "最近打开的工作区",
     recentWorkspacesTitle: "最近打开的工作区",
-    recentWorkspacesEmpty: "暂无最近打开的工作区",
-    loadSample: "载入示例库",
+    recentWorkspacesEmpty: "暂无",
     reload: "刷新扫描",
     scopeLabel: "视图范围",
     scopeCurrent: "当前设备",

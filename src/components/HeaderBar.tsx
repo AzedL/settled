@@ -19,11 +19,9 @@ interface HeaderBarProps {
   recentWorkspaces: string[];
   themeMode: ThemeMode;
   isCheckingActive: boolean;
-  hasSampleWorkspace: boolean;
   onChangeThemeMode: (mode: ThemeMode) => void;
   onOpenWorkspace: () => void;
   onOpenRecent: (path: string) => void;
-  onLoadSample: () => void;
   onReload: () => void;
   onRunChecks: () => void;
   onStopChecks: () => void;
@@ -49,11 +47,9 @@ export function HeaderBar({
   recentWorkspaces,
   themeMode,
   isCheckingActive,
-  hasSampleWorkspace,
   onChangeThemeMode,
   onOpenWorkspace,
   onOpenRecent,
-  onLoadSample,
   onReload,
   onRunChecks,
   onStopChecks,
@@ -114,43 +110,33 @@ export function HeaderBar({
       </div>
 
       <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
-        {workspace && (
-          <>
-            <Button
-              size="md"
-              variant={isCheckingActive ? "warn-soft" : "primary"}
-              onClick={isCheckingActive ? onStopChecks : onRunChecks}
-            >
-              {isCheckingActive ? (
-                <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-              ) : (
-                <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-              )}
-              <span>
-                {isCheckingActive
-                  ? lang.header.stopChecks
-                  : lang.header.runChecks}
-              </span>
-            </Button>
+        <Button
+          size="md"
+          variant={isCheckingActive ? "warn-soft" : "primary"}
+          onClick={isCheckingActive ? onStopChecks : onRunChecks}
+        >
+          {isCheckingActive ? (
+            <Square className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+          ) : (
+            <Play className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+          )}
+          <span>
+            {isCheckingActive
+              ? lang.header.stopChecks
+              : lang.header.runChecks}
+          </span>
+        </Button>
 
-            <Button
-              size="md"
-              variant="surface"
-              iconOnly
-              onClick={onReload}
-              title={lang.header.reload}
-              aria-label={lang.header.reload}
-            >
-              <RefreshCw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-            </Button>
-          </>
-        )}
-
-        {!workspace && hasSampleWorkspace && (
-          <Button size="md" variant="surface" onClick={onLoadSample}>
-            {lang.header.loadSample}
-          </Button>
-        )}
+        <Button
+          size="md"
+          variant="surface"
+          iconOnly
+          onClick={onReload}
+          title={lang.header.reload}
+          aria-label={lang.header.reload}
+        >
+          <RefreshCw className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+        </Button>
 
         <div ref={recentMenuRef} className="relative inline-flex">
           <div
@@ -166,11 +152,7 @@ export function HeaderBar({
               className="h-full px-[var(--st-space-12)] inline-flex items-center gap-[var(--st-space-6)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium whitespace-nowrap cursor-pointer st-control st-btn-surface border-0"
             >
               <FolderOpen className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
-              <span>
-                {workspace
-                  ? lang.header.switchWorkspace
-                  : lang.header.openWorkspace}
-              </span>
+              <span>{lang.header.openWorkspace}</span>
             </button>
 
             <button

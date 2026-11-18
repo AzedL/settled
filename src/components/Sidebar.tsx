@@ -130,7 +130,7 @@ export function Sidebar({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-[var(--st-space-10)] flex flex-col gap-[var(--st-space-6)]">
-        {workspace && filteredItems.length === 0 ? (
+        {filteredItems.length === 0 ? (
           <div className="p-[var(--st-space-24)] text-center flex flex-col items-center gap-[var(--st-space-12)]">
             <p className="m-0 text-[length:var(--st-text-sm)] leading-[var(--st-leading-sm)] text-[color:var(--st-text-muted)]">
               {lang.sidebar.noItemsMatch}

@@ -77,7 +77,6 @@ export interface AppPrefs {
 
 export interface InitialAppState {
   prefs: AppPrefs;
-  sampleWorkspacePath: string | null;
   hostPlatform: Platform;
 }
 

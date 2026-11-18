@@ -539,13 +539,6 @@ export default function App() {
     }
   };
 
-  const handleLoadSample = async () => {
-    const samplePath = initialState?.sampleWorkspacePath;
-    if (samplePath) {
-      await loadWorkspaceAtPath(samplePath);
-    }
-  };
-
   const handleChangeScope = (nextScope: ScopeMode) => {
     setScope(nextScope);
     if (nextScope === "current" && workspace) {
@@ -682,11 +675,9 @@ export default function App() {
         recentWorkspaces={initialState?.prefs.recentWorkspaces ?? []}
         themeMode={themeMode}
         isCheckingActive={activeAction?.kind === "header-checks"}
-        hasSampleWorkspace={Boolean(initialState?.sampleWorkspacePath)}
         onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
         onOpenRecent={(path) => void loadWorkspaceAtPath(path)}
-        onLoadSample={handleLoadSample}
         onReload={() => void handleReloadWorkspace()}
         onRunChecks={handleRunHeaderChecks}
         onStopChecks={() => void handleStopActiveAction()}
@@ -713,7 +704,6 @@ export default function App() {
 
           <DetailPanel
             item={selectedItem}
-            hasWorkspace={Boolean(workspace)}
             scope={scope}
             runtimeMap={runtimeMap}
             activeAction={activeAction}

@@ -54,24 +54,3 @@ pub fn record_workspace(app: &AppHandle, workspace_path: &str) -> Result<AppPref
     save_prefs(app, &prefs)?;
     Ok(prefs)
 }
-
-/// Resolves the bundled/development sample workspace path if present on disk.
-pub fn find_sample_workspace(app: &AppHandle) -> Option<String> {
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("examples").join("workspace"));
-        if let Some(parent) = cwd.parent() {
-            candidates.push(parent.join("examples").join("workspace"));
-        }
-    }
-
-    if let Ok(res_dir) = app.path().resource_dir() {
-        candidates.push(res_dir.join("examples").join("workspace"));
-    }
-
-    candidates
-        .into_iter()
-        .find(|p| p.join("items").is_dir())
-        .map(|p| p.to_string_lossy().into_owned())
-}

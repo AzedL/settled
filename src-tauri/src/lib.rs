@@ -1,7 +1,7 @@
 mod prefs;
 mod watcher;
 
-use prefs::{find_sample_workspace, load_prefs, record_workspace, AppPrefs};
+use prefs::{load_prefs, record_workspace, AppPrefs};
 use serde::Serialize;
 use settled_core::{
     format_item_context, load_workspace, run_commands_parallel, CommandExecutionTarget,
@@ -47,7 +47,6 @@ async fn load_workspace_blocking(path: PathBuf) -> Result<WorkspaceSnapshot, Str
 #[serde(rename_all = "camelCase")]
 pub struct InitialAppState {
     pub prefs: AppPrefs,
-    pub sample_workspace_path: Option<String>,
     pub host_platform: Platform,
 }
 
@@ -62,7 +61,6 @@ pub struct RunBatchResponse {
 fn get_initial_state(app: AppHandle) -> InitialAppState {
     InitialAppState {
         prefs: load_prefs(&app),
-        sample_workspace_path: find_sample_workspace(&app),
         host_platform: Platform::current(),
     }
 }
