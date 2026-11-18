@@ -130,7 +130,6 @@ export default function App() {
   const [runtimeMap, setRuntimeMap] = useState<
     Record<string, CommandRuntimeState>
   >({});
-  const [verifyingItemId, setVerifyingItemId] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<ActiveRunAction | null>(
     null
   );
@@ -233,7 +232,6 @@ export default function App() {
     activeActionRef.current = null;
     activeRunIdRef.current = null;
     setActiveAction(null);
-    setVerifyingItemId(null);
 
     if (!runId) {
       return;
@@ -501,19 +499,10 @@ export default function App() {
             ) ?? verifyItemAfterFix;
           const verifyCommands = getApplicableCheckCommands(currentItem);
           if (verifyCommands.length > 0) {
-            setVerifyingItemId(currentItem.id);
-            try {
-              await executeTargets(
-                verifyCommands.map((cmd) => toExecutionTarget(currentItem, cmd)),
-                seq
-              );
-            } finally {
-              if (actionSeqRef.current === seq) {
-                setVerifyingItemId((prevId) =>
-                  prevId === currentItem.id ? null : prevId
-                );
-              }
-            }
+            await executeTargets(
+              verifyCommands.map((cmd) => toExecutionTarget(currentItem, cmd)),
+              seq
+            );
           }
         }
       } catch (err) {
@@ -803,7 +792,6 @@ export default function App() {
             scope={scope}
             runtimeMap={runtimeMap}
             activeAction={activeAction}
-            verifyingItemId={verifyingItemId}
             onRunGroup={handleRunGroup}
             onRunCommand={handleRunSingleCommand}
             onStopActiveRun={() => void handleStopActiveAction()}

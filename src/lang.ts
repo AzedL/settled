@@ -78,7 +78,6 @@ export const lang = {
     stopGroup: (title: string): string => `中止 ${title}`,
     runSingle: "运行",
     stopSingle: "中止",
-    autoVerifyingFix: "修复动作执行完毕，正在自动重跑当前条目 check 验收...",
     noApplicableInGroup: "当前设备平台下无适用命令",
     exitCodeLabel: (code: number): string => `exit ${code}`,
     durationTitle: "执行时间",

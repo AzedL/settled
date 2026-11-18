@@ -31,7 +31,6 @@ interface DetailPanelProps {
   scope: ScopeMode;
   runtimeMap: Record<string, CommandRuntimeState>;
   activeAction: ActiveRunAction | null;
-  verifyingItemId: string | null;
   onRunGroup: (item: WorkspaceItem, group: ScriptGroup) => void;
   onRunCommand: (
     item: WorkspaceItem,
@@ -123,7 +122,6 @@ export function DetailPanel({
   scope,
   runtimeMap,
   activeAction,
-  verifyingItemId,
   onRunGroup,
   onRunCommand,
   onStopActiveRun,
@@ -160,8 +158,6 @@ export function DetailPanel({
       const status = getCommandRuntime(runtimeMap, cmd.commandId).status;
       return status === "fail" || status === "canceled";
     }) ?? false;
-
-  const isVerifyingFix = verifyingItemId === item.id;
 
   const platformsText = formatPlatforms(item.platforms, lang.app.platformLabel);
 
@@ -340,7 +336,6 @@ export function DetailPanel({
                   runtimeMap={runtimeMap}
                   activeAction={activeAction}
                   hasFailingCheck={hasFailingCheck}
-                  isVerifyingFix={isVerifyingFix}
                   onRunGroup={(targetGroup) => onRunGroup(item, targetGroup)}
                   onRunCommand={(targetGroup, cmd) =>
                     onRunCommand(item, targetGroup, cmd)

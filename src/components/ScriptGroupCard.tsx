@@ -20,7 +20,6 @@ interface ScriptGroupCardProps {
   runtimeMap: Record<string, CommandRuntimeState>;
   activeAction: ActiveRunAction | null;
   hasFailingCheck: boolean;
-  isVerifyingFix: boolean;
   onRunGroup: (group: ScriptGroup) => void;
   onRunCommand: (group: ScriptGroup, cmd: ResolvedCommand) => void;
   onStopActiveRun: () => void;
@@ -34,7 +33,6 @@ export function ScriptGroupCard({
   runtimeMap,
   activeAction,
   hasFailingCheck,
-  isVerifyingFix,
   onRunGroup,
   onRunCommand,
   onStopActiveRun,
@@ -118,19 +116,6 @@ export function ScriptGroupCard({
           </Button>
         )}
       </div>
-
-      {group.role === "fix" && isVerifyingFix && (
-        <div
-          className="rounded-[var(--st-radius-md)] border px-[var(--st-space-12)] py-[var(--st-space-8)] text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium animate-pulse"
-          style={{
-            backgroundColor: "var(--st-status-running-soft)",
-            borderColor: "var(--st-border-running)",
-            color: "var(--st-status-running-text)",
-          }}
-        >
-          {lang.scripts.autoVerifyingFix}
-        </div>
-      )}
 
       {visibleCommands.length === 0 ? (
         <div
