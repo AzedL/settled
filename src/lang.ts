@@ -108,10 +108,7 @@ export const lang = {
   },
 
   confirmModal: {
-    title: "确认执行环境修改命令",
-    subtitleFix: "即将执行 fix 修复脚本，这可能会修改本机配置、文件或依赖。完成后将自动重跑该条目的 check 进行验收。",
-    subtitleCustom: "即将执行自定义脚本命令，请确认以下命令符合本机预期：",
-    skipFutureLabel: "后续执行 fix / 自定义命令不再弹窗确认",
+    subtitle: "运行此命令可能会修改本机配置、文件或依赖，请确认：",
     confirmBtn: "确认执行",
     cancelBtn: "取消",
   },

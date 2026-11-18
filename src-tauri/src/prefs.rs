@@ -7,28 +7,12 @@ const PREFS_FILE_NAME: &str = "prefs.json";
 const MAX_RECENT_WORKSPACES: usize = 8;
 
 /// Persisted desktop application preferences (stored strictly in OS app data, never inside workspace).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPrefs {
     pub last_workspace: Option<String>,
     #[serde(default)]
     pub recent_workspaces: Vec<String>,
-    #[serde(default = "default_true")]
-    pub confirm_mutating_runs: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
-
-impl Default for AppPrefs {
-    fn default() -> Self {
-        Self {
-            last_workspace: None,
-            recent_workspaces: Vec::new(),
-            confirm_mutating_runs: true,
-        }
-    }
 }
 
 fn prefs_path(app: &AppHandle) -> Result<PathBuf, String> {
@@ -51,8 +35,7 @@ pub fn load_prefs(app: &AppHandle) -> AppPrefs {
         .unwrap_or_default()
 }
 
-/// Persists desktop preferences to disk.
-pub fn save_prefs(app: &AppHandle, prefs: &AppPrefs) -> Result<(), String> {
+fn save_prefs(app: &AppHandle, prefs: &AppPrefs) -> Result<(), String> {
     let path = prefs_path(app)?;
     let content =
         serde_json::to_string_pretty(prefs).map_err(|e| format!("Failed to serialize prefs: {e}"))?;

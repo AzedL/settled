@@ -106,7 +106,7 @@ interface ItemMeta {
   - Multi-step operations that require strict sequential ordering should be consolidated into a single script file in `scripts/`.
 - **Special Script Conventions**:
   - `check`: Drives independent per-command traffic lights (`idle` | `running` | `pass` | `fail` | `canceled`). Product-level batch runs (`Run All`, `Run by Tags`, `Run Failed`) execute **only `check`** commands.
-  - `fix`: Highlighted when any `check` fails; executes with user confirmation by default. Upon completion of a `fix` run (single or group), if the item has applicable `check` commands, `Settled` automatically re-runs those `check` commands to verify the environment.
+  - `fix`: Highlighted when any `check` fails; executes with mandatory user confirmation. Upon completion of a `fix` run (single or group), if the item has applicable `check` commands, `Settled` automatically re-runs those `check` commands to verify the environment.
   - Any other key in `scripts` renders as a generic custom script group (with single-command and whole-group triggers).
 - **Default Runtime Contract**:
   - Windows default shell: `pwsh` if available on `PATH`, otherwise `powershell` (configured for UTF-8 output by default).
@@ -123,7 +123,7 @@ interface ItemMeta {
 - **Current Device / All View Switch**:
   - **Current Device**: Shows only items and script commands applicable to the host platform.
   - **All**: Shows all items and commands, rendering non-current-platform items and commands in a clearly distinguishable **disabled** visual state with execution blocked.
-- **App Preferences**: Local desktop app preferences (last/recent workspace directories, confirmation preference) are stored in the OS app-data directory via Tauri, separate from the workspace.
+- **App Preferences**: Local desktop app preferences (last and recent workspace directories) are stored in the OS app-data directory via Tauri, separate from the workspace.
 - **Cockpit Boundaries**: Read-only Markdown viewer, external IDE / file manager openers, structured AI context copy, and live file-system watching (`notify`) for workspace changes. No built-in code editor, PTY terminal, or LLM chat runtime.
 
 ---

@@ -11,7 +11,6 @@ import {
   reloadWorkspace,
   revealPathInExplorer,
   runCommands,
-  setConfirmMutatingRuns,
   showMainWindow,
   subscribeRunEvents,
   subscribeWorkspaceChanges,
@@ -36,6 +35,7 @@ import type {
   WorkspaceItem,
   WorkspaceSnapshot,
 } from "./types";
+import { formatScriptGroupTitle } from "./utils/format";
 import {
   collectItemCommandResults,
   DEFAULT_COMMAND_RUNTIME,
@@ -49,10 +49,11 @@ interface ToastMessage {
 }
 
 interface PendingConfirmState {
+  title: string;
   action: ActiveRunAction;
   item: WorkspaceItem;
   role: ScriptRole;
-  targets: CommandExecutionTarget[];
+  commands: ResolvedCommand[];
 }
 
 function createRunId(prefix: string): string {
@@ -554,33 +555,28 @@ export default function App() {
     [executeTargets]
   );
 
-  const triggerWithOptionalConfirm = useCallback(
+  const triggerWithConfirm = useCallback(
     (
+      title: string,
       action: ActiveRunAction,
       item: WorkspaceItem,
       role: ScriptRole,
-      targets: CommandExecutionTarget[]
+      commands: ResolvedCommand[]
     ) => {
-      if (activeActionRef.current !== null || targets.length === 0) {
+      if (activeActionRef.current !== null || commands.length === 0) {
         return;
       }
       if (role === "check") {
-        void startTrackedAction(action, targets);
+        void startTrackedAction(
+          action,
+          commands.map((cmd) => toExecutionTarget(item, cmd))
+        );
         return;
       }
 
-      const shouldConfirm = initialState?.prefs.confirmMutatingRuns ?? true;
-      if (shouldConfirm) {
-        setPendingConfirm({ action, item, role, targets });
-      } else {
-        void startTrackedAction(
-          action,
-          targets,
-          role === "fix" ? item : undefined
-        );
-      }
+      setPendingConfirm({ title, action, item, role, commands });
     },
-    [initialState?.prefs.confirmMutatingRuns, startTrackedAction]
+    [startTrackedAction]
   );
 
   const handleOpenWorkspaceDialog = async () => {
@@ -660,14 +656,13 @@ export default function App() {
     if (activeActionRef.current !== null || !item.applicable) {
       return;
     }
-    const targets = group.commands
-      .filter((cmd) => cmd.applicable)
-      .map((cmd) => toExecutionTarget(item, cmd));
-    triggerWithOptionalConfirm(
+    const commands = group.commands.filter((cmd) => cmd.applicable);
+    triggerWithConfirm(
+      formatScriptGroupTitle(group.key),
       { kind: "group", itemId: item.id, groupKey: group.key },
       item,
       group.role,
-      targets
+      commands
     );
   };
 
@@ -679,41 +674,27 @@ export default function App() {
     if (activeActionRef.current !== null || !item.applicable || !cmd.applicable) {
       return;
     }
-    triggerWithOptionalConfirm(
+    triggerWithConfirm(
+      cmd.name,
       { kind: "command", commandId: cmd.commandId },
       item,
       group.role,
-      [toExecutionTarget(item, cmd)]
+      [cmd]
     );
   };
 
-  const handleConfirmModalSubmit = async (skipFuture: boolean) => {
+  const handleConfirmModalSubmit = async () => {
     if (!pendingConfirm) {
       return;
     }
     const pending = pendingConfirm;
     setPendingConfirm(null);
 
-    const runPromise = startTrackedAction(
+    await startTrackedAction(
       pending.action,
-      pending.targets,
+      pending.commands.map((cmd) => toExecutionTarget(pending.item, cmd)),
       pending.role === "fix" ? pending.item : undefined
     );
-
-    if (skipFuture) {
-      try {
-        const updatedPrefs = await setConfirmMutatingRuns(false);
-        setInitialState((prev) =>
-          prev ? { ...prev, prefs: updatedPrefs } : prev
-        );
-      } catch (err) {
-        setToast({
-          message: `${lang.notifications.errorPrefix}${formatError(err)}`,
-        });
-      }
-    }
-
-    await runPromise;
   };
 
   const handleOpenInVscode = async (path: string) => {
@@ -845,9 +826,9 @@ export default function App() {
 
       {pendingConfirm && (
         <ConfirmModal
-          role={pendingConfirm.role}
-          targets={pendingConfirm.targets}
-          onConfirm={(skipFuture) => void handleConfirmModalSubmit(skipFuture)}
+          title={pendingConfirm.title}
+          commands={pendingConfirm.commands}
+          onConfirm={() => void handleConfirmModalSubmit()}
           onCancel={() => setPendingConfirm(null)}
         />
       )}

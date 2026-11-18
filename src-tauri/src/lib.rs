@@ -1,7 +1,7 @@
 mod prefs;
 mod watcher;
 
-use prefs::{find_sample_workspace, load_prefs, record_workspace, save_prefs, AppPrefs};
+use prefs::{find_sample_workspace, load_prefs, record_workspace, AppPrefs};
 use serde::Serialize;
 use settled_core::{
     format_item_context, load_workspace, run_commands_parallel, CommandExecutionTarget,
@@ -65,14 +65,6 @@ fn get_initial_state(app: AppHandle) -> InitialAppState {
         sample_workspace_path: find_sample_workspace(&app),
         host_platform: Platform::current(),
     }
-}
-
-#[tauri::command]
-fn set_confirm_mutating_runs(confirm: bool, app: AppHandle) -> Result<AppPrefs, String> {
-    let mut prefs = load_prefs(&app);
-    prefs.confirm_mutating_runs = confirm;
-    save_prefs(&app, &prefs)?;
-    Ok(prefs)
 }
 
 #[tauri::command]
@@ -263,7 +255,6 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_initial_state,
-            set_confirm_mutating_runs,
             show_main_window,
             sync_window_theme,
             open_workspace,

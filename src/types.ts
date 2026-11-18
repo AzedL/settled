@@ -74,7 +74,6 @@ export interface CommandExecutionTarget {
 export interface AppPrefs {
   lastWorkspace: string | null;
   recentWorkspaces: string[];
-  confirmMutatingRuns: boolean;
 }
 
 export interface InitialAppState {
