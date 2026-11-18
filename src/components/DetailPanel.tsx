@@ -176,7 +176,7 @@ export function DetailPanel({
 
   return (
     <main className="flex-1 min-w-0 overflow-y-auto p-[var(--st-space-24)]">
-      <div className="max-w-[960px] mx-auto flex flex-col gap-[var(--st-space-20)]">
+      <div className="w-full flex flex-col gap-[var(--st-space-20)]">
         <section
           className="rounded-[var(--st-radius-lg)] border p-[var(--st-space-20)] flex flex-col gap-[var(--st-space-12)] min-w-0"
           style={{
