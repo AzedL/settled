@@ -174,11 +174,12 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     let example_ws = example_workspace_path();
     let ws_str = example_ws.to_str().unwrap();
 
-    // 1. Lint redesigned Chinese examples workspace -> 0 errors, 0 warnings
+    // 1. Lint redesigned dogfooding workspace -> 0 errors, 1 deliberate empty-README warning on ui-empty-and-defaults
     let lint = run_cli(&["lint", "-w", ws_str], tmp.path(), &cfg, &[]);
     assert_eq!(lint.status.code(), Some(0));
     let lint_out = stdout_str(&lint);
-    assert!(lint_out.contains("0 error(s), 0 warning(s)"));
+    assert!(lint_out.contains("Linted 9 item(s): 0 error(s), 1 warning(s)"));
+    assert!(lint_out.contains("ui-empty-and-defaults"));
 
     // 2. List omits cross-OS items by default, includes them with --all-platforms,
     // and keeps structured meta + id + path + applicable without readme/rawMeta/metaPath/readmePath
@@ -205,26 +206,27 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert_eq!(list_all.status.code(), Some(0));
     let all_json: Value = serde_json::from_str(&stdout_str(&list_all)).unwrap();
     let all_items = all_json["items"].as_array().unwrap();
-    assert_eq!(all_items.len(), 6);
+    assert_eq!(all_items.len(), 9);
     assert!(all_items.iter().any(|it| it["applicable"] == false));
 
-    // 3. `check fix-verify-demo` fails initially in isolated demo_dir
+    // 3. `check ui-check-fix-workflow` has 1 passing baseline + 2 failing markers in isolated demo_dir
     let check_fail = run_cli(
-        &["check", "fix-verify-demo", "-w", ws_str],
+        &["check", "ui-check-fix-workflow", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
     );
     assert_eq!(check_fail.status.code(), Some(1));
     let fail_out = stdout_str(&check_fail);
-    assert!(fail_out.contains("FAIL  fix-verify-demo"));
+    assert!(fail_out.contains("PASS  ui-check-fix-workflow (1/3 passed)"));
+    assert!(fail_out.contains("FAIL  ui-check-fix-workflow"));
     assert!(fail_out.contains("dir:"));
     assert!(fail_out.contains("cmd:"));
     assert!(fail_out.contains("[缺失]"));
 
-    // 4. `run fix-verify-demo fix --step 0` executes fix step 0 WITHOUT auto-verify
+    // 4. `run ui-check-fix-workflow fix --step 0` executes fix step 0 WITHOUT auto-verify
     let run_fix_step0 = run_cli(
-        &["run", "fix-verify-demo", "fix", "--step", "0", "-w", ws_str],
+        &["run", "ui-check-fix-workflow", "fix", "--step", "0", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -234,19 +236,19 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert!(run_fix_out.contains("[已修复] alpha"));
     assert!(!run_fix_out.contains("== Verify =="));
 
-    // Partial check now reports 1 passing and 2 failing on fix-verify-demo
+    // Partial check now reports 2 passing and 1 failing on ui-check-fix-workflow
     let partial_check = run_cli(
-        &["check", "fix-verify-demo", "-w", ws_str],
+        &["check", "ui-check-fix-workflow", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
     );
     assert_eq!(partial_check.status.code(), Some(1));
-    assert!(stdout_str(&partial_check).contains("PASS  fix-verify-demo (1/3 passed)"));
+    assert!(stdout_str(&partial_check).contains("PASS  ui-check-fix-workflow (2/3 passed)"));
 
-    // 5. `fix fix-verify-demo` fixes all and auto-verifies with check -> exit 0
+    // 5. `fix ui-check-fix-workflow` fixes all and auto-verifies with check -> exit 0
     let fix_all = run_cli(
-        &["fix", "fix-verify-demo", "-w", ws_str],
+        &["fix", "ui-check-fix-workflow", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -257,25 +259,25 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert!(fix_out.contains("== Verify =="));
     assert!(fix_out.contains("Summary: 3 passed, 0 failed, 0 canceled"));
 
-    // 6. `check fix-verify-demo -v` expands passing logs; without `-v` collapses to 1 line
+    // 6. `check ui-check-fix-workflow -v` expands passing logs; without `-v` collapses to 1 line
     let check_pass_quiet = run_cli(
-        &["check", "fix-verify-demo", "-w", ws_str],
+        &["check", "ui-check-fix-workflow", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
     );
     assert_eq!(check_pass_quiet.status.code(), Some(0));
-    assert!(stdout_str(&check_pass_quiet).contains("PASS  fix-verify-demo (3/3 passed"));
-    assert!(!stdout_str(&check_pass_quiet).contains("[通过] alpha"));
+    assert!(stdout_str(&check_pass_quiet).contains("PASS  ui-check-fix-workflow (3/3 passed"));
+    assert!(!stdout_str(&check_pass_quiet).contains("[基线通过]"));
 
     let check_pass_verbose = run_cli(
-        &["check", "fix-verify-demo", "-v", "-w", ws_str],
+        &["check", "ui-check-fix-workflow", "-v", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
     );
     assert_eq!(check_pass_verbose.status.code(), Some(0));
-    assert!(stdout_str(&check_pass_verbose).contains("[通过] alpha"));
+    assert!(stdout_str(&check_pass_verbose).contains("[基线通过]"));
 
     // 7. `check --step` without item fails clap parsing (exit 2); with item works cleanly
     let bad_step_flag = run_cli(
@@ -287,17 +289,17 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert_eq!(bad_step_flag.status.code(), Some(2));
 
     let single_step = run_cli(
-        &["check", "fix-verify-demo", "--step", "0", "-w", ws_str],
+        &["check", "ui-check-fix-workflow", "--step", "0", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
     );
     assert_eq!(single_step.status.code(), Some(0));
-    assert!(stdout_str(&single_step).contains("PASS  fix-verify-demo :: Alpha"));
+    assert!(stdout_str(&single_step).contains("PASS  ui-check-fix-workflow ::"));
 
-    // 8. `run fix-verify-demo inspect` & `fail-sample` & `check manual-checklist`
+    // 8. `run ui-check-fix-workflow inspect-and-env` & `always-fail` & `check ui-empty-and-defaults`
     let inspect = run_cli(
-        &["run", "fix-verify-demo", "inspect", "-w", ws_str],
+        &["run", "ui-check-fix-workflow", "inspect-and-env", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -306,7 +308,7 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert!(stdout_str(&inspect).contains("baseDir="));
 
     let fail_sample = run_cli(
-        &["run", "fix-verify-demo", "fail-sample", "-w", ws_str],
+        &["run", "ui-check-fix-workflow", "always-fail", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -315,12 +317,30 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert!(stdout_str(&fail_sample).contains("[模拟失败]"));
 
     let manual_check = run_cli(
-        &["check", "manual-checklist", "-w", ws_str],
+        &["check", "ui-empty-and-defaults", "-w", ws_str],
         tmp.path(),
         &cfg,
         &[],
     );
     assert_eq!(manual_check.status.code(), Some(2));
+
+    // 9. Execute the two dogfooding CLI self-test items directly against the compiled binary
+    let bin_path = Path::new(cli_bin());
+    let self_lint = run_cli(
+        &["check", "self-cli-workspace-and-lint", "-w", ws_str],
+        tmp.path(),
+        &cfg,
+        &[("SETTLED_BIN", bin_path)],
+    );
+    assert_eq!(self_lint.status.code(), Some(0), "self-cli-workspace-and-lint output:\n{}", stdout_str(&self_lint));
+
+    let self_exec = run_cli(
+        &["check", "self-cli-execution-matrix", "-w", ws_str],
+        tmp.path(),
+        &cfg,
+        &[("SETTLED_BIN", bin_path)],
+    );
+    assert_eq!(self_exec.status.code(), Some(0), "self-cli-execution-matrix output:\n{}", stdout_str(&self_exec));
 }
 
 #[test]

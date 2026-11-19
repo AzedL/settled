@@ -1,0 +1,21 @@
+{
+  "name": "平台验证：仅 macOS 适用（非本机禁用态）",
+  "description": "声明 platforms=[\"macos\"]，在 Windows / Linux 上验证「当前设备」过滤隐藏与「全部平台」禁用态。",
+  "createAt": 1794597300,
+  "tags": ["macos", "平台兼容"],
+  "platforms": ["macos"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Homebrew 可执行检查",
+        "description": "仅 macOS 可运行",
+        "run": "command -v brew && brew --version"
+      }
+    ],
+    "fix": {
+      "name": "刷新 Homebrew 索引",
+      "description": "仅 macOS 可确认执行",
+      "run": "brew update"
+    }
+  }
+}

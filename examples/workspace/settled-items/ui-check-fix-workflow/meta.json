@@ -1,0 +1,55 @@
+{
+  "name": "UI 核心流程：Check 红绿灯与多 Fix 复检",
+  "description": "覆盖同条目下成功/失败/延时检查、多步骤并行 Fix 弹窗确认、自动复检转绿及自定义重置与失败命令。",
+  "createAt": 1794688000,
+  "tags": ["前端演练", "Check-Fix"],
+  "scripts": {
+    "check": [
+      {
+        "name": "基线检查（固定通过）",
+        "description": "不依赖临时文件，每次都返回成功以观察绿灯状态",
+        "run": "node @script/flow-probe.mjs pass"
+      },
+      {
+        "name": "Alpha 临时标记（修复前失败）",
+        "description": "未运行 Fix 前缺失报错并自动展开红灯日志；运行 Fix 后自动复检转绿",
+        "run": "node @script/flow-probe.mjs check alpha"
+      },
+      {
+        "name": "Beta 延时标记（450ms 可测中止）",
+        "description": "带 450ms 延迟，便于观察运行中蓝色脉冲与点击中止后变为橙色已中止",
+        "run": "node @script/flow-probe.mjs check beta --delay=450"
+      }
+    ],
+    "fix": [
+      {
+        "name": "写入 Alpha 标记文件",
+        "description": "并发修复步骤 1：创建 Alpha 临时标记",
+        "run": "node @script/flow-probe.mjs fix alpha"
+      },
+      {
+        "name": "写入 Beta 标记文件（500ms）",
+        "description": "并发修复步骤 2：创建 Beta 临时标记",
+        "run": "node @script/flow-probe.mjs fix beta --delay=500"
+      }
+    ],
+    "inspect-and-env": [
+      {
+        "name": "查看当前标记状态",
+        "description": "自定义数组命令（对象形式）：输出各临时标记文件的存在状态",
+        "run": "node @script/flow-probe.mjs inspect"
+      },
+      "node @script/flow-probe.mjs env"
+    ],
+    "reset-markers": {
+      "name": "清理标记恢复失败状态",
+      "description": "单对象自定义脚本：删除临时标记，方便重新演示红灯 -> Fix -> 绿灯流程",
+      "run": "node @script/flow-probe.mjs reset alpha beta"
+    },
+    "always-fail": {
+      "name": "故意失败与中文 stderr 高亮",
+      "description": "固定输出中文错误到 stderr 并以 exit 1 结束",
+      "run": "node @script/flow-probe.mjs fail-sample"
+    }
+  }
+}

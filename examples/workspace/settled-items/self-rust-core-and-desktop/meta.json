@@ -1,0 +1,30 @@
+{
+  "name": "后端自测：Rust 核心库、桌面后端与 Clippy",
+  "description": "在仓库根目录直接执行 settled-core、settled-desktop 单元测试与全工作区 Clippy 严格检查。",
+  "createAt": 1794690000,
+  "tags": ["自测", "rust", "后端"],
+  "scripts": {
+    "check": [
+      {
+        "name": "settled-core 核心库单元测试",
+        "description": "校验工作区扫描、@script/ 解析、时间戳兼容、并行执行与 GBK/截断处理",
+        "run": "node @script/run-repo.mjs cargo test -p settled-core"
+      },
+      {
+        "name": "settled-desktop 桌面端单元测试",
+        "description": "校验偏好去重截断、分层文件监听动态挂卸与 AppState 重载/上下文构造",
+        "run": "node @script/run-repo.mjs cargo test -p settled-desktop --lib"
+      },
+      {
+        "name": "全工作区 Clippy 静态检查 (-D warnings)",
+        "description": "校验 settled-core、settled-cli 与 settled-desktop 零警告通过编译检查",
+        "run": "node @script/run-repo.mjs cargo clippy -p settled-core -p settled-cli -p settled-desktop --all-targets -- -D warnings"
+      }
+    ],
+    "coverage": {
+      "name": "生成 Rust 后端测试覆盖率汇总",
+      "description": "使用 cargo llvm-cov 统计核心与桌面库代码覆盖率（需本机安装 cargo-llvm-cov）",
+      "run": "node @script/run-repo.mjs cargo llvm-cov --summary-only -p settled-core"
+    }
+  }
+}

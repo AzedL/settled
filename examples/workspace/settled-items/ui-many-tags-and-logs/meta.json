@@ -1,0 +1,42 @@
+{
+  "name": "UI 极限态：超多超长标签、无步骤描述与长日志",
+  "description": "覆盖 20+ 标签折叠、超长标签省略号与悬浮气泡、筛选框多行滚动，以及字符串简写步骤、150 行日志滚动和独立失败红灯。",
+  "createAt": "2026-11-19T12:00:00+08:00",
+  "tags": [
+    "前端极限态",
+    "跨设备",
+    "windows",
+    "macos",
+    "linux",
+    "pwsh",
+    "bash",
+    "zsh",
+    "node",
+    "rust",
+    "cargo",
+    "tauri",
+    "vite",
+    "git",
+    "ssh",
+    "proxy",
+    "utf8",
+    "encoding",
+    "vitest",
+    "溢出验证",
+    "very-long-cross-device-environment-tag-for-truncation-verification"
+  ],
+  "scripts": {
+    "check": [
+      "node -e \"console.log('简写命令无 description，执行成功')\"",
+      {
+        "name": "长日志滚动输出（150 行中文）",
+        "run": "node -e \"for (let i = 1; i <= 150; i++) console.log('第 ' + i + ' 行日志：用于验证前端日志面板限高滚动与 CLI 截断输出')\""
+      },
+      {
+        "name": "固定失败项（验证红灯自动展开与独立告警）",
+        "description": "故意输出中文报错并退出 1，且本条目故意不提供 fix 分组",
+        "run": "node -e \"console.error('预期失败项：用于直接观察无 fix 分组时的红灯与 stderr 日志'); process.exit(1)\""
+      }
+    ]
+  }
+}

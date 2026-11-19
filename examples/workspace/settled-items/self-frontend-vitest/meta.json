@@ -1,0 +1,25 @@
+{
+  "name": "前端自测：Vitest 单元测试与 TypeScript 构建",
+  "description": "在仓库根目录运行前端工具函数/组件/App 集成测试、类型检查打包及覆盖率统计。",
+  "createAt": 1794690100,
+  "tags": ["自测", "frontend", "vitest"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Vitest 全量前端单元测试",
+        "description": "运行 utils、tauri api 封装、全 UI 组件与 App.tsx 集成测试",
+        "run": "node @script/run-repo.mjs npm test"
+      },
+      {
+        "name": "TypeScript 类型检查与 Vite 构建",
+        "description": "运行 tsc && vite build 确保前端生产构建无类型错误",
+        "run": "node @script/run-repo.mjs npm run build"
+      }
+    ],
+    "coverage": {
+      "name": "生成前端 V8 测试覆盖率报告",
+      "description": "运行 vitest run --coverage 输出所有前端源码覆盖率明细",
+      "run": "node @script/run-repo.mjs npm run test:coverage"
+    }
+  }
+}

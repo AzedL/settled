@@ -1,0 +1,21 @@
+{
+  "name": "平台验证：仅 Windows 适用（pwsh 与中文编码）",
+  "description": "声明 platforms=[\"windows\"]，验证 Windows 下 pwsh 与 UTF-8 中文解码，在非 Windows 平台上全部视图置灰禁用。",
+  "createAt": 1794597000,
+  "tags": ["windows", "平台兼容"],
+  "platforms": ["windows"],
+  "scripts": {
+    "check": [
+      {
+        "name": "PowerShell 7 与默认 Shell 验证",
+        "description": "检查 Windows 默认 Shell 版本与运行能力",
+        "run": "if ($PSVersionTable.PSVersion.Major -lt 7) { Write-Error '需要 PowerShell 7+'; exit 1 }; Write-Output \"pwsh $($PSVersionTable.PSVersion)\""
+      },
+      {
+        "name": "UTF-8 中文与符号解码验证",
+        "description": "输出多语言字符确认前端日志和 CLI 不乱码",
+        "run": "Write-Output 'Windows UTF-8 解码正常：中文 / 日本語 / ✓'"
+      }
+    ]
+  }
+}

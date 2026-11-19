@@ -1,0 +1,30 @@
+{
+  "name": "CLI 自测：check、fix、run 执行引擎与退出码矩阵",
+  "description": "在隔离工作区与 examples 中实测 CLI 命令执行、单步 --step、超过 120 行日志截断、fix 自动复检及 0/1/2 退出码。",
+  "createAt": 1794690300,
+  "tags": ["自测", "cli", "runner"],
+  "scripts": {
+    "check": [
+      {
+        "name": "check 折叠成功、失败详情与 --step 单步",
+        "description": "验证 check 通过折叠 1 行、失败打印 dir/cmd/日志与退出码 1、以及 --step 单步执行",
+        "run": "node @script/cli-execution-suite.mjs check-and-step"
+      },
+      {
+        "name": "超过 120 行失败日志自动截断与 -v 展开全量",
+        "description": "验证默认仅展示尾 120 行并提示传递 -v，加 -v 时完整展示首尾行",
+        "run": "node @script/cli-execution-suite.mjs truncation"
+      },
+      {
+        "name": "fix 自动复检与 run 无限制直跑 fix / check",
+        "description": "验证 settled fix 必跑 check 验收，而 settled run 可直接执行 fix 或 check 不受拦截",
+        "run": "node @script/cli-execution-suite.mjs fix-and-run"
+      },
+      {
+        "name": "参数越界、非本机平台、无脚本与损坏条目退出码 2 校验",
+        "description": "验证各类异常调用稳定返回退出码 2 并给出清晰定位提示",
+        "run": "node @script/cli-execution-suite.mjs errors"
+      }
+    ]
+  }
+}
