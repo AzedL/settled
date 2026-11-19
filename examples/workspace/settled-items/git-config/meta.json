@@ -1,0 +1,38 @@
+{
+  "name": "Git 基础配置检查",
+  "description": "检查当前设备 Git 可执行文件、用户身份与换行符策略，并演示跨平台步骤区分及自定义只读查询命令。",
+  "createAt": 1794596400,
+  "tags": ["git", "基础环境"],
+  "platforms": ["windows", "macos", "linux"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Git 已安装",
+        "description": "确认系统 PATH 中可直接调用 git 命令",
+        "run": "git --version"
+      },
+      {
+        "name": "已配置用户身份",
+        "description": "校验 Git 全局 user.name 与 user.email 非空",
+        "run": "git config user.name && git config user.email"
+      },
+      {
+        "name": "Windows 换行符策略",
+        "description": "校验 Windows 设备是否已设置 core.autocrlf",
+        "run": "git config core.autocrlf",
+        "platforms": ["windows"]
+      },
+      {
+        "name": "Unix 换行符策略",
+        "description": "校验 macOS / Linux 下 core.autocrlf 为 input",
+        "run": "test \"$(git config core.autocrlf)\" = \"input\"",
+        "platforms": ["macos", "linux"]
+      }
+    ],
+    "show-config": {
+      "name": "查看生效的 Git 配置来源",
+      "description": "列出当前生效的所有 git 配置项及其配置文件路径（只读）",
+      "run": "git config --list --show-origin"
+    }
+  }
+}

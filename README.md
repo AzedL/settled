@@ -87,8 +87,8 @@ cargo run -q -p settled-cli -- lint -w examples/workspace
 cargo run -q -p settled-cli -- check -w examples/workspace
 
 # 执行 fix 并自动重跑条目适用 check 验收
-cargo run -q -p settled-cli -- fix demo-fix-verification -w examples/workspace
+cargo run -q -p settled-cli -- fix fix-verify-demo -w examples/workspace
 
 # 通用执行任意脚本分组（包含直接单独运行 check 或 fix，不附带自动复检）
-cargo run -q -p settled-cli -- run git-core-config show-config -w examples/workspace
+cargo run -q -p settled-cli -- run git-config show-config -w examples/workspace
 ```

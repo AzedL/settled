@@ -115,19 +115,7 @@ async fn open_workspace(
 
 #[tauri::command]
 async fn reload_workspace(state: State<'_, AppState>) -> Result<Option<WorkspaceSnapshot>, String> {
-    let maybe_path = state.active_workspace.lock().await.clone();
-    match maybe_path {
-        Some(path) => {
-            {
-                let mut guard = state.watcher.lock().await;
-                if let Some(watcher) = guard.as_mut() {
-                    watcher.sync_items_watch();
-                }
-            }
-            Ok(Some(load_workspace_blocking(path).await?))
-        }
-        None => Ok(None),
-    }
+    state.reload_active().await
 }
 
 #[tauri::command]
@@ -155,7 +143,7 @@ async fn run_commands(
 
 #[tauri::command]
 async fn cancel_run(run_id: String, state: State<'_, AppState>) -> Result<usize, String> {
-    Ok(state.registry.cancel_run(&run_id).await)
+    Ok(state.cancel_active_run(&run_id).await)
 }
 
 #[tauri::command]
@@ -164,25 +152,55 @@ async fn build_ai_context(
     latest_results: Vec<CommandResult>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let workspace_path = state
-        .active_workspace
-        .lock()
-        .await
-        .clone()
-        .ok_or_else(|| "No active workspace is open".to_string())?;
-    let snapshot = load_workspace_blocking(workspace_path).await?;
-    let item = snapshot
-        .items
-        .iter()
-        .find(|i| i.id == item_id)
-        .ok_or_else(|| format!("Item '{item_id}' not found"))?;
+    state.build_context(&item_id, &latest_results).await
+}
 
-    let results_ref = if latest_results.is_empty() {
-        None
-    } else {
-        Some(latest_results.as_slice())
-    };
-    Ok(format_item_context(item, results_ref, snapshot.host_platform))
+impl AppState {
+    async fn reload_active(&self) -> Result<Option<WorkspaceSnapshot>, String> {
+        let maybe_path = self.active_workspace.lock().await.clone();
+        match maybe_path {
+            Some(path) => {
+                {
+                    let mut guard = self.watcher.lock().await;
+                    if let Some(watcher) = guard.as_mut() {
+                        watcher.sync_items_watch();
+                    }
+                }
+                Ok(Some(load_workspace_blocking(path).await?))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn cancel_active_run(&self, run_id: &str) -> usize {
+        self.registry.cancel_run(run_id).await
+    }
+
+    async fn build_context(
+        &self,
+        item_id: &str,
+        latest_results: &[CommandResult],
+    ) -> Result<String, String> {
+        let workspace_path = self
+            .active_workspace
+            .lock()
+            .await
+            .clone()
+            .ok_or_else(|| "No active workspace is open".to_string())?;
+        let snapshot = load_workspace_blocking(workspace_path).await?;
+        let item = snapshot
+            .items
+            .iter()
+            .find(|i| i.id == item_id)
+            .ok_or_else(|| format!("Item '{item_id}' not found"))?;
+
+        let results_ref = if latest_results.is_empty() {
+            None
+        } else {
+            Some(latest_results)
+        };
+        Ok(format_item_context(item, results_ref, snapshot.host_platform))
+    }
 }
 
 #[tauri::command]
@@ -272,4 +290,88 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use settled_core::ITEMS_DIR_NAME;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn resolves_theme_background_colors_consistently() {
+        assert_eq!(theme_background_color("dark"), Color(24, 25, 27, 255));
+        assert_eq!(theme_background_color("light"), Color(243, 245, 242, 255));
+    }
+
+    #[tokio::test]
+    async fn load_workspace_blocking_reads_valid_workspace_and_rejects_missing_dir() {
+        let tmp = TempDir::new().unwrap();
+        let item_dir = tmp.path().join(ITEMS_DIR_NAME).join("git-config");
+        fs::create_dir_all(&item_dir).unwrap();
+        fs::write(item_dir.join("meta.json"), r#"{"name":"Git"}"#).unwrap();
+
+        let snap = load_workspace_blocking(tmp.path().to_path_buf())
+            .await
+            .unwrap();
+        assert_eq!(snap.items.len(), 1);
+        assert_eq!(snap.items[0].id, "git-config");
+
+        let missing = tmp.path().join("missing-ws");
+        assert!(load_workspace_blocking(missing).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn app_state_reloads_builds_context_and_cancels_cleanly() {
+        let state = AppState::default();
+        assert!(state.reload_active().await.unwrap().is_none());
+        assert!(state.build_context("git-config", &[]).await.is_err());
+        assert_eq!(state.cancel_active_run("none").await, 0);
+
+        let tmp = TempDir::new().unwrap();
+        let item_dir = tmp.path().join(ITEMS_DIR_NAME).join("git-config");
+        fs::create_dir_all(&item_dir).unwrap();
+        fs::write(item_dir.join("meta.json"), r#"{"name":"Git Config"}"#).unwrap();
+
+        {
+            let mut active = state.active_workspace.lock().await;
+            *active = Some(tmp.path().to_path_buf());
+        }
+        {
+            let mut guard = state.watcher.lock().await;
+            *guard = watcher::WorkspaceWatcher::start_with_callback(
+                tmp.path().to_path_buf(),
+                |_| {},
+            )
+            .ok();
+        }
+
+        let reloaded = state.reload_active().await.unwrap().unwrap();
+        assert_eq!(reloaded.items.len(), 1);
+
+        let md = state.build_context("git-config", &[]).await.unwrap();
+        assert!(md.contains("Git Config (`git-config`)"));
+        assert!(state.build_context("missing", &[]).await.is_err());
+
+        let result_entry = CommandResult {
+            run_id: "r1".to_string(),
+            command_id: "git-config::check::0".to_string(),
+            item_id: "git-config".to_string(),
+            group_key: "check".to_string(),
+            command_index: 0,
+            command_name: "Check".to_string(),
+            resolved_run: "git --version".to_string(),
+            status: settled_core::RunStatus::Pass,
+            exit_code: Some(0),
+            duration_ms: 4,
+            logs: vec![],
+            error: None,
+        };
+        let md_with_results = state
+            .build_context("git-config", &[result_entry])
+            .await
+            .unwrap();
+        assert!(md_with_results.contains("## Recent Command Results"));
+    }
 }

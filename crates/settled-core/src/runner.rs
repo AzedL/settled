@@ -771,4 +771,77 @@ mod tests {
         assert_eq!(new_results[0].status, RunStatus::Pass);
         assert!(new_results[0].logs.iter().any(|l| l.text.contains("rerun_ok")));
     }
+
+    #[tokio::test]
+    async fn handles_spawn_errors_gbk_decoding_cmd_shell_and_truncation() {
+        let tmp = TempDir::new().unwrap();
+
+        // 1. Unknown encoding falls back cleanly to UTF-8
+        assert_eq!(resolve_encoding("gbk"), encoding_rs::GBK);
+        assert_eq!(resolve_encoding("unknown-codec-xyz"), encoding_rs::UTF_8);
+
+        // 2. Missing custom shell produces Fail + System error log without panicking
+        let mut missing_shell = make_target(tmp.path(), "bad-shell", "echo hi");
+        missing_shell.shell = "settled-nonexistent-shell-binary-xyz".to_string();
+
+        // 3. Explicit cmd shell (Windows) or sh (Unix) executes cleanly
+        let mut explicit_shell = make_target(tmp.path(), "explicit-shell", "echo shell_ok");
+        explicit_shell.shell = if cfg!(windows) {
+            "cmd".to_string()
+        } else {
+            "sh".to_string()
+        };
+
+        // 4. Non-UTF8 GBK output without trailing newline flushes cleanly via drain_lines
+        let mut gbk_target = make_target(
+            tmp.path(),
+            "gbk-out",
+            r#"node -e "process.stdout.write(Buffer.from([0xd6, 0xd0, 0xce, 0xc4]))""#,
+        );
+        gbk_target.encoding = "gbk".to_string();
+
+        let registry = RunRegistry::new();
+        let results = run_commands_parallel(
+            "run-edge".to_string(),
+            vec![missing_shell, explicit_shell, gbk_target],
+            3,
+            registry,
+            |_| {},
+        )
+        .await;
+
+        assert_eq!(results[0].status, RunStatus::Fail);
+        assert_eq!(results[0].exit_code, None);
+        assert!(results[0].error.is_some());
+        assert_eq!(results[0].logs[0].stream, LogStream::System);
+
+        assert_eq!(results[1].status, RunStatus::Pass);
+        assert!(results[1].logs.iter().any(|l| l.text.contains("shell_ok")));
+
+        assert_eq!(results[2].status, RunStatus::Pass);
+        assert_eq!(results[2].logs[0].text, "中文");
+
+        // 5. Log retention cap truncates cleanly at MAX_RETAINED_LINES (5000)
+        let flood = make_target(
+            tmp.path(),
+            "flood",
+            r#"node -e "for (let i = 0; i < 5010; i++) console.log('line-' + i)""#,
+        );
+        let flood_results = run_commands_parallel(
+            "run-flood".to_string(),
+            vec![flood],
+            1,
+            RunRegistry::new(),
+            |_| {},
+        )
+        .await;
+        assert_eq!(flood_results[0].status, RunStatus::Pass);
+        assert_eq!(flood_results[0].logs.len(), MAX_RETAINED_LINES + 1);
+        assert!(flood_results[0]
+            .logs
+            .last()
+            .unwrap()
+            .text
+            .contains("output truncated after 5000 lines"));
+    }
 }

@@ -30,7 +30,7 @@ pub fn validate_new_item_id(id: &str) -> Result<(), String> {
         .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
     {
         return Err(format!(
-            "Invalid item ID '{id}': only lowercase ASCII letters, digits, '-', and '_' are allowed (e.g. 'git-core-config')"
+            "Invalid item ID '{id}': only lowercase ASCII letters, digits, '-', and '_' are allowed (e.g. 'git-config')"
         ));
     }
     Ok(())

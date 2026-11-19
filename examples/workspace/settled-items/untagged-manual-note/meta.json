@@ -1,5 +1,0 @@
-{
-  "name": "Untagged Manual Checklist",
-  "description": "Demonstrates an item without any tags so the sidebar omits tag chips and the detail panel falls back to empty state.",
-  "createAt": 1794683400
-}

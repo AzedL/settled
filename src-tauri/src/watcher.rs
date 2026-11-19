@@ -21,6 +21,15 @@ pub struct WorkspaceWatcher {
 
 impl WorkspaceWatcher {
     pub fn start(app: AppHandle, workspace_root: PathBuf) -> Result<Self, String> {
+        Self::start_with_callback(workspace_root, move |root_str| {
+            let _ = app.emit(WORKSPACE_CHANGED_EVENT, root_str);
+        })
+    }
+
+    pub fn start_with_callback<F>(workspace_root: PathBuf, on_change: F) -> Result<Self, String>
+    where
+        F: Fn(String) + Send + 'static,
+    {
         let items_dir = workspace_root.join(ITEMS_DIR_NAME);
         let root_str = workspace_root.to_string_lossy().into_owned();
         let resync_items_dir = Arc::new(AtomicBool::new(false));
@@ -42,7 +51,7 @@ impl WorkspaceWatcher {
                     .iter()
                     .any(|ev| is_relevant_path(&ev.path, &cb_root, &cb_items_dir));
                 if relevant {
-                    let _ = app.emit(WORKSPACE_CHANGED_EVENT, root_str.clone());
+                    on_change(root_str.clone());
                 }
             },
         )
@@ -170,5 +179,52 @@ mod tests {
         assert!(!is_relevant_path(&items_dir.join(".hidden").join("meta.json"), root, &items_dir));
         assert!(!is_relevant_path(&item_dir.join("scripts").join("check.sh"), root, &items_dir));
         assert!(!is_relevant_path(&item_dir.join("output.log"), root, &items_dir));
+    }
+
+    #[test]
+    fn syncs_settled_items_watch_dynamically_and_ignores_unrelated_root_files() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        use std::time::Duration;
+
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path().to_path_buf();
+        let hits = Arc::new(AtomicUsize::new(0));
+        let hits_cb = Arc::clone(&hits);
+
+        // Start watching root before settled-items/ exists
+        let mut watcher = super::WorkspaceWatcher::start_with_callback(root.clone(), move |_| {
+            hits_cb.fetch_add(1, Ordering::SeqCst);
+        })
+        .unwrap();
+        assert!(!watcher.items_watched);
+
+        // Unrelated file change at root should not emit events
+        fs::write(root.join("unrelated.txt"), "hi").unwrap();
+        std::thread::sleep(Duration::from_millis(450));
+        assert_eq!(hits.load(Ordering::SeqCst), 0);
+
+        // Creating settled-items/ notifies and allows sync_items_watch() to attach recursive watch
+        let item_dir = root.join(ITEMS_DIR_NAME).join("demo");
+        fs::create_dir_all(&item_dir).unwrap();
+        std::thread::sleep(Duration::from_millis(450));
+        assert!(hits.load(Ordering::SeqCst) >= 1);
+
+        watcher.sync_items_watch();
+        assert!(watcher.items_watched);
+
+        // Subsequent meta.json write inside settled-items/demo/ notifies via layer 2 watch
+        let before = hits.load(Ordering::SeqCst);
+        fs::write(item_dir.join("meta.json"), r#"{"name":"Demo"}"#).unwrap();
+        std::thread::sleep(Duration::from_millis(450));
+        assert!(hits.load(Ordering::SeqCst) > before);
+
+        // Deleting settled-items/ detaches layer 2 cleanly on next sync
+        fs::remove_dir_all(root.join(ITEMS_DIR_NAME)).unwrap();
+        std::thread::sleep(Duration::from_millis(450));
+        watcher.sync_items_watch();
+        assert!(!watcher.items_watched);
     }
 }

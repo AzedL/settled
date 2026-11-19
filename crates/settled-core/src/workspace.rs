@@ -597,4 +597,34 @@ mod tests {
             vec!["win/probe.ps1"]
         );
     }
+
+    #[test]
+    fn rejects_invalid_workspace_and_resolves_readme_fallbacks() {
+        let tmp = TempDir::new().unwrap();
+        let missing = tmp.path().join("does-not-exist");
+        assert!(matches!(
+            load_workspace(&missing),
+            Err(SettledError::InvalidWorkspace(_))
+        ));
+
+        // Empty workspace without settled-items/ loads cleanly as empty snapshot
+        let snap = load_workspace(tmp.path()).unwrap();
+        assert!(!snap.items_dir_exists);
+        assert!(snap.items.is_empty());
+
+        // Directory missing meta.json records scan warning, and lowercase readme.md works
+        let items = tmp.path().join(ITEMS_DIR_NAME);
+        let no_meta = items.join("only-readme");
+        fs::create_dir_all(&no_meta).unwrap();
+        fs::write(no_meta.join("readme.md"), "lower").unwrap();
+        let resolved_readme = find_readme_path(&no_meta).unwrap();
+        assert_eq!(fs::read_to_string(&resolved_readme).unwrap(), "lower");
+
+        let snap2 = load_workspace(tmp.path()).unwrap();
+        assert_eq!(snap2.scan_warnings.len(), 1);
+        assert!(snap2.scan_warnings[0].contains("missing meta.json"));
+
+        // cmd token expansion uses backslash separator
+        assert_eq!(resolve_script_tokens("call @script/run.bat && @script", "cmd"), "call .\\scripts\\run.bat && .\\scripts");
+    }
 }

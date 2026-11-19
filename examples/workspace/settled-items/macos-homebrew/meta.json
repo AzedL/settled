@@ -1,0 +1,26 @@
+{
+  "name": "macOS Homebrew 健康检查",
+  "description": "验证 macOS 设备 Homebrew 安装状态与 brew doctor 自检，展示跨平台禁用与修复脚本结构。",
+  "createAt": 1794597300,
+  "tags": ["macos", "包管理"],
+  "platforms": ["macos"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Homebrew 已安装",
+        "description": "确认 brew 命令在 PATH 中可用",
+        "run": "command -v brew && brew --version"
+      },
+      {
+        "name": "brew doctor 自检",
+        "description": "运行 Homebrew 诊断检查",
+        "run": "brew doctor"
+      }
+    ],
+    "fix": {
+      "name": "更新 Homebrew 索引并清理缓存",
+      "description": "刷新 formulae 并清理过期缓存",
+      "run": "brew update && brew cleanup"
+    }
+  }
+}

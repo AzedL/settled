@@ -24,6 +24,13 @@ pub struct CliConfigStore {
 impl CliConfigStore {
     /// Returns the default CLI config store path inside `<data_dir>/dev.settled.app/cli.json`.
     pub fn default_store() -> Result<Self, String> {
+        if let Some(override_path) = std::env::var_os("SETTLED_CLI_CONFIG")
+            && !override_path.is_empty()
+        {
+            return Ok(Self {
+                path: PathBuf::from(override_path),
+            });
+        }
         let base = dirs::data_dir()
             .ok_or_else(|| "Failed to resolve OS application data directory".to_string())?;
         Ok(Self {

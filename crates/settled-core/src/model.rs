@@ -451,3 +451,107 @@ pub enum SettledError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn platform_display_and_enum_helpers_work() {
+        assert_eq!(Platform::Windows.to_string(), "windows");
+        assert_eq!(Platform::Macos.to_string(), "macos");
+        assert_eq!(Platform::Linux.to_string(), "linux");
+        assert_eq!(ScriptRole::from_key("check"), ScriptRole::Check);
+        assert_eq!(ScriptRole::from_key("fix"), ScriptRole::Fix);
+        assert_eq!(ScriptRole::from_key("inspect"), ScriptRole::Custom);
+    }
+
+    #[test]
+    fn handles_iso_leap_years_timezones_and_invalid_dates() {
+        let leap: ItemMetaRaw =
+            serde_json::from_str(r#"{"name":"L","createAt":"2024-02-29T12:00:00Z"}"#).unwrap();
+        assert_eq!(leap.create_at, Some(1709208000));
+
+        let century_non_leap = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"NL","createAt":"1900-02-29T12:00:00Z"}"#,
+        );
+        assert!(century_non_leap.is_err());
+
+        let year_2000_leap = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"Y2K","createAt":"2000-02-29 00:00:00-0500"}"#,
+        )
+        .unwrap();
+        assert_eq!(year_2000_leap.create_at, Some(951800400));
+
+        let naive = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"Naive","createAt":"2026-04-30T10:20:30.123"}"#,
+        )
+        .unwrap();
+        assert!(naive.create_at.is_some());
+
+        let blank_ts = serde_json::from_str::<ItemMetaRaw>(r#"{"name":"B","createAt":"   "}"#).unwrap();
+        assert_eq!(blank_ts.create_at, None);
+
+        let num_str = serde_json::from_str::<ItemMetaRaw>(r#"{"name":"N","createAt":"1794596400"}"#).unwrap();
+        assert_eq!(num_str.create_at, Some(1794596400));
+
+        let null_ts = serde_json::from_str::<ItemMetaRaw>(r#"{"name":"Null","createAt":null}"#).unwrap();
+        assert_eq!(null_ts.create_at, None);
+
+        let bad_month = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"BM","createAt":"2026-13-01T00:00:00Z"}"#,
+        );
+        assert!(bad_month.is_err());
+
+        let bad_hour = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"BH","createAt":"2026-01-01T25:00:00Z"}"#,
+        );
+        assert!(bad_hour.is_err());
+
+        let bad_tz = serde_json::from_str::<ItemMetaRaw>(
+            r#"{"name":"BTZ","createAt":"2026-01-01T10:00:00+99"}"#,
+        );
+        assert!(bad_tz.is_err());
+    }
+
+    #[test]
+    fn builds_command_execution_target_and_script_inputs() {
+        let single = ScriptInput::One(CommandInput::Shorthand("echo hi".to_string()));
+        assert_eq!(single.into_commands().len(), 1);
+
+        let item = WorkspaceItem {
+            id: "i1".to_string(),
+            path: "/ws/settled-items/i1".to_string(),
+            meta_path: "/ws/settled-items/i1/meta.json".to_string(),
+            readme_path: None,
+            readme: String::new(),
+            raw_meta: "{}".to_string(),
+            name: "I1".to_string(),
+            description: None,
+            create_at: None,
+            tags: vec![],
+            platforms: vec![],
+            applicable: true,
+            script_groups: vec![],
+        };
+        let cmd = ResolvedCommand {
+            index: 0,
+            key: "check".to_string(),
+            command_id: "i1::check::0".to_string(),
+            name: "Echo".to_string(),
+            description: None,
+            raw_run: "echo hi".to_string(),
+            resolved_run: "echo hi".to_string(),
+            platforms: vec![],
+            applicable: true,
+            shell: None,
+            effective_shell: "pwsh".to_string(),
+            encoding: "utf-8".to_string(),
+        };
+
+        let target = CommandExecutionTarget::from_resolved(&item, &cmd);
+        assert_eq!(target.item_id, "i1");
+        assert_eq!(target.shell, "pwsh");
+        assert_eq!(target.command_id, "i1::check::0");
+    }
+}

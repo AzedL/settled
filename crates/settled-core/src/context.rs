@@ -150,5 +150,70 @@ mod tests {
         let md = format_item_context(&item, None, Platform::Linux);
         assert!(!md.contains("**Description**"));
         assert!(!md.contains("**Tags**"));
+
+        let extra_results = vec![
+            CommandResult {
+                run_id: "r2".to_string(),
+                command_id: "minimal::check::0".to_string(),
+                item_id: "minimal".to_string(),
+                group_key: "check".to_string(),
+                command_index: 0,
+                command_name: "Spawn err".to_string(),
+                resolved_run: "bad-cmd".to_string(),
+                status: RunStatus::Canceled,
+                exit_code: None,
+                duration_ms: 5,
+                logs: vec![],
+                error: Some("spawn failed".to_string()),
+            },
+            CommandResult {
+                run_id: "r2".to_string(),
+                command_id: "minimal::check::1".to_string(),
+                item_id: "minimal".to_string(),
+                group_key: "check".to_string(),
+                command_index: 1,
+                command_name: "Idle".to_string(),
+                resolved_run: "noop".to_string(),
+                status: RunStatus::Idle,
+                exit_code: Some(0),
+                duration_ms: 0,
+                logs: vec![],
+                error: None,
+            },
+            CommandResult {
+                run_id: "r2".to_string(),
+                command_id: "minimal::check::2".to_string(),
+                item_id: "minimal".to_string(),
+                group_key: "check".to_string(),
+                command_index: 2,
+                command_name: "Running".to_string(),
+                resolved_run: "sleep 1".to_string(),
+                status: RunStatus::Running,
+                exit_code: None,
+                duration_ms: 10,
+                logs: vec![],
+                error: None,
+            },
+            CommandResult {
+                run_id: "r2".to_string(),
+                command_id: "minimal::check::3".to_string(),
+                item_id: "minimal".to_string(),
+                group_key: "check".to_string(),
+                command_index: 3,
+                command_name: "Pass".to_string(),
+                resolved_run: "echo ok".to_string(),
+                status: RunStatus::Pass,
+                exit_code: Some(0),
+                duration_ms: 2,
+                logs: vec![],
+                error: None,
+            },
+        ];
+        let full_md = format_item_context(&item, Some(&extra_results), Platform::Macos);
+        assert!(full_md.contains("[CANCELED]"));
+        assert!(full_md.contains("[IDLE]"));
+        assert!(full_md.contains("[RUNNING]"));
+        assert!(full_md.contains("[PASS]"));
+        assert!(full_md.contains("Runner error: `spawn failed`"));
     }
 }

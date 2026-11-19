@@ -84,7 +84,7 @@ struct ListArgs {
 
 #[derive(Debug, Args)]
 struct NewArgs {
-    /// Lowercase item directory identifier (e.g. `git-core-config`)
+    /// Lowercase item directory identifier (e.g. `git-config`)
     item_id: String,
 }
 

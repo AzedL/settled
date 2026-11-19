@@ -1,0 +1,132 @@
+import { describe, expect, it } from "vitest";
+import { makeCommand, makeGroup, makeItem, makeRuntime } from "../../test/fixtures";
+import {
+  collectItemCommandResults,
+  DEFAULT_COMMAND_RUNTIME,
+  getApplicableCheckCommands,
+  getCommandRuntime,
+  matchesItemFilters,
+  toExecutionTarget,
+} from "../itemStatus";
+
+describe("itemStatus utilities", () => {
+  it("builds execution targets from item and resolved command", () => {
+    const item = makeItem({ id: "git-config", path: "D:\\ws\\git-config" });
+    const cmd = makeCommand({
+      index: 1,
+      key: "check",
+      commandId: "git-config::check::1",
+      resolvedRun: "git config user.name",
+      effectiveShell: "bash",
+      encoding: "utf-8",
+    });
+
+    expect(toExecutionTarget(item, cmd)).toEqual({
+      itemId: "git-config",
+      itemDir: "D:\\ws\\git-config",
+      groupKey: "check",
+      commandIndex: 1,
+      commandId: "git-config::check::1",
+      commandName: cmd.name,
+      resolvedRun: "git config user.name",
+      shell: "bash",
+      encoding: "utf-8",
+    });
+  });
+
+  it("extracts applicable check commands cleanly", () => {
+    const c1 = makeCommand({ index: 0, applicable: true });
+    const c2 = makeCommand({ index: 1, applicable: false });
+    const item = makeItem({
+      applicable: true,
+      scriptGroups: [makeGroup({ role: "check", commands: [c1, c2] })],
+    });
+    expect(getApplicableCheckCommands(item)).toEqual([c1]);
+
+    expect(getApplicableCheckCommands(makeItem({ applicable: false }))).toEqual([]);
+    expect(getApplicableCheckCommands(makeItem({ scriptGroups: [] }))).toEqual([]);
+  });
+
+  it("returns default idle state for unknown commands", () => {
+    const passRuntime = makeRuntime({ status: "pass" });
+    expect(getCommandRuntime({ a: passRuntime }, "a")).toBe(passRuntime);
+    expect(getCommandRuntime({ a: passRuntime }, "missing")).toBe(
+      DEFAULT_COMMAND_RUNTIME
+    );
+  });
+
+  it("evaluates scope, tags, and search filters", () => {
+    const item = makeItem({
+      name: "Git 基础配置",
+      description: "验证提交用户名",
+      tags: ["git", "init"],
+      applicable: false,
+    });
+
+    expect(
+      matchesItemFilters(item, { scope: "current", search: "", selectedTags: [] })
+    ).toBe(false);
+    expect(
+      matchesItemFilters(item, { scope: "all", search: "", selectedTags: [] })
+    ).toBe(true);
+    expect(
+      matchesItemFilters(item, {
+        scope: "all",
+        search: "",
+        selectedTags: ["node", "init"],
+      })
+    ).toBe(true);
+    expect(
+      matchesItemFilters(item, {
+        scope: "all",
+        search: "",
+        selectedTags: ["node"],
+      })
+    ).toBe(false);
+    expect(
+      matchesItemFilters(item, {
+        scope: "all",
+        search: "用户名",
+        selectedTags: [],
+      })
+    ).toBe(true);
+    expect(
+      matchesItemFilters(makeItem({ description: null }), {
+        scope: "all",
+        search: "not-found",
+        selectedTags: [],
+      })
+    ).toBe(false);
+  });
+
+  it("collects non-idle command results for AI context bundling", () => {
+    const cIdle = makeCommand({ index: 0, commandId: "c-idle" });
+    const cFail = makeCommand({ index: 1, commandId: "c-fail" });
+    const item = makeItem({
+      id: "demo",
+      scriptGroups: [makeGroup({ commands: [cIdle, cFail] })],
+    });
+
+    const results = collectItemCommandResults(item, {
+      "c-idle": makeRuntime({ status: "idle" }),
+      "c-fail": makeRuntime({
+        status: "fail",
+        exitCode: 1,
+        durationMs: null,
+        logs: [{ stream: "stderr", text: "boom" }],
+        error: null,
+        lastRunId: null,
+      }),
+    });
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      runId: "local",
+      commandId: "c-fail",
+      itemId: "demo",
+      status: "fail",
+      exitCode: 1,
+      durationMs: 0,
+    });
+  });
+});

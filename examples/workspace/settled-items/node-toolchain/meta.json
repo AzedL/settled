@@ -1,0 +1,20 @@
+{
+  "name": "Node.js 与 npm 工具链",
+  "description": "通过 @script/ 本地脚本验证 Node.js >= 20 与 npm CLI 是否就绪，展示固定工作目录约定。",
+  "createAt": 1794596700,
+  "tags": ["node", "工具链"],
+  "scripts": {
+    "check": [
+      {
+        "name": "Node.js 版本 >= 20",
+        "description": "在当前条目目录下执行 @script/check-node.mjs 校验主版本号",
+        "run": "node @script/check-node.mjs"
+      },
+      {
+        "name": "npm CLI 可用",
+        "description": "确认 npm 命令行可正常响应版本号",
+        "run": "npm -v"
+      }
+    ]
+  }
+}

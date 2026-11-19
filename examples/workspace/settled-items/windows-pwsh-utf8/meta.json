@@ -1,0 +1,21 @@
+{
+  "name": "Windows PowerShell 7 与 UTF-8",
+  "description": "校验 Windows 设备上的 PowerShell 7 (pwsh) 与中文 UTF-8 控制台输出解码是否正常。",
+  "createAt": 1794597000,
+  "tags": ["windows", "编码"],
+  "platforms": ["windows"],
+  "scripts": {
+    "check": [
+      {
+        "name": "PowerShell 7 可用",
+        "description": "确认默认宿主机 Shell 为 pwsh 7+",
+        "run": "if ($PSVersionTable.PSVersion.Major -lt 7) { Write-Error '需要 PowerShell 7+'; exit 1 }; Write-Output \"pwsh $($PSVersionTable.PSVersion)\""
+      },
+      {
+        "name": "UTF-8 中文输出验证",
+        "description": "输出多语言 UTF-8 字符验证解码链路不乱码",
+        "run": "Write-Output 'Settled UTF-8 中文输出正常 (✓)'"
+      }
+    ]
+  }
+}
