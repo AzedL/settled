@@ -91,28 +91,41 @@ Field notes:
 
 ## 3. CLI Workflows (`settled`)
 
+Workspace resolution order: `-w/--workspace <path>` > `SETTLED_WORKSPACE` env > active workspace configured via `settled workspace use` > current directory (if it contains `settled-items/`; never walks parent directories).
+
+### Selecting or Inspecting Workspace
+```bash
+settled workspace list
+settled workspace use <workspace> [--init]
+settled workspace current
+settled list [--all-platforms]
+```
+
 ### Capturing a New Pitfall or Setup Item
-1. Choose a concise kebab-case `<item-id>` under `<workspace>/settled-items/<item-id>/`.
-2. Write `README.md` documenting: symptom, root cause, verified solution across relevant OSes, and any manual steps.
-3. Write `meta.json` with `name`, optional `description`, `createAt` (current Unix timestamp in seconds, e.g. `1794596400`), optional `tags`, optional `platforms`, and read-only `scripts.check` (plus optional `scripts.fix` / custom scripts) if automatable.
-4. Immediately validate using:
+1. Scaffold `<workspace>/settled-items/<item-id>/` (`meta.json` starter + empty `README.md`):
    ```bash
-   settled check <item-id> --workspace <workspace> --json
+   settled new <item-id>
+   ```
+2. Edit `README.md` directly (symptom, root cause, verified solution, manual steps) and populate `meta.json` / `scripts/`.
+3. Validate contracts and immediately run `check`:
+   ```bash
+   settled lint <item-id>
+   settled check <item-id>
    ```
 
 ### Diagnosing & Fixing a Failing Item on Current Device
-1. Inspect workspace items or run checks:
+1. Inspect workspace items (structured JSON with `id`, `path`, `applicable`, and `meta.json` fields) or run all checks:
    ```bash
-   settled list --workspace <workspace> --json
-   settled check --workspace <workspace> --json
+   settled list
+   settled check
    ```
-2. Pull full structured context (metadata + `README.md` + fresh failure logs) for a failing item:
+2. For any `FAIL` item reported, inspect its `dir` directly (read `README.md`, `meta.json`, and `scripts/`) and optionally re-run with `-v` for verbose logs:
    ```bash
-   settled context <item-id> --workspace <workspace> --run-check
+   settled check <item-id> -v
    ```
-3. Fix the environment issue on the current machine (or run `settled fix <item-id> --workspace <workspace>` if appropriate and safe).
+3. Fix the environment issue on the current machine (or run `settled fix <item-id>` if safe; `settled fix` automatically re-runs the item's `check` commands; use `settled run <item-id> <script_key>` to execute any group including `check`/`fix` directly without auto-verify).
 4. **Always re-verify** before claiming success:
    ```bash
-   settled check <item-id> --workspace <workspace> --json
+   settled check <item-id>
    ```
    Only report the item as resolved once all applicable `check` commands exit `0`.

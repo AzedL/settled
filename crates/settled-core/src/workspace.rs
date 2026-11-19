@@ -91,6 +91,50 @@ fn is_valid_suffix_boundary(bytes: &[u8], after: usize) -> bool {
     matches!(bytes[after], b' ' | b'\t' | b'\n' | b'\r' | b'"' | b'\'' | b')' | b';' | b'&' | b'|')
 }
 
+/// Extracts `<subpath>` references from `@script/<subpath>` (or `@script\<subpath>`) tokens in a command string.
+///
+/// Respects quote context (`"@script/my script.mjs"`) and uses the same prefix boundaries as `resolve_script_tokens`.
+pub fn extract_script_references(raw: &str) -> Vec<String> {
+    let mut refs = Vec::new();
+    let bytes = raw.as_bytes();
+    let token = b"@script";
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i..].starts_with(token) && is_valid_prefix_boundary(bytes, i) {
+            let after = i + token.len();
+            if after < bytes.len() && (bytes[after] == b'/' || bytes[after] == b'\\') {
+                let start = after + 1;
+                let opened_quote = (i > 0 && matches!(bytes[i - 1], b'"' | b'\''))
+                    .then(|| bytes[i - 1]);
+                let mut end = start;
+                while end < bytes.len() {
+                    let b = bytes[end];
+                    if let Some(q) = opened_quote {
+                        if b == q {
+                            break;
+                        }
+                    } else if is_valid_suffix_boundary(bytes, end) {
+                        break;
+                    }
+                    end += 1;
+                }
+                let subpath = raw[start..end].replace('\\', "/");
+                if !subpath.is_empty() {
+                    refs.push(subpath);
+                }
+                i = end;
+                continue;
+            }
+        }
+
+        let ch = raw[i..].chars().next().unwrap();
+        i += ch.len_utf8();
+    }
+
+    refs
+}
+
 /// Scans `<workspace>/settled-items/*/` and returns a deterministic snapshot for the host platform.
 pub fn load_workspace(root: &Path) -> Result<WorkspaceSnapshot, SettledError> {
     if !root.is_dir() {
@@ -156,7 +200,8 @@ fn is_hidden_dir(path: &Path) -> bool {
         .is_some_and(|name| name.starts_with('.'))
 }
 
-fn find_readme_path(item_dir: &Path) -> Option<PathBuf> {
+/// Resolves `README.md` inside an item directory (`README.md`, `readme.md`, or case-insensitive fallback).
+pub fn find_readme_path(item_dir: &Path) -> Option<PathBuf> {
     let upper = item_dir.join("README.md");
     if upper.is_file() {
         return Some(upper);
@@ -537,5 +582,19 @@ mod tests {
         for cmd in cmds {
             assert_eq!(cmd.description, None);
         }
+    }
+
+    #[test]
+    fn extracts_script_references_with_quotes_and_boundaries() {
+        assert_eq!(
+            extract_script_references(
+                r#"node @script/check.mjs --a && bash "@script/sub dir/fix.sh" @scope/pkg @scripted/ignored"#
+            ),
+            vec!["check.mjs", "sub dir/fix.sh"]
+        );
+        assert_eq!(
+            extract_script_references(r#"pwsh -File "@script\win\probe.ps1""#),
+            vec!["win/probe.ps1"]
+        );
     }
 }

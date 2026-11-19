@@ -67,21 +67,28 @@ cargo check --workspace
 
 ## CLI (`settled`) 用法
 
-可通过 `SETTLED_WORKSPACE` 环境变量或 `-w <path>` 指定工作区（未指定时自动向上查找包含 `settled-items/` 的目录），所有子命令均支持 `--json` 输出：
+工作区解析顺序：`-w / --workspace <path>` > `SETTLED_WORKSPACE` 环境变量 > 全局激活工作区（`settled workspace use` 设置）> 当前目录（须包含 `settled-items/`，不向上级目录查找）。
 
 ```bash
-# 列出工作区条目（可按标签或 --all-platforms 过滤）
+# 注册并切换默认工作区（若缺少 settled-items/ 可加 --init 自动初始化）
+cargo run -q -p settled-cli -- workspace use examples/workspace
+cargo run -q -p settled-cli -- workspace list
+cargo run -q -p settled-cli -- workspace current
+cargo run -q -p settled-cli -- workspace remove examples/workspace
+
+# 列出当前平台适用的条目及结构化元数据（加 --all-platforms 查看全平台）
 cargo run -q -p settled-cli -- list -w examples/workspace
 
-# 运行指定条目或标签下的 check 命令
+# 创建新条目骨架（meta.json 模板 + 空 README.md）并校验工作区契约
+cargo run -q -p settled-cli -- new my-new-item -w examples/workspace
+cargo run -q -p settled-cli -- lint -w examples/workspace
+
+# 运行所有适用 check（或指定单个条目与 --step 下标，加 -v 查看通过项日志）
 cargo run -q -p settled-cli -- check -w examples/workspace
 
-# 执行 fix 并在完成后自动重跑 check 验证（加 --no-verify 可跳过复检）
+# 执行 fix 并自动重跑条目适用 check 验收
 cargo run -q -p settled-cli -- fix demo-fix-verification -w examples/workspace
 
-# 运行自定义脚本分组
+# 通用执行任意脚本分组（包含直接单独运行 check 或 fix，不附带自动复检）
 cargo run -q -p settled-cli -- run git-core-config show-config -w examples/workspace
-
-# 导出供 AI 助手使用的结构化 Markdown 上下文（加 --run-check 可先执行检查）
-cargo run -q -p settled-cli -- context git-core-config -w examples/workspace
 ```
