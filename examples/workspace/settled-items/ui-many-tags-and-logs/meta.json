@@ -33,6 +33,11 @@
         "run": "node -e \"for (let i = 1; i <= 150; i++) console.log('第 ' + i + ' 行日志：用于验证前端日志面板限高滚动与 CLI 截断输出')\""
       },
       {
+        "name": "ANSI 终端色彩、跨行延续与控制符清理展示",
+        "description": "在浅色/深色主题下核对 16/256/TrueColor、跨行双流隔离、OSC/CSI 剥离与 \\r 进度覆盖",
+        "run": "node @script/ansi-showcase.mjs"
+      },
+      {
         "name": "固定失败项（验证红灯自动展开与独立告警）",
         "description": "故意输出中文报错并退出 1，且本条目故意不提供 fix 分组",
         "run": "node -e \"console.error('预期失败项：用于直接观察无 fix 分组时的红灯与 stderr 日志'); process.exit(1)\""

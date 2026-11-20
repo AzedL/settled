@@ -10,9 +10,9 @@
    - 包含对象与字符串简写自定义组、`reset` 一键复位、固定 stderr 失败演示，以及完整 GFM `README.md`。
 2. `settled-items/ui-empty-and-defaults/` — **前端空态与缺省字段边界**
    - 省略 `tags`（列表无 tag、详情显示 `无标签`）、省略 `createAt`（详情显示 `无`）、省略 `description`、省略 `scripts`（显示 `该条目未注册命令`），并故意保留**空 `README.md`**（验证空白最小高度展示与 `lint` 警告）。
-3. `settled-items/ui-many-tags-and-logs/` — **高频/超长标签溢出、无步骤说明与长日志滚动**
+3. `settled-items/ui-many-tags-and-logs/` — **高频/超长标签溢出、无步骤说明、长日志滚动与 ANSI 终端渲染**
    - 20 个以上标签及超长标签，验证侧边栏 `+N` 折叠、详情卡片 `+N` 悬浮气泡及筛选框滚动；
-   - 混合无 `description` 简写成功步、150 行多行中文日志输出与独立失败检查项。
+   - 混合无 `description` 简写成功步、150 行多行中文日志、全边界 ANSI 彩色日志展示（双主题对比度/跨行双流隔离/控制符清理）与独立失败检查项。
 4. `settled-items/ui-platform-windows/` — **仅 Windows 适用条目**（验证 Windows UTF-8 与其他平台置灰禁用）。
 5. `settled-items/ui-platform-macos/` — **仅 macOS 适用条目**（验证 Windows / Linux 下「全部平台」虚线禁用态及「当前设备」过滤隐藏）。
 

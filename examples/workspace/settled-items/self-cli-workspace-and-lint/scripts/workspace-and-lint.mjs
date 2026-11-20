@@ -34,10 +34,16 @@ function resolveCli() {
   };
 }
 
-function runSettled(args, cwd, cliConfigPath, title) {
+function runSettled(args, cwd, cliConfigPath, title, extraEnv = {}) {
   const { bin, prefixArgs } = resolveCli();
   const env = { ...process.env, SETTLED_CLI_CONFIG: cliConfigPath };
   delete env.SETTLED_WORKSPACE;
+  delete env.CLICOLOR_FORCE;
+
+  for (const [k, v] of Object.entries(extraEnv)) {
+    if (v === undefined) delete env[k];
+    else env[k] = v;
+  }
 
   const res = spawnSync(bin, [...prefixArgs, ...args], {
     cwd,
@@ -227,7 +233,7 @@ function testLintWarnings(sandbox) {
   assert.match(res.stdout, /unexpected field 'platform'/);
   assert.match(res.stdout, /unexpected field 'extraField'/);
   assert.match(res.stdout, /README\.md does not exist/);
-  assert.match(res.stdout, /README\.md is empty/);
+  assert.match(res.stdout, /\[WARN\] README\.md is empty/);
   assert.match(res.stdout, /references missing script 'scripts\/not-found\.mjs'/);
   assert.match(res.stdout, /never overlap item platforms/);
   assert.doesNotMatch(res.stdout, /nonexistent-inner\.sh/);
@@ -250,6 +256,85 @@ function testLintWarnings(sandbox) {
   assert.equal(missingItem.code, 2);
 }
 
+function testColors(sandbox) {
+  const cfg = path.join(sandbox, "cli.json");
+  const ws = path.join(sandbox, "color-ws");
+  const items = path.join(ws, "settled-items");
+  const gone = path.join(sandbox, "gone-ws");
+  fs.mkdirSync(path.join(gone, "settled-items"), { recursive: true });
+
+  writeMeta(path.join(items, "broken"), { name: "坏JSON", tags: "str" });
+  writeMeta(path.join(items, "warn-only"), { name: "仅警告", extra: 1 });
+
+  // 1. 默认管道及 NO_COLOR=1 不输出 ANSI 转义码
+  const plain = runSettled(["lint", "-w", ws], sandbox, cfg, "管道无色 lint", { NO_COLOR: "1" });
+  assert.equal(plain.code, 1);
+  assert.doesNotMatch(plain.stdout, /\x1b\[/);
+
+  // 2. CLICOLOR_FORCE=1 下 lint 展示 [ERROR] 红字、[WARN] 黄字（无多余空格）与彩色汇总
+  const coloredLint = runSettled(
+    ["lint", "-w", ws],
+    sandbox,
+    cfg,
+    "CLICOLOR_FORCE=1 彩色 lint ([ERROR]/[WARN])",
+    { CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(coloredLint.code, 1);
+  assert.match(coloredLint.stdout, /\x1b\[.*\[ERROR\]/);
+  assert.match(coloredLint.stdout, /\x1b\[.*\[WARN\]/);
+
+  // 3. workspace use/list 彩色标记与失效工作区 warning:/error: 上色
+  assert.equal(runSettled(["workspace", "use", gone], sandbox, cfg, "注册临时库").code, 0);
+  assert.equal(runSettled(["workspace", "use", ws], sandbox, cfg, "切换至彩色库").code, 0);
+  assert.equal(runSettled(["workspace", "use", gone], sandbox, cfg, "再切回即将删除的库").code, 0);
+  fs.rmSync(gone, { recursive: true, force: true });
+
+  const coloredLs = runSettled(
+    ["workspace", "list"],
+    sandbox,
+    cfg,
+    "CLICOLOR_FORCE=1 彩色 workspace list",
+    { CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(coloredLs.code, 0);
+  assert.match(coloredLs.stdout, /\x1b\[.*\* /);
+  assert.match(coloredLs.stdout, /\[missing\]/);
+  assert.match(coloredLs.stderr, /\x1b\[.*warning:/);
+
+  const coloredErr = runSettled(
+    ["workspace", "current"],
+    sandbox,
+    cfg,
+    "CLICOLOR_FORCE=1 彩色 warning:/error:",
+    { CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(coloredErr.code, 2);
+  assert.match(coloredErr.stderr, /\x1b\[.*warning:/);
+  assert.match(coloredErr.stderr, /\x1b\[.*error:/);
+
+  // 4. `list` (JSON) 与 `workspace current` (纯路径) 即使在 CLICOLOR_FORCE=1 下也保持无转义纯文本
+  const rawList = runSettled(
+    ["list", "-w", ws],
+    sandbox,
+    cfg,
+    "list JSON 在 CLICOLOR_FORCE=1 下保持纯文本",
+    { CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(rawList.code, 0);
+  assert.doesNotMatch(rawList.stdout, /\x1b\[/);
+  JSON.parse(rawList.stdout);
+
+  const rawCur = runSettled(
+    ["workspace", "current", "-w", ws],
+    sandbox,
+    cfg,
+    "workspace current 在 CLICOLOR_FORCE=1 下保持纯路径",
+    { CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(rawCur.code, 0);
+  assert.doesNotMatch(rawCur.stdout, /\x1b\[/);
+}
+
 const mode = process.argv[2];
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "settled-cli-test-"));
 try {
@@ -258,6 +343,7 @@ try {
   else if (mode === "new") testNew(sandbox);
   else if (mode === "lint-errors") testLintErrors(sandbox);
   else if (mode === "lint-warnings") testLintWarnings(sandbox);
+  else if (mode === "color") testColors(sandbox);
   else {
     console.error(`未知测试子项: ${mode}`);
     process.exit(2);

@@ -29,6 +29,11 @@
         "name": "lint [WARN] 警告矩阵与单条目模式（退出码 0）",
         "description": "实测未知字段、README 缺失/空、一级 @script/ 缺失（不递归脚本源码）与 platforms 无交集告警",
         "run": "node @script/workspace-and-lint.mjs lint-warnings"
+      },
+      {
+        "name": "CLI 终端上色与纯文本隔离 (CLICOLOR_FORCE / [WARN] / warning:)",
+        "description": "验证 CLICOLOR_FORCE=1 下 lint/workspace/error:/warning: 彩色输出，以及 list JSON 与 current 纯文本不受污染",
+        "run": "node @script/workspace-and-lint.mjs color"
       }
     ]
   }

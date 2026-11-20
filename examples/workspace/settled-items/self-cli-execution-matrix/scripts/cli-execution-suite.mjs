@@ -36,8 +36,14 @@ function resolveCli() {
 
 function runSettled(args, cwd, cliConfigPath, title, extraEnv = {}) {
   const { bin, prefixArgs } = resolveCli();
-  const env = { ...process.env, SETTLED_CLI_CONFIG: cliConfigPath, ...extraEnv };
+  const env = { ...process.env, SETTLED_CLI_CONFIG: cliConfigPath };
   delete env.SETTLED_WORKSPACE;
+  delete env.CLICOLOR_FORCE;
+
+  for (const [k, v] of Object.entries(extraEnv)) {
+    if (v === undefined) delete env[k];
+    else env[k] = v;
+  }
 
   const res = spawnSync(bin, [...prefixArgs, ...args], {
     cwd,
@@ -242,6 +248,35 @@ function testErrorExitCodes(sandbox) {
   assert.match(brokenCheck.stderr, /settled lint bad-meta/);
 }
 
+function testColoredExecOutput(sandbox) {
+  const cfg = path.join(sandbox, "cli.json");
+  const demoDir = path.join(sandbox, "demo-color");
+  fs.mkdirSync(demoDir, { recursive: true });
+
+  const coloredCheck = runSettled(
+    ["check", "ui-check-fix-workflow", "-w", exampleWorkspace],
+    sandbox,
+    cfg,
+    "CLICOLOR_FORCE=1 彩色 check（PASS/FAIL/Summary）",
+    { SETTLED_DEMO_DIR: demoDir, CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(coloredCheck.code, 1);
+  assert.match(coloredCheck.stdout, /\x1b\[.*PASS/);
+  assert.match(coloredCheck.stdout, /\x1b\[.*FAIL/);
+  assert.match(coloredCheck.stdout, /\x1b\[.*Summary:/);
+
+  const coloredFix = runSettled(
+    ["fix", "ui-check-fix-workflow", "-w", exampleWorkspace],
+    sandbox,
+    cfg,
+    "CLICOLOR_FORCE=1 彩色 fix（== Fix == / == Verify ==）",
+    { SETTLED_DEMO_DIR: demoDir, CLICOLOR_FORCE: "1", NO_COLOR: undefined }
+  );
+  assert.equal(coloredFix.code, 0);
+  assert.match(coloredFix.stdout, /\x1b\[.*== Fix ==/);
+  assert.match(coloredFix.stdout, /\x1b\[.*== Verify ==/);
+}
+
 const mode = process.argv[2];
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "settled-cli-exec-"));
 try {
@@ -249,6 +284,7 @@ try {
   else if (mode === "truncation") testTruncation(sandbox);
   else if (mode === "fix-and-run") testFixAndRun(sandbox);
   else if (mode === "errors") testErrorExitCodes(sandbox);
+  else if (mode === "color") testColoredExecOutput(sandbox);
   else {
     console.error(`未知测试子项: ${mode}`);
     process.exit(2);

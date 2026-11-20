@@ -24,6 +24,11 @@
         "name": "参数越界、非本机平台、无脚本与损坏条目退出码 2 校验",
         "description": "验证各类异常调用稳定返回退出码 2 并给出清晰定位提示",
         "run": "node @script/cli-execution-suite.mjs errors"
+      },
+      {
+        "name": "check / fix 终端彩色徽章与 Summary 验证 (CLICOLOR_FORCE=1)",
+        "description": "在 Settled UI 日志中直观预览 CLI check/fix 彩色 PASS/FAIL/== Verify == 输出",
+        "run": "node @script/cli-execution-suite.mjs color"
       }
     ]
   }
