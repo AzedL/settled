@@ -365,10 +365,22 @@ fn new_lint_and_output_truncation_work_via_cli_binary() {
     let dup = run_cli(&["new", "probe-item", "-w", ws_str], tmp.path(), &cfg, &[]);
     assert_eq!(dup.status.code(), Some(2));
 
-    // `lint` reports warning for empty README, exits 0
+    // `lint` reports warning for empty README, exits 0 (using `[WARN]` without extra trailing space)
     let lint_new = run_cli(&["lint", "-w", ws_str], tmp.path(), &cfg, &[]);
     assert_eq!(lint_new.status.code(), Some(0));
-    assert!(stdout_str(&lint_new).contains("[WARN ] README.md is empty"));
+    assert!(stdout_str(&lint_new).contains("[WARN] README.md is empty"));
+
+    // Verify `CLICOLOR_FORCE=1` emits ANSI styles while normal piped runs stay plain
+    let mut colored_cmd = Command::new(cli_bin());
+    colored_cmd
+        .args(["lint", "-w", ws_str])
+        .current_dir(tmp.path())
+        .env("SETTLED_CLI_CONFIG", &cfg)
+        .env("CLICOLOR_FORCE", "1")
+        .env_remove("NO_COLOR");
+    let colored_out = colored_cmd.output().unwrap();
+    assert_eq!(colored_out.status.code(), Some(0));
+    assert!(stdout_str(&colored_out).contains("\x1b["));
 
     // Long failing output (> 120 lines) truncates earlier lines cleanly unless `-v` is passed
     let item_dir = ws.join(ITEMS_DIR_NAME).join("probe-item");

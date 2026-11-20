@@ -1,10 +1,83 @@
 use crate::lint::{DiagnosticLevel, WorkspaceLintReport};
+use anstream::{eprintln, println};
+use anstyle::{AnsiColor, Color, Style};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use settled_core::{CommandResult, Platform, RunStatus, WorkspaceItem, WorkspaceSnapshot};
 use std::collections::HashMap;
 
 const MAX_FAILURE_TAIL_LINES: usize = 120;
+
+const ERROR_STYLE: Style = Style::new()
+    .bold()
+    .fg_color(Some(Color::Ansi(AnsiColor::Red)));
+const WARN_STYLE: Style = Style::new()
+    .bold()
+    .fg_color(Some(Color::Ansi(AnsiColor::Yellow)));
+const PASS_STYLE: Style = Style::new()
+    .bold()
+    .fg_color(Some(Color::Ansi(AnsiColor::Green)));
+const HEADER_STYLE: Style = Style::new()
+    .bold()
+    .fg_color(Some(Color::Ansi(AnsiColor::Cyan)));
+const BOLD_STYLE: Style = Style::new().bold();
+const DIM_STYLE: Style = Style::new().dimmed();
+
+pub fn print_cli_error(msg: &str) {
+    eprintln!("{ERROR_STYLE}error:{ERROR_STYLE:#} {msg}");
+}
+
+pub fn print_cli_warning(msg: &str) {
+    eprintln!("{WARN_STYLE}warning:{WARN_STYLE:#} {msg}");
+}
+
+pub fn print_workspace_use(path: &str, initialized: bool) {
+    let label = if initialized {
+        "Initialized and using workspace:"
+    } else {
+        "Using workspace:"
+    };
+    println!("{PASS_STYLE}{label}{PASS_STYLE:#} {path}");
+}
+
+pub fn print_workspace_remove(path: &str, was_current: bool) {
+    let label = if was_current {
+        "Removed active workspace:"
+    } else {
+        "Removed workspace:"
+    };
+    println!("{PASS_STYLE}{label}{PASS_STYLE:#} {path}");
+}
+
+pub fn print_workspace_list_empty() {
+    println!(
+        "{DIM_STYLE}(no workspaces registered; run 'settled workspace use <path>' to add one){DIM_STYLE:#}"
+    );
+}
+
+pub fn print_workspace_list_entry(path: &str, is_current: bool, exists: bool) {
+    let missing_badge = if exists {
+        String::new()
+    } else {
+        format!(" {WARN_STYLE}[missing]{WARN_STYLE:#}")
+    };
+    if is_current {
+        println!("{PASS_STYLE}* {path}{PASS_STYLE:#}{missing_badge}");
+    } else {
+        println!("  {path}{missing_badge}");
+    }
+}
+
+pub fn print_created_item(item_id: &str, item_dir: &str, meta_path: &str, readme_path: &str) {
+    println!("{PASS_STYLE}Created item '{item_id}'{PASS_STYLE:#}");
+    println!("  {DIM_STYLE}dir:{DIM_STYLE:#}  {item_dir}");
+    println!("  {DIM_STYLE}meta:{DIM_STYLE:#} {meta_path}");
+    println!("  {DIM_STYLE}doc:{DIM_STYLE:#}  {readme_path}");
+}
+
+pub fn print_no_checks_found() {
+    println!("{DIM_STYLE}No applicable check commands found.{DIM_STYLE:#}");
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,7 +87,7 @@ struct ListPayload {
     items: Vec<Value>,
 }
 
-/// Prints the workspace items as structured JSON: each item carries `id`, `path`, `applicable`, and its `meta.json` fields.
+/// Prints the workspace items as plain structured JSON: each item carries `id`, `path`, `applicable`, and its `meta.json` fields.
 pub fn print_list_report(snapshot: &WorkspaceSnapshot, all_platforms: bool) {
     let items: Vec<Value> = snapshot
         .items
@@ -29,7 +102,7 @@ pub fn print_list_report(snapshot: &WorkspaceSnapshot, all_platforms: bool) {
         items,
     };
 
-    println!(
+    std::println!(
         "{}",
         serde_json::to_string_pretty(&payload).unwrap_or_default()
     );
@@ -54,24 +127,38 @@ fn item_to_list_value(item: &WorkspaceItem) -> Value {
     Value::Object(out)
 }
 
-/// Prints workspace lint diagnostics grouped by item and returns whether errors occurred.
+/// Prints workspace lint diagnostics grouped by item using `[ERROR]` / `[WARN]` tags.
 pub fn print_lint_report(report: &WorkspaceLintReport) {
     for item in &report.results {
-        println!("{}", item.item_id);
+        println!("{BOLD_STYLE}{}{BOLD_STYLE:#}", item.item_id);
         for d in &item.diagnostics {
-            let tag = match d.level {
-                DiagnosticLevel::Error => "ERROR",
-                DiagnosticLevel::Warning => "WARN ",
-            };
-            println!("  [{tag}] {}", d.message);
+            match d.level {
+                DiagnosticLevel::Error => {
+                    println!("  {ERROR_STYLE}[ERROR]{ERROR_STYLE:#} {}", d.message);
+                }
+                DiagnosticLevel::Warning => {
+                    println!("  {WARN_STYLE}[WARN]{WARN_STYLE:#} {}", d.message);
+                }
+            }
         }
     }
 
     if !report.results.is_empty() {
         println!();
     }
+
+    let err_style = if report.error_count > 0 {
+        ERROR_STYLE
+    } else {
+        PASS_STYLE
+    };
+    let warn_style = if report.warning_count > 0 {
+        WARN_STYLE
+    } else {
+        DIM_STYLE
+    };
     println!(
-        "Linted {} item(s): {} error(s), {} warning(s)",
+        "Linted {} item(s): {err_style}{} error(s){err_style:#}, {warn_style}{} warning(s){warn_style:#}",
         report.items_checked, report.error_count, report.warning_count
     );
 }
@@ -90,7 +177,7 @@ pub fn print_execution_report(
     print_summary: bool,
 ) {
     if let Some(title) = heading {
-        println!("== {title} ==");
+        println!("{HEADER_STYLE}== {title} =={HEADER_STYLE:#}");
     }
 
     let path_by_id: HashMap<&str, &str> = snapshot
@@ -116,13 +203,13 @@ pub fn print_execution_report(
             if item_results.len() == 1 {
                 let r = item_results[0];
                 println!(
-                    "PASS  {} :: {} (step {}, {}ms)",
+                    "{PASS_STYLE}PASS{PASS_STYLE:#}  {BOLD_STYLE}{}{BOLD_STYLE:#} :: {} {DIM_STYLE}(step {}, {}ms){DIM_STYLE:#}",
                     item_id, r.command_name, r.command_index, r.duration_ms
                 );
             } else {
                 let max_ms = item_results.iter().map(|r| r.duration_ms).max().unwrap_or(0);
                 println!(
-                    "PASS  {} ({}/{} passed, {}ms)",
+                    "{PASS_STYLE}PASS{PASS_STYLE:#}  {BOLD_STYLE}{}{BOLD_STYLE:#} {DIM_STYLE}({}/{} passed, {}ms){DIM_STYLE:#}",
                     item_id,
                     item_results.len(),
                     item_results.len(),
@@ -143,7 +230,7 @@ pub fn print_execution_report(
 
         if !passing.is_empty() && !verbose && !always_show_pass_output {
             println!(
-                "PASS  {} ({}/{} passed)",
+                "{PASS_STYLE}PASS{PASS_STYLE:#}  {BOLD_STYLE}{}{BOLD_STYLE:#} {DIM_STYLE}({}/{} passed){DIM_STYLE:#}",
                 item_id,
                 passing.len(),
                 item_results.len()
@@ -166,7 +253,23 @@ pub fn print_execution_report(
             .iter()
             .filter(|r| r.status == RunStatus::Canceled)
             .count();
-        println!("\nSummary: {passed} passed, {failed} failed, {canceled} canceled");
+
+        let pass_part = if passed > 0 {
+            format!("{PASS_STYLE}{passed} passed{PASS_STYLE:#}")
+        } else {
+            format!("{DIM_STYLE}{passed} passed{DIM_STYLE:#}")
+        };
+        let fail_part = if failed > 0 {
+            format!("{ERROR_STYLE}{failed} failed{ERROR_STYLE:#}")
+        } else {
+            format!("{DIM_STYLE}{failed} failed{DIM_STYLE:#}")
+        };
+        let cancel_part = if canceled > 0 {
+            format!("{WARN_STYLE}{canceled} canceled{WARN_STYLE:#}")
+        } else {
+            format!("{DIM_STYLE}{canceled} canceled{DIM_STYLE:#}")
+        };
+        println!("\n{BOLD_STYLE}Summary:{BOLD_STYLE:#} {pass_part}, {fail_part}, {cancel_part}");
     }
 }
 
@@ -176,12 +279,12 @@ fn print_detailed_command(
     show_logs: bool,
     full_logs: bool,
 ) {
-    let badge = match res.status {
-        RunStatus::Pass => "PASS",
-        RunStatus::Fail => "FAIL",
-        RunStatus::Canceled => "CANC",
-        RunStatus::Running => "RUN ",
-        RunStatus::Idle => "IDLE",
+    let (badge, badge_style) = match res.status {
+        RunStatus::Pass => ("PASS", PASS_STYLE),
+        RunStatus::Fail => ("FAIL", ERROR_STYLE),
+        RunStatus::Canceled => ("CANC", WARN_STYLE),
+        RunStatus::Running => ("RUN ", HEADER_STYLE),
+        RunStatus::Idle => ("IDLE", DIM_STYLE),
     };
     let code = res
         .exit_code
@@ -189,19 +292,19 @@ fn print_detailed_command(
         .unwrap_or_else(|| "-".to_string());
 
     println!(
-        "{badge}  {} :: {} (step {}, exit={code}, {}ms)",
+        "{badge_style}{badge}{badge_style:#}  {BOLD_STYLE}{}{BOLD_STYLE:#} :: {} {DIM_STYLE}(step {}, exit={code}, {}ms){DIM_STYLE:#}",
         res.item_id, res.command_name, res.command_index, res.duration_ms
     );
 
     if res.status != RunStatus::Pass || full_logs {
         if !item_dir.is_empty() {
-            println!("  dir: {item_dir}");
+            println!("  {DIM_STYLE}dir:{DIM_STYLE:#} {item_dir}");
         }
-        println!("  cmd: {}", res.resolved_run);
+        println!("  {DIM_STYLE}cmd:{DIM_STYLE:#} {}", res.resolved_run);
     }
 
     if let Some(err) = &res.error {
-        println!("  err: {err}");
+        println!("  {ERROR_STYLE}err:{ERROR_STYLE:#} {err}");
     }
 
     if show_logs && !res.logs.is_empty() {
@@ -211,9 +314,11 @@ fn print_detailed_command(
         } else {
             0
         };
-        println!("  --- output ---");
+        println!("  {DIM_STYLE}--- output ---{DIM_STYLE:#}");
         if start > 0 {
-            println!("  ... ({start} earlier line(s) omitted; pass -v to view full output)");
+            println!(
+                "  {DIM_STYLE}... ({start} earlier line(s) omitted; pass -v to view full output){DIM_STYLE:#}"
+            );
         }
         for line in &res.logs[start..] {
             println!("  {}", line.text);

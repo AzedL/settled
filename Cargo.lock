@@ -3604,6 +3604,8 @@ dependencies = [
 name = "settled-cli"
 version = "0.1.0"
 dependencies = [
+ "anstream",
+ "anstyle",
  "clap",
  "dirs",
  "serde",

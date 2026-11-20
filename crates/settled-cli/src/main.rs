@@ -8,7 +8,11 @@ use config::{
     remove_workspace, resolve_workspace_with_warnings, use_workspace, CliConfigStore,
 };
 use lint::lint_workspace;
-use output::{print_execution_report, print_lint_report, print_list_report};
+use output::{
+    print_cli_error, print_cli_warning, print_created_item, print_execution_report,
+    print_lint_report, print_list_report, print_no_checks_found, print_workspace_list_empty,
+    print_workspace_list_entry, print_workspace_remove, print_workspace_use,
+};
 use scaffold::create_item_scaffold;
 use settled_core::{
     load_workspace, run_commands_parallel, CommandExecutionTarget, CommandResult, RunRegistry,
@@ -138,14 +142,14 @@ async fn main() -> ExitCode {
     let store = match CliConfigStore::default_store() {
         Ok(s) => s,
         Err(msg) => {
-            eprintln!("error: {msg}");
+            print_cli_error(&msg);
             return ExitCode::from(2);
         }
     };
     let cwd = match std::env::current_dir() {
         Ok(dir) => dir,
         Err(e) => {
-            eprintln!("error: failed to determine current directory: {e}");
+            print_cli_error(&format!("failed to determine current directory: {e}"));
             return ExitCode::from(2);
         }
     };
@@ -167,7 +171,7 @@ async fn main() -> ExitCode {
             let snapshot = match load_workspace(&workspace_path) {
                 Ok(s) => s,
                 Err(err) => {
-                    eprintln!("error: {err}");
+                    print_cli_error(&err.to_string());
                     return ExitCode::from(2);
                 }
             };
@@ -194,7 +198,7 @@ fn resolve_active_workspace(
     match resolve_workspace_with_warnings(explicit, store, cwd) {
         Ok((path, warnings)) => {
             for w in warnings {
-                eprintln!("warning: {w}");
+                print_cli_warning(&w);
             }
             Ok(path)
         }
@@ -203,9 +207,11 @@ fn resolve_active_workspace(
                 && let Some(current) = cfg.current_workspace
                 && !Path::new(&current).is_dir()
             {
-                eprintln!("warning: configured workspace directory does not exist: {current}");
+                print_cli_warning(&format!(
+                    "configured workspace directory does not exist: {current}"
+                ));
             }
-            eprintln!("error: {err}");
+            print_cli_error(&err);
             Err(ExitCode::from(2))
         }
     }
@@ -220,15 +226,11 @@ fn handle_workspace(
     match args.action {
         WorkspaceAction::Use { path, init } => match use_workspace(store, &path, cwd, init) {
             Ok(outcome) => {
-                if outcome.initialized {
-                    println!("Initialized and using workspace: {}", outcome.path);
-                } else {
-                    println!("Using workspace: {}", outcome.path);
-                }
+                print_workspace_use(&outcome.path, outcome.initialized);
                 ExitCode::SUCCESS
             }
             Err(msg) => {
-                eprintln!("error: {msg}");
+                print_cli_error(&msg);
                 ExitCode::from(2)
             }
         },
@@ -236,19 +238,19 @@ fn handle_workspace(
             let cfg = match store.load() {
                 Ok(c) => c,
                 Err(msg) => {
-                    eprintln!("error: {msg}");
+                    print_cli_error(&msg);
                     return ExitCode::from(2);
                 }
             };
             if let Some(current) = &cfg.current_workspace
                 && !Path::new(current).is_dir()
             {
-                eprintln!("warning: configured workspace directory does not exist: {current}");
+                print_cli_warning(&format!(
+                    "configured workspace directory does not exist: {current}"
+                ));
             }
             if cfg.workspaces.is_empty() {
-                println!(
-                    "(no workspaces registered; run 'settled workspace use <path>' to add one)"
-                );
+                print_workspace_list_empty();
                 return ExitCode::SUCCESS;
             }
             for ws in &cfg.workspaces {
@@ -256,27 +258,17 @@ fn handle_workspace(
                     .current_workspace
                     .as_deref()
                     .is_some_and(|c| config::paths_equal(c, ws));
-                let marker = if is_current { "*" } else { " " };
-                let suffix = if Path::new(ws).is_dir() {
-                    ""
-                } else {
-                    " [missing]"
-                };
-                println!("{marker} {ws}{suffix}");
+                print_workspace_list_entry(ws, is_current, Path::new(ws).is_dir());
             }
             ExitCode::SUCCESS
         }
         WorkspaceAction::Remove { path } => match remove_workspace(store, &path, cwd) {
             Ok(outcome) => {
-                if outcome.was_current {
-                    println!("Removed active workspace: {}", outcome.path);
-                } else {
-                    println!("Removed workspace: {}", outcome.path);
-                }
+                print_workspace_remove(&outcome.path, outcome.was_current);
                 ExitCode::SUCCESS
             }
             Err(msg) => {
-                eprintln!("error: {msg}");
+                print_cli_error(&msg);
                 ExitCode::from(2)
             }
         },
@@ -293,14 +285,16 @@ fn handle_workspace(
 fn handle_new(workspace_root: &Path, args: &NewArgs) -> ExitCode {
     match create_item_scaffold(workspace_root, &args.item_id) {
         Ok(created) => {
-            println!("Created item '{}'", created.item_id);
-            println!("  dir:  {}", created.item_dir.display());
-            println!("  meta: {}", created.meta_path.display());
-            println!("  doc:  {}", created.readme_path.display());
+            print_created_item(
+                &created.item_id,
+                &created.item_dir.display().to_string(),
+                &created.meta_path.display().to_string(),
+                &created.readme_path.display().to_string(),
+            );
             ExitCode::SUCCESS
         }
         Err(msg) => {
-            eprintln!("error: {msg}");
+            print_cli_error(&msg);
             ExitCode::from(2)
         }
     }
@@ -317,7 +311,7 @@ fn handle_lint(workspace_root: &Path, args: &LintArgs) -> ExitCode {
             }
         }
         Err(msg) => {
-            eprintln!("error: {msg}");
+            print_cli_error(&msg);
             ExitCode::from(2)
         }
     }
@@ -327,17 +321,17 @@ async fn handle_check(snapshot: &WorkspaceSnapshot, args: &CheckArgs) -> ExitCod
     let targets = match collect_targets(snapshot, args.item.as_deref(), "check", args.step) {
         Ok(t) => t,
         Err(msg) => {
-            eprintln!("error: {msg}");
+            print_cli_error(&msg);
             return ExitCode::from(2);
         }
     };
 
     if targets.is_empty() {
         if let Some(item_id) = &args.item {
-            eprintln!("error: no applicable 'check' commands on '{item_id}'");
+            print_cli_error(&format!("no applicable 'check' commands on '{item_id}'"));
             return ExitCode::from(2);
         }
-        println!("No applicable check commands found.");
+        print_no_checks_found();
         return ExitCode::SUCCESS;
     }
 
@@ -350,13 +344,13 @@ async fn handle_fix(snapshot: &WorkspaceSnapshot, args: &FixArgs) -> ExitCode {
     let fix_targets = match collect_targets(snapshot, Some(&args.item), "fix", args.step) {
         Ok(t) => t,
         Err(msg) => {
-            eprintln!("error: {msg}");
+            print_cli_error(&msg);
             return ExitCode::from(2);
         }
     };
 
     if fix_targets.is_empty() {
-        eprintln!("error: no applicable 'fix' commands on '{}'", args.item);
+        print_cli_error(&format!("no applicable 'fix' commands on '{}'", args.item));
         return ExitCode::from(2);
     }
 
@@ -396,16 +390,16 @@ async fn handle_run(snapshot: &WorkspaceSnapshot, args: &RunArgs) -> ExitCode {
         match collect_targets(snapshot, Some(&args.item), &args.script_key, args.step) {
             Ok(t) => t,
             Err(msg) => {
-                eprintln!("error: {msg}");
+                print_cli_error(&msg);
                 return ExitCode::from(2);
             }
         };
 
     if targets.is_empty() {
-        eprintln!(
-            "error: no applicable commands for script '{}' on '{}'",
+        print_cli_error(&format!(
+            "no applicable commands for script '{}' on '{}'",
             args.script_key, args.item
-        );
+        ));
         return ExitCode::from(2);
     }
 

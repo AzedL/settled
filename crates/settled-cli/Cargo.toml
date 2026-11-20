@@ -9,6 +9,8 @@ name = "settled"
 path = "src/main.rs"
 
 [dependencies]
+anstream = "1"
+anstyle = "1"
 clap = { version = "4", features = ["derive", "env"] }
 dirs = "7"
 serde = { version = "1", features = ["derive"] }

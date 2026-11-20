@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Play, Square, Terminal } from "lucide-react";
 import { lang } from "../lang";
 import type { CommandRuntimeState, ResolvedCommand } from "../types";
+import { getAnsiSegmentStyle, parseAnsiLogLines } from "../utils/ansi";
 import { formatPlatforms } from "../utils/format";
 import { TrafficLed } from "./TrafficLed";
 import { Button } from "./Button";
@@ -30,6 +31,11 @@ export function CommandRow({
       setLogOpen(true);
     }
   }, [runtime.status]);
+
+  const parsedLogs = useMemo(
+    () => parseAnsiLogLines(runtime.logs),
+    [runtime.logs]
+  );
 
   return (
     <div
@@ -163,9 +169,9 @@ export function CommandRow({
               {runtime.error}
             </div>
           )}
-          {runtime.logs.length > 0 ? (
+          {parsedLogs.length > 0 ? (
             <div className="flex flex-col gap-[var(--st-space-2)]">
-              {runtime.logs.map((line, idx) => (
+              {parsedLogs.map((line, idx) => (
                 <div
                   key={idx}
                   className="whitespace-pre-wrap break-all"
@@ -178,7 +184,13 @@ export function CommandRow({
                           : "var(--st-text-primary)",
                   }}
                 >
-                  {line.text.length > 0 ? line.text : " "}
+                  {line.segments.length > 0
+                    ? line.segments.map((seg, segIdx) => (
+                        <span key={segIdx} style={getAnsiSegmentStyle(seg)}>
+                          {seg.text}
+                        </span>
+                      ))
+                    : " "}
                 </div>
               ))}
             </div>

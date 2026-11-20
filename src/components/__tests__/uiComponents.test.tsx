@@ -163,7 +163,11 @@ describe("primitive and command UI components", () => {
           status: "pass",
           exitCode: 0,
           durationMs: 25,
-          logs: [{ stream: "stdout", text: "v24.0.0" }, { stream: "stdout", text: "" }],
+          logs: [
+            { stream: "stdout", text: "v24.0.0" },
+            { stream: "stdout", text: "\x1b[2K\x1b[32m✓\x1b[39m passed" },
+            { stream: "stdout", text: "" },
+          ],
         })}
         isActiveStop={true}
         onRun={onRun}
@@ -173,6 +177,7 @@ describe("primitive and command UI components", () => {
     expect(screen.getByText("exit 0")).toBeInTheDocument();
     expect(screen.getByText("25 ms")).toBeInTheDocument();
     expect(screen.getByText("v24.0.0")).toBeInTheDocument();
+    expect(screen.getByText("✓").style.color).toBe("var(--st-ansi-fg-green)");
 
     fireEvent.click(screen.getByText(lang.scripts.stopSingle));
     expect(onStop).toHaveBeenCalledTimes(1);
