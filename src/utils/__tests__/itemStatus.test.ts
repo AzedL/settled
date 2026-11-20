@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { makeCommand, makeGroup, makeItem, makeRuntime } from "../../test/fixtures";
+import {
+  makeCommand,
+  makeGroup,
+  makeItem,
+  makeRuntime,
+  makeSnapshot,
+} from "../../test/fixtures";
 import {
   collectItemCommandResults,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   getCommandRuntime,
   matchesItemFilters,
+  reconcileRuntimeWithSnapshot,
   toExecutionTarget,
 } from "../itemStatus";
 
@@ -128,5 +135,47 @@ describe("itemStatus utilities", () => {
       exitCode: 1,
       durationMs: 0,
     });
+  });
+
+  it("reconciles runtime state by command fingerprint across insertions, deletions, and edits", () => {
+    const c0 = makeCommand({ index: 0, commandId: "demo::check::0", name: "第一步", rawRun: "echo 1" });
+    const c1 = makeCommand({ index: 1, commandId: "demo::check::1", name: "第二步", rawRun: "echo 2" });
+    const c2 = makeCommand({ index: 2, commandId: "demo::check::2", name: "第三步", rawRun: "exit 1" });
+
+    const prevSnapshot = makeSnapshot({
+      items: [makeItem({ id: "demo", scriptGroups: [makeGroup({ commands: [c0, c1, c2] })] })],
+    });
+
+    const passState = makeRuntime({ status: "pass", exitCode: 0 });
+    const failState = makeRuntime({ status: "fail", exitCode: 1 });
+    const prevMap = {
+      "demo::check::0": passState,
+      "demo::check::1": passState,
+      "demo::check::2": failState,
+    };
+
+    // Inserting a new command at index 2 pushes old index 2 -> index 3;
+    // the newly inserted step 2 MUST stay unassigned (idle), while step 3 keeps old index 2's fail state.
+    const inserted = makeCommand({ index: 2, commandId: "demo::check::2", name: "新增 ANSI 展示", rawRun: "node @script/ansi.mjs" });
+    const shiftedC2 = makeCommand({ index: 3, commandId: "demo::check::3", name: "第三步", rawRun: "exit 1" });
+    const insertedSnapshot = makeSnapshot({
+      items: [makeItem({ id: "demo", scriptGroups: [makeGroup({ commands: [c0, c1, inserted, shiftedC2] })] })],
+    });
+
+    const afterInsert = reconcileRuntimeWithSnapshot(prevMap, prevSnapshot, insertedSnapshot);
+    expect(afterInsert["demo::check::0"]).toBe(passState);
+    expect(afterInsert["demo::check::1"]).toBe(passState);
+    expect(afterInsert["demo::check::2"]).toBeUndefined();
+    expect(afterInsert["demo::check::3"]).toBe(failState);
+
+    // Modifying an existing command's script resets its stale status to idle
+    const modifiedC1 = makeCommand({ index: 1, commandId: "demo::check::1", name: "第二步", rawRun: "echo changed" });
+    const editedSnapshot = makeSnapshot({
+      items: [makeItem({ id: "demo", scriptGroups: [makeGroup({ commands: [c0, modifiedC1, c2] })] })],
+    });
+    const afterEdit = reconcileRuntimeWithSnapshot(prevMap, prevSnapshot, editedSnapshot);
+    expect(afterEdit["demo::check::0"]).toBe(passState);
+    expect(afterEdit["demo::check::1"]).toBeUndefined();
+    expect(afterEdit["demo::check::2"]).toBe(failState);
   });
 });

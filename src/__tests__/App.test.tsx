@@ -227,12 +227,51 @@ describe("App integration", () => {
     });
     expect(screen.getByText("verified")).toBeInTheDocument();
 
-    // Watcher notification reloads workspace cleanly
-    apiMocks.reloadWorkspace.mockResolvedValueOnce(snapshot);
+    // Watcher notification reloads workspace cleanly and resets newly inserted command to idle
+    // while migrating unchanged commands' states to their shifted indices.
+    const insertedCmd = makeCommand({
+      index: 0,
+      key: "check",
+      commandId: "demo::check::0",
+      name: "新插入的检查项",
+      rawRun: "echo brand_new",
+      resolvedRun: "echo brand_new",
+      applicable: true,
+    });
+    const shiftedCheckCmd = makeCommand({
+      ...checkCmd,
+      index: 1,
+      commandId: "demo::check::1",
+    });
+    const reloadedSnapshot = makeSnapshot({
+      rootPath: "D:\\ws-main",
+      items: [
+        makeItem({
+          ...demoItem,
+          scriptGroups: [
+            makeGroup({
+              key: "check",
+              role: "check",
+              commands: [insertedCmd, shiftedCheckCmd],
+            }),
+            makeGroup({ key: "fix", role: "fix", commands: [fixCmd] }),
+          ],
+        }),
+        macItem,
+      ],
+    });
+    apiMocks.reloadWorkspace.mockResolvedValueOnce(reloadedSnapshot);
     await act(async () => {
       watchCb?.("D:\\ws-main");
     });
     expect(apiMocks.reloadWorkspace).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.getByText("新插入的检查项")).toBeInTheDocument();
+    });
+    // Newly inserted index 0 check must start idle ("未运行"), NOT inherit old index 0's green pass light!
+    const statusDots = screen.getAllByLabelText(lang.status.label("idle"));
+    expect(statusDots.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByLabelText(lang.status.label("pass")).length).toBeGreaterThanOrEqual(1);
 
     // Copy AI context triggers IPC + clipboard write
     await act(async () => {

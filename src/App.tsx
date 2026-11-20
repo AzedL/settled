@@ -39,6 +39,7 @@ import {
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   matchesItemFilters,
+  reconcileRuntimeWithSnapshot,
   toExecutionTarget,
 } from "./utils/itemStatus";
 
@@ -55,28 +56,6 @@ function createRunId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID()}`;
   }
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function reconcileRuntimeWithSnapshot(
-  prevMap: Record<string, CommandRuntimeState>,
-  snapshot: WorkspaceSnapshot
-): Record<string, CommandRuntimeState> {
-  const validCommandIds = new Set<string>();
-  for (const item of snapshot.items) {
-    for (const group of item.scriptGroups) {
-      for (const cmd of group.commands) {
-        validCommandIds.add(cmd.commandId);
-      }
-    }
-  }
-
-  const nextMap: Record<string, CommandRuntimeState> = {};
-  for (const [commandId, state] of Object.entries(prevMap)) {
-    if (validCommandIds.has(commandId)) {
-      nextMap[commandId] = state;
-    }
-  }
-  return nextMap;
 }
 
 const THEME_STORAGE_KEY = "settled.theme";
@@ -181,10 +160,13 @@ export default function App() {
 
   const applyWorkspaceSnapshot = useCallback(
     (snapshot: WorkspaceSnapshot, isSameRootReload: boolean) => {
+      const previousSnapshot = isSameRootReload ? workspaceRef.current : null;
       setWorkspace(snapshot);
 
       setRuntimeMap((prev) =>
-        isSameRootReload ? reconcileRuntimeWithSnapshot(prev, snapshot) : {}
+        previousSnapshot
+          ? reconcileRuntimeWithSnapshot(prev, previousSnapshot, snapshot)
+          : {}
       );
 
       if (!isSameRootReload) {
