@@ -20,5 +20,5 @@
 
 6. `settled-items/self-rust-core-and-desktop/` — 直接调用 Cargo 运行 `settled-core`、`settled-desktop` 单元测试与全工作区 `clippy`。
 7. `settled-items/self-frontend-vitest/` — 直接运行 Vitest 前端单测、`tsc && vite build` 及 V8 覆盖率报告生成。
-8. `settled-items/self-cli-workspace-and-lint/` — 通过隔离沙箱实测 `settled` 二进制的工作区管理、`list`、`new` 及 `lint` 全部 `[ERROR]` / `[WARN]` 矩阵。
-9. `settled-items/self-cli-execution-matrix/` — 通过隔离沙箱实测 `settled check` / `fix` / `run`、超过 120 行日志截断、`-v` 全量输出与 `0/1/2` 退出码。
+8. `settled-items/self-cli-workspace-and-lint/` — 通过隔离沙箱实测 `settled` 二进制的工作区管理、`list`、`new`、`lint` 全部 `[ERROR]` / `[WARN]` 矩阵（含同组与跨组重复命令检测）及终端上色隔离。
+9. `settled-items/self-cli-execution-matrix/` — 通过隔离沙箱实测 `settled check` / `fix` / `run`、超过 120 行日志截断、`-v` 全量输出、`0/1/2` 退出码及终端彩色输出。

@@ -1,43 +1,55 @@
 ---
 name: settled
-description: Create, inspect, check, and troubleshoot cross-device environment items inside a Settled workspace using the `settled` CLI and the `settled-items/<item-id>/` specification.
+description: Create, inspect, validate, execute, and edit cross-device environment items in a Settled workspace via the `settled` CLI and `settled-items/<item-id>/` manifests, including handling pasted `# Settled Item:` context blocks from the Settled desktop app.
 ---
 
 # Settled Agent Skill
 
 Use this skill whenever the user wants to:
-1. Capture an environment setup requirement, recurring configuration, or niche troubleshooting pitfall into their **Settled** workspace.
-2. Inspect failing environment checks, understand past context, apply fixes on the current machine, and verify resolution using `settled`.
+1. Capture an environment check, recurring setup requirement, or troubleshooting pitfall into their **Settled** workspace.
+2. Inspect, run, fix, or edit environment items using `settled`.
+3. Act on a `# Settled Item: ...` locator context block pasted from the Settled desktop app.
 
 ---
 
-## 1. Workspace Layout & Rules
+## 1. Pasted Locator Context (`复制条目上下文`)
 
-A Settled workspace stores all definitions under `<workspace>/settled-items/`:
+When a user copies an item from the Settled desktop app, they paste a minimal locator anchor such as:
+
+```markdown
+# Settled Item: <name> (`<item-id>`)
+
+- **Workspace**: `<workspace-root>`
+- **Item Directory**: `<item-dir>`
+- **Host Platform**: `<windows|macos|linux>`
+- **Target Platforms**: <platforms|all>
+- **Description**: <description>
+- **Tags**: <tags>
+- **Scripts**: `check`, `fix`
+```
+
+(When the item does not apply to the host OS, `- **Applicable on Host**: false` is also included; empty optional fields are omitted.)
+
+This block intentionally carries **only identity and path metadata** (no `README.md`, `meta.json`, or run logs) so the user can attach any intent (diagnose a failure, fix the host, add/modify scripts, update docs, or explain the item):
+1. Read `<item-dir>/meta.json`, `<item-dir>/README.md`, and relevant files inside `<item-dir>/scripts/` directly.
+2. Pass `-w "<workspace-root>"` to `settled` CLI commands unless that workspace is already active.
+
+---
+
+## 2. Workspace Layout & Manifest Contract
+
+All definitions live under `<workspace>/settled-items/`:
 
 ```text
 <workspace>/
 └── settled-items/
-    └── <item-id>/            # Lowercase kebab-case directory name = unique ID
-        ├── meta.json         # Explicit metadata & command registry
-        ├── README.md         # Detailed background, symptoms, manual steps, references
-        └── scripts/          # Optional scripts referenced via `@script/...`
+    └── <item-id>/            # Unique ID: [a-z0-9][a-z0-9_-]* (max 128 chars; kebab-case recommended)
+        ├── meta.json         # Explicit metadata & script registry (required)
+        ├── README.md         # Background, symptoms, manual steps (optional; non-empty avoids lint WARN)
+        └── scripts/          # Local scripts referenced via `@script/...` (optional)
 ```
 
-### Mandatory Contracts
-1. **Never store device-specific pass/fail/ignored state inside `meta.json` or `README.md`.** Definitions are shared across devices.
-2. **Use exact platform enum values**: only `"windows"`, `"macos"`, `"linux"`. Never use `"win32"`, `"darwin"`, `"mac"`, or `"win64"`.
-3. **Explicit registration only**: Settled only recognizes commands listed under `scripts` in `meta.json`. Unregistered files inside `scripts/` are never executed automatically.
-4. **Always use `@script/` for local script paths** (e.g. `bash @script/check.sh`, `pwsh -File @script/fix.ps1`, `node @script/verify.mjs`). Never hardcode absolute paths. Execution `cwd` is always `<workspace>/settled-items/<item-id>/`.
-5. **Independent & Idempotent Commands**:
-   - All commands inside any `scripts.<key>` array run **independently and in parallel** (no sibling failure halts other commands).
-   - Therefore, every command entry in an array MUST be safe to run independently, concurrently, and repeatedly (idempotent).
-   - If a task requires strict sequential steps (e.g., install A then configure A), place those sequential steps inside **one** script file in `scripts/` and register that single script as one command entry.
-6. **Check commands must be strictly read-only**: `scripts.check` probes environment state and exits `0` for pass or non-zero for fail. Do NOT mutate system state inside `check`.
-
----
-
-## 2. `meta.json` Schema
+### Canonical `meta.json` Schema
 
 ```json
 {
@@ -56,7 +68,7 @@ A Settled workspace stores all definitions under `<workspace>/settled-items/`:
       {
         "name": "Windows CRLF policy",
         "description": "Verify core.autocrlf is true on Windows",
-        "run": "pwsh -NoProfile -Command \"if ((git config core.autocrlf) -ne 'true') { exit 1 }\"",
+        "run": "if ((git config core.autocrlf) -ne 'true') { exit 1 }",
         "platforms": ["windows"]
       },
       {
@@ -76,56 +88,72 @@ A Settled workspace stores all definitions under `<workspace>/settled-items/`:
 }
 ```
 
-Field notes:
-- `scripts.<key>` accepts `string | Step | (string | Step)[]`.
-- `Step` fields:
-  - `run` (required): command string.
-  - `name` (optional): short label shown next to the traffic light.
-  - `description` (optional): concise note shown inside the expanded log details panel.
-  - `platforms` (optional): `("windows" | "macos" | "linux")[]`.
-  - `shell` (optional): override default shell (`pwsh`/`powershell`/`cmd`/`bash`/`sh`/`zsh`).
-  - `encoding` (optional): override default `utf-8` output decoding (e.g. `gbk`).
-- A pure documentation / manual pitfall can omit `scripts` (or `scripts.check`) completely — just write `meta.json` and `README.md`.
+### Field & Runtime Rules
+- **Top-level allowed keys**: `name` (required string), `description`, `createAt`, `tags`, `platforms`, `scripts`.
+- **`createAt`**: prefer Unix timestamp seconds (also accepts Unix milliseconds and ISO-8601 strings).
+- **`tags`**: JSON string array (`string[]`), never a bare string.
+- **`platforms`**: array of `"windows"`, `"macos"`, `"linux"` only (never `"win32"`, `"darwin"`, `"mac"`, `"win64"`, or `null`). Omitting `platforms` or passing `[]` targets all platforms.
+- **`scripts.<key>`**: `string | Step | (string | Step)[]`.
+  - Allowed `Step` keys: `run` (required, non-empty), `name`, `description`, `platforms`, `shell`, `encoding`.
+  - Default shells: `pwsh` (fallback `powershell`) on Windows; `bash` (fallback `sh`) on macOS/Linux.
+  - Default output decoding: `utf-8` (override with e.g. `"encoding": "gbk"` when needed).
+
+### Mandatory Invariants
+1. **Keep workspace definitions stateless across devices**: never write machine-specific pass/fail/ignored state into `meta.json` or `README.md`.
+2. **Explicit registration + `@script/` paths**: Settled executes only commands declared in `scripts` with `cwd` fixed to `<workspace>/settled-items/<item-id>/`. Reference local files via `@script/<subpath>` (never hardcode machine paths).
+3. **Parallel & idempotent array commands**: every command inside a `scripts.<key>` array runs concurrently and independently without aborting siblings on failure. Keep each entry safe to re-run concurrently; consolidate strictly sequential steps into a single script in `scripts/`.
+4. **Read-only `check`**: `scripts.check` must only probe state and exit `0` (pass) or non-zero (fail) — put side effects in `scripts.fix` or custom script keys.
+5. **Avoid silent skips & `settled lint` warnings**:
+   - Invalid JSON or wrong field types (e.g. `tags` as string, `platforms: null`, invalid platform string) cause `load_workspace` and the desktop app to skip the item — `settled lint` flags these as `[ERROR]` (exit `1`).
+   - Unexpected keys, missing/empty `README.md`, missing first-level `@script/` targets, step `platforms` disjoint from item `platforms`, and duplicate commands (same normalized `run`, `shell`, `encoding` with overlapping `platforms`) within or across `scripts` groups emit `[WARN]`.
 
 ---
 
-## 3. CLI Workflows (`settled`)
+## 3. `settled` CLI Workflows
 
-Workspace resolution order: `-w/--workspace <path>` > `SETTLED_WORKSPACE` env > active workspace configured via `settled workspace use` > current directory (if it contains `settled-items/`; never walks parent directories).
+**Workspace resolution order**: `-w/--workspace <path>` > `SETTLED_WORKSPACE` env > active CLI workspace (`settled workspace use`) > current working directory (only if it directly contains `settled-items/`; never searches parent directories).
 
-### Selecting or Inspecting Workspace
+**Exit codes**:
+- `0`: success (including `settled lint` with warnings only and 0 errors).
+- `1`: executed command failed, or `settled lint` reported `[ERROR]` items.
+- `2`: invocation/setup failure (missing workspace, invalid item ID, item inapplicable on host OS, `--step` out of range, missing item, malformed target item).
+
+### Workspace & Listing
 ```bash
-settled workspace list
-settled workspace use <workspace> [--init]
+settled workspace list                # alias: ls
+settled workspace use <path> [--init]
+settled workspace remove <path>       # alias: rm
 settled workspace current
-settled list [--all-platforms]
+settled list [--all-platforms]        # JSON with id, path, applicable, and raw meta fields
 ```
 
-### Capturing a New Pitfall or Setup Item
-1. Scaffold `<workspace>/settled-items/<item-id>/` (`meta.json` starter + empty `README.md`):
+### Creating & Validating an Item
+1. Scaffold `<workspace>/settled-items/<item-id>/`:
    ```bash
    settled new <item-id>
    ```
-2. Edit `README.md` directly (symptom, root cause, verified solution, manual steps) and populate `meta.json` / `scripts/`.
-3. Validate contracts and immediately run `check`:
+   (`settled new` creates an empty `README.md` and starter `meta.json` with a placeholder failing `check`: `exit 1`.)
+2. Replace the placeholder `check`, write clear troubleshooting/setup notes in `README.md`, and add any files in `scripts/`.
+3. Validate schema/lint contracts and run checks:
    ```bash
    settled lint <item-id>
    settled check <item-id>
    ```
 
-### Diagnosing & Fixing a Failing Item on Current Device
-1. Inspect workspace items (structured JSON with `id`, `path`, `applicable`, and `meta.json` fields) or run all checks:
+### Diagnosing, Fixing & Verifying
+1. Run workspace or item checks:
    ```bash
-   settled list
-   settled check
+   settled check                         # run all applicable checks
+   settled check <item-id> [--step 0] -v # -v prints passing logs and >120-line untruncated output
    ```
-2. For any `FAIL` item reported, inspect its `dir` directly (read `README.md`, `meta.json`, and `scripts/`) and optionally re-run with `-v` for verbose logs:
+2. On failure, `settled check` prints the item's `dir`, failing `cmd`, exit code, and stderr/stdout tail; inspect `<dir>/README.md`, `meta.json`, and `scripts/` directly.
+3. Apply fixes manually or run `settled fix`:
    ```bash
-   settled check <item-id> -v
+   settled fix <item-id> [--step 0] [-v] # runs fix, then automatically re-runs item's applicable check
+   settled run <item-id> <group> [--step 0] [-v] # runs any group directly without auto-verify
    ```
-3. Fix the environment issue on the current machine (or run `settled fix <item-id>` if safe; `settled fix` automatically re-runs the item's `check` commands; use `settled run <item-id> <script_key>` to execute any group including `check`/`fix` directly without auto-verify).
-4. **Always re-verify** before claiming success:
+4. **Always finish with verification** before reporting success:
    ```bash
    settled check <item-id>
    ```
-   Only report the item as resolved once all applicable `check` commands exit `0`.
+   Only treat an item as resolved once all applicable `check` commands exit `0`.

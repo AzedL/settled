@@ -1,27 +1,34 @@
 # Settled
 
-**Settled** 是一个跨设备开发环境检查与问题台账桌面应用 + CLI 工具，用来记录不同系统上的环境配置、疑难排查笔记与验证脚本，并在当前机器上随时一键核对每项检查的真实状态。
+**Settled** 是一个跨设备开发环境检查与问题台账桌面应用 + CLI 工具，用于沉淀不同操作系统上的环境配置、疑难排查说明与可自动执行的校验/修复脚本，并在当前设备上随时核对真实环境状态。
 
-## 核心能力
+## 设计理念与核心能力
 
-- **工作区协议清晰可读**：所有环境条目存放在用户自主管理的 `<workspace>/settled-items/<item-id>/` 目录中（通过 `meta.json`、`README.md` 和可选 `scripts/` 组织），运行态检查结果不污染配置仓库，方便通过 Git / 网盘跨设备同步。
-- **独立命令与红绿灯**：每条 `check` 命令独立并发执行，实时流式输出日志并展示各自状态灯（未运行 / 运行中 / 通过 / 失败 / 已中止）。
-- **修复后自动复检**：支持 `fix` 与自定义脚本分组执行；执行 `fix` 完成后若存在适用 `check`，会自动重跑 `check` 验收，并支持一键复制包含命令结果与文档在内的结构化 AI 上下文。
-- **跨平台范围切换**：支持仅看「当前设备」适用条目，或在「全部平台」视图中查看其他系统条目（自动置灰并阻止误执行）。
-- **浅色 / 深色 / 跟随系统主题**、关键词与键盘友好的多标签搜索、文件变更实时刷新监听，以及配套的 `settled` 命令行工具与 Agent Skill（[skills/settled/SKILL.md](skills/settled/SKILL.md)）。
+- **纯文本、零污染的工作区协议**
+  - 所有条目集中存放在用户自管理的 `<workspace>/settled-items/<item-id>/` 目录中，仅由 `meta.json`、`README.md` 和可选 `scripts/` 构成。
+  - 桌面端与 CLI 均为只读消费定义文件，不在工作区目录内写入本机运行结果，方便通过 Git、iCloud 或网盘跨设备同步。
+- **并发执行、独立状态灯与终端还原日志**
+  - 同一脚本分组内的命令独立并发执行、互不阻断；每条 `check` 拥有独立状态灯（未运行 / 运行中 / 通过 / 失败 / 已中止）。
+  - 执行 `fix` 后若条目存在适用 `check`，会自动重跑 `check` 完成环境验收；也支持自定义分组脚本执行。
+  - 日志区域实时流式渲染，支持解析终端 ANSI 色彩（16 / 256 / TrueColor）与常见控制符，自动适配浅色与深色主题。
+- **跨平台范围与条目上下文定位**
+  - 支持在「当前设备」与「全部平台」视图间切换：非本机适用的条目与命令在全部平台视图下清晰置灰并禁用执行。
+  - 详情区提供「在 VS Code 中打开」「在文件管理器中定位」与「复制条目上下文」（输出仅含工作区/条目路径、平台与 `scripts` 分组名的精简定位锚点，便于交由本地 AI Coding Agent 按需读取文件并按用户指令操作）。
+- **无头 CLI 与 Agent Skill**
+  - 提供独立 CLI 工具 `settled`（覆盖工作区管理、结构化列表、`new` 脚手架、`lint` 契约校验及 `check`/`fix`/`run` 执行引擎）与配套 Agent Skill（[skills/settled/SKILL.md](skills/settled/SKILL.md)）。
 
-## 项目结构
+## 仓库结构
 
 ```text
 settled/
 ├── crates/
-│   ├── settled-core/     # 共享 Rust 核心引擎（工作区解析、并发执行器、AI 上下文生成）
+│   ├── settled-core/     # 共享 Rust 核心引擎（工作区扫描、并发执行器、条目上下文构造）
 │   └── settled-cli/      # 无头 CLI 二进制 `settled`
-├── src-tauri/            # Tauri v2 桌面端后端（命令接口、偏好持久化、文件监听）
+├── src-tauri/            # Tauri v2 桌面端后端（IPC 命令、本地偏好、分层文件监听）
 ├── src/                  # React + TypeScript + Tailwind CSS v4 桌面前端
-├── docs/DESIGN.md        # 架构设计与工作区契约说明
+├── docs/DESIGN.md        # V1 架构设计、Schema 与执行契约文档
 ├── skills/settled/       # 供 AI 编程助手使用的 Settled Skill
-└── examples/workspace/   # 开箱即用的示例工作区
+└── examples/workspace/   # 开箱即用的全中文 Dogfooding 自测工作区
 ```
 
 ## 工作区目录约定
@@ -30,65 +37,75 @@ settled/
 <workspace>/
 └── settled-items/
     └── <item-id>/
-        ├── meta.json     # 必填：名称、描述、平台、标签与显式声明的 scripts
-        ├── README.md     # 可选：问题背景、排查记录与手动步骤（只读预览）
-        └── scripts/      # 可选：通过 `@script/<path>` 引用的本地脚本
+        ├── meta.json     # 必填：名称、描述、创建时间、标签、平台与显式声明的 scripts
+        ├── README.md     # 可选：问题背景、排查笔记与手动操作指南（只读 Markdown 渲染）
+        └── scripts/      # 可选：通过 `@script/<path>` 令牌引用的本地脚本目录
 ```
 
-详细 schema 与执行契约见 [docs/DESIGN.md](docs/DESIGN.md)。
+完整的 Schema 定义、平台继承规则、Shell/编码默认值与执行边界见 [docs/DESIGN.md](docs/DESIGN.md)。
 
-## 本地开发与构建
+## 本地开发、构建与测试
 
-前置依赖：Node.js、Rust 工具链以及 Tauri v2 桌面端运行/打包环境。
+前置依赖：Node.js、Rust 工具链及 Tauri v2 桌面构建环境。
 
 ```bash
 # 安装前端依赖
 npm install
 
-# 启动 Tauri 桌面端开发环境
+# 启动 Tauri 桌面端热更新开发
 npm run tauri dev
 
-# 前端类型检查与生产构建
+# 前端 TypeScript 类型检查与 Vite 生产构建
 npm run build
 
-# 打包桌面应用
+# 打包桌面应用安装包
 npm run tauri build
 ```
 
-测试与代码检查：
+全量测试与代码质量检查：
 
 ```bash
-# 运行核心库与 CLI 单元测试
-cargo test -p settled-core -p settled-cli
+# 前端 Vitest 单元测试与 V8 覆盖率统计
+npm test
+npm run test:coverage
 
-# 编译检查桌面端与 CLI
-cargo check --workspace
+# Rust 全工作区单元测试与 CLI 集成测试（settled-core、settled-cli、settled-desktop）
+cargo test --workspace
+
+# 全工作区严格静态检查（零警告）
+cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-## CLI (`settled`) 用法
+仓库内置了覆盖前端极限态、后端单测与 CLI 矩阵的中文示例工作区 [examples/workspace](examples/workspace/README.md)，可直接用桌面端打开或通过下方 CLI 命令本地试跑。
 
-工作区解析顺序：`-w / --workspace <path>` > `SETTLED_WORKSPACE` 环境变量 > 全局激活工作区（`settled workspace use` 设置）> 当前目录（须包含 `settled-items/`，不向上级目录查找）。
+## CLI (`settled`) 速览
+
+工作区解析优先级：`-w / --workspace <path>` > `SETTLED_WORKSPACE` 环境变量 > 全局激活工作区（`settled workspace use` 设置）> 当前目录（须直接包含 `settled-items/`，不向上级目录回溯）。
+
+> 开发期未全局安装 `settled` 时，可将下方 `settled` 替换为 `cargo run -q -p settled-cli --`。
 
 ```bash
-# 注册并切换默认工作区（若缺少 settled-items/ 可加 --init 自动初始化）
-cargo run -q -p settled-cli -- workspace use examples/workspace
-cargo run -q -p settled-cli -- workspace list
-cargo run -q -p settled-cli -- workspace current
-cargo run -q -p settled-cli -- workspace remove examples/workspace
+# 工作区管理（支持 ls / rm 别名）
+settled workspace use examples/workspace [--init]
+settled workspace list
+settled workspace current
+settled workspace remove examples/workspace
 
-# 列出当前平台适用的条目及结构化元数据（加 --all-platforms 查看全平台）
-cargo run -q -p settled-cli -- list -w examples/workspace
+# 查看条目元数据 JSON（默认仅当前平台；--all-platforms 含非本机禁用条目）
+settled list -w examples/workspace
+settled list --all-platforms -w examples/workspace
 
-# 创建新条目骨架（meta.json 模板 + 空 README.md）并校验工作区契约
-cargo run -q -p settled-cli -- new my-new-item -w examples/workspace
-cargo run -q -p settled-cli -- lint -w examples/workspace
+# 创建新条目骨架，并通过 lint 检查语法、未知字段、文档、一级 @script/、平台交集与重复命令
+settled new my-new-item -w examples/workspace
+settled lint [item-id] -w examples/workspace
 
-# 运行所有适用 check（或指定单个条目与 --step 下标，加 -v 查看通过项日志）
-cargo run -q -p settled-cli -- check -w examples/workspace
+# 执行检查（可指定条目，配合条目名使用 --step <0-based> 单步；-v 展示通过项与完整不截断日志）
+settled check [item-id] [-v] -w examples/workspace
+settled check <item-id> --step 0 -v -w examples/workspace
 
-# 执行 fix 并自动重跑条目适用 check 验收
-cargo run -q -p settled-cli -- fix ui-check-fix-workflow -w examples/workspace
+# 执行修复并在成功后自动重跑条目适用 check 验收（同样支持 --step 与 -v）
+settled fix <item-id> [--step 0] [-v] -w examples/workspace
 
-# 通用执行任意脚本分组（包含直接单独运行 check 或 fix，不附带自动复检）
-cargo run -q -p settled-cli -- run self-cli-workspace-and-lint check -w examples/workspace
+# 直接执行任意脚本分组（可直接调用 check / fix / 自定义分组，不触发自动复检）
+settled run <item-id> <script-key> [--step 0] [-v] -w examples/workspace
 ```
