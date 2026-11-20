@@ -141,21 +141,32 @@ function getCommandFingerprint(cmd: ResolvedCommand): string {
 }
 
 /**
- * Reconciles command runtime states across same-workspace reloads by aligning unchanged commands
- * via LCS on their execution fingerprints within each `(item.id, group.key)`.
+ * Reconciles command runtime states across same-workspace reloads by matching commands via
+ * per-`(item.id, group.key)` fingerprint queues.
  *
  * Newly inserted or modified commands drop stale states and start cleanly in `idle`, while
- * shifted/reordered unchanged commands retain their existing status and logs at their new index.
+ * shifted or reordered unchanged commands retain their existing status and logs at their new index.
  */
 export function reconcileRuntimeWithSnapshot(
   prevMap: Record<string, CommandRuntimeState>,
   prevSnapshot: WorkspaceSnapshot,
   nextSnapshot: WorkspaceSnapshot
 ): Record<string, CommandRuntimeState> {
-  const prevGroups = new Map<string, ResolvedCommand[]>();
+  const prevQueues = new Map<string, (CommandRuntimeState | undefined)[]>();
+
   for (const item of prevSnapshot.items) {
     for (const group of item.scriptGroups) {
-      prevGroups.set(`${item.id}::${group.key}`, group.commands);
+      const groupPrefix = `${item.id}::${group.key}`;
+      for (const cmd of group.commands) {
+        const key = `${groupPrefix}::${getCommandFingerprint(cmd)}`;
+        const queue = prevQueues.get(key);
+        const state = prevMap[cmd.commandId];
+        if (queue) {
+          queue.push(state);
+        } else {
+          prevQueues.set(key, [state]);
+        }
+      }
     }
   }
 
@@ -163,43 +174,12 @@ export function reconcileRuntimeWithSnapshot(
 
   for (const item of nextSnapshot.items) {
     for (const group of item.scriptGroups) {
-      const oldCmds = prevGroups.get(`${item.id}::${group.key}`);
-      const newCmds = group.commands;
-      if (!oldCmds || oldCmds.length === 0 || newCmds.length === 0) {
-        continue;
-      }
-
-      const oldFps = oldCmds.map(getCommandFingerprint);
-      const newFps = newCmds.map(getCommandFingerprint);
-      const m = oldFps.length;
-      const n = newFps.length;
-
-      const dp: number[][] = Array.from({ length: m + 1 }, () =>
-        new Array<number>(n + 1).fill(0)
-      );
-      for (let i = m - 1; i >= 0; i--) {
-        for (let j = n - 1; j >= 0; j--) {
-          dp[i][j] =
-            oldFps[i] === newFps[j]
-              ? dp[i + 1][j + 1] + 1
-              : Math.max(dp[i + 1][j], dp[i][j + 1]);
-        }
-      }
-
-      let i = 0;
-      let j = 0;
-      while (i < m && j < n) {
-        if (oldFps[i] === newFps[j]) {
-          const prevState = prevMap[oldCmds[i].commandId];
-          if (prevState) {
-            nextMap[newCmds[j].commandId] = prevState;
-          }
-          i += 1;
-          j += 1;
-        } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-          i += 1;
-        } else {
-          j += 1;
+      const groupPrefix = `${item.id}::${group.key}`;
+      for (const cmd of group.commands) {
+        const key = `${groupPrefix}::${getCommandFingerprint(cmd)}`;
+        const state = prevQueues.get(key)?.shift();
+        if (state) {
+          nextMap[cmd.commandId] = state;
         }
       }
     }

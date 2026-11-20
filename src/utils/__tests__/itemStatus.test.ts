@@ -177,5 +177,25 @@ describe("itemStatus utilities", () => {
     expect(afterEdit["demo::check::0"]).toBe(passState);
     expect(afterEdit["demo::check::1"]).toBeUndefined();
     expect(afterEdit["demo::check::2"]).toBe(failState);
+
+    // Reordering commands preserves each command's own runtime state
+    const swapped0 = makeCommand({ index: 0, commandId: "demo::check::0", name: "第三步", rawRun: "exit 1" });
+    const swapped1 = makeCommand({ index: 1, commandId: "demo::check::1", name: "第一步", rawRun: "echo 1" });
+    const swappedSnapshot = makeSnapshot({
+      items: [makeItem({ id: "demo", scriptGroups: [makeGroup({ commands: [swapped0, swapped1] })] })],
+    });
+    const afterSwap = reconcileRuntimeWithSnapshot(prevMap, prevSnapshot, swappedSnapshot);
+    expect(afterSwap["demo::check::0"]).toBe(failState);
+    expect(afterSwap["demo::check::1"]).toBe(passState);
+
+    // Duplicate commands preserve per-slot idle vs non-idle isolation
+    const dup0 = makeCommand({ index: 0, commandId: "demo::check::0", name: "重复", rawRun: "echo dup" });
+    const dup1 = makeCommand({ index: 1, commandId: "demo::check::1", name: "重复", rawRun: "echo dup" });
+    const dupSnapshot = makeSnapshot({
+      items: [makeItem({ id: "demo", scriptGroups: [makeGroup({ commands: [dup0, dup1] })] })],
+    });
+    const afterDup = reconcileRuntimeWithSnapshot({ "demo::check::1": passState }, dupSnapshot, dupSnapshot);
+    expect(afterDup["demo::check::0"]).toBeUndefined();
+    expect(afterDup["demo::check::1"]).toBe(passState);
   });
 });
