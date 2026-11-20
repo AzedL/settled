@@ -7,7 +7,6 @@ import {
   makeSnapshot,
 } from "../../test/fixtures";
 import {
-  collectItemCommandResults,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   getCommandRuntime,
@@ -104,37 +103,6 @@ describe("itemStatus utilities", () => {
         selectedTags: [],
       })
     ).toBe(false);
-  });
-
-  it("collects non-idle command results for AI context bundling", () => {
-    const cIdle = makeCommand({ index: 0, commandId: "c-idle" });
-    const cFail = makeCommand({ index: 1, commandId: "c-fail" });
-    const item = makeItem({
-      id: "demo",
-      scriptGroups: [makeGroup({ commands: [cIdle, cFail] })],
-    });
-
-    const results = collectItemCommandResults(item, {
-      "c-idle": makeRuntime({ status: "idle" }),
-      "c-fail": makeRuntime({
-        status: "fail",
-        exitCode: 1,
-        durationMs: null,
-        logs: [{ stream: "stderr", text: "boom" }],
-        error: null,
-        lastRunId: null,
-      }),
-    });
-
-    expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({
-      runId: "local",
-      commandId: "c-fail",
-      itemId: "demo",
-      status: "fail",
-      exitCode: 1,
-      durationMs: 0,
-    });
   });
 
   it("reconciles runtime state by command fingerprint across insertions, deletions, and edits", () => {

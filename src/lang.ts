@@ -61,7 +61,7 @@ export const lang = {
     createdAtEmpty: "无",
     openInVscode: "在 VS Code 中打开",
     revealInExplorer: "在文件管理器中定位",
-    copyAiContext: "复制 AI 上下文",
+    copyAiContext: "复制条目上下文",
     copiedAiContext: "已复制上下文",
     readmeTitle: "README.md",
     scriptsSectionTitle: "命令",

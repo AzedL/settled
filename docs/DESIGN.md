@@ -124,7 +124,7 @@ interface ItemMeta {
   - **Current Device**: Shows only items and script commands applicable to the host platform.
   - **All**: Shows all items and commands, rendering non-current-platform items and commands in a clearly distinguishable **disabled** visual state with execution blocked.
 - **App Preferences**: Local desktop app preferences (last and recent workspace directories) are stored in the OS app-data directory via Tauri, separate from the workspace.
-- **Cockpit Boundaries**: Read-only Markdown viewer, external IDE / file manager openers, structured AI context copy, and live file-system watching (`notify`) for workspace changes. No built-in code editor, PTY terminal, or LLM chat runtime.
+- **Cockpit Boundaries**: Read-only Markdown viewer, external IDE / file manager openers, concise item locator context copy, and live file-system watching (`notify`) for workspace changes. No built-in code editor, PTY terminal, or LLM chat runtime.
 
 ---
 

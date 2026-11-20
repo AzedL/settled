@@ -1,6 +1,5 @@
 import type {
   CommandExecutionTarget,
-  CommandResult,
   CommandRuntimeState,
   ResolvedCommand,
   ScopeMode,
@@ -94,39 +93,6 @@ export function matchesItemFilters(
   }
 
   return true;
-}
-
-/**
- * Collects latest runtime results for an item so they can be bundled into AI context output.
- */
-export function collectItemCommandResults(
-  item: WorkspaceItem,
-  runtimeMap: Record<string, CommandRuntimeState>
-): CommandResult[] {
-  const results: CommandResult[] = [];
-  for (const group of item.scriptGroups) {
-    for (const cmd of group.commands) {
-      const state = runtimeMap[cmd.commandId];
-      if (!state || state.status === "idle") {
-        continue;
-      }
-      results.push({
-        runId: state.lastRunId ?? "local",
-        commandId: cmd.commandId,
-        itemId: item.id,
-        groupKey: cmd.key,
-        commandIndex: cmd.index,
-        commandName: cmd.name,
-        resolvedRun: cmd.resolvedRun,
-        status: state.status,
-        exitCode: state.exitCode,
-        durationMs: state.durationMs ?? 0,
-        logs: state.logs,
-        error: state.error,
-      });
-    }
-  }
-  return results;
 }
 
 function getCommandFingerprint(cmd: ResolvedCommand): string {

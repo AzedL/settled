@@ -57,11 +57,8 @@ export async function cancelRun(runId: string): Promise<number> {
   return invoke<number>("cancel_run", { runId });
 }
 
-export async function buildAiContext(
-  itemId: string,
-  latestResults: CommandResult[]
-): Promise<string> {
-  return invoke<string>("build_ai_context", { itemId, latestResults });
+export async function buildAiContext(itemId: string): Promise<string> {
+  return invoke<string>("build_ai_context", { itemId });
 }
 
 export async function openInVscode(path: string): Promise<void> {

@@ -149,10 +149,9 @@ async fn cancel_run(run_id: String, state: State<'_, AppState>) -> Result<usize,
 #[tauri::command]
 async fn build_ai_context(
     item_id: String,
-    latest_results: Vec<CommandResult>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    state.build_context(&item_id, &latest_results).await
+    state.build_context(&item_id).await
 }
 
 impl AppState {
@@ -176,11 +175,7 @@ impl AppState {
         self.registry.cancel_run(run_id).await
     }
 
-    async fn build_context(
-        &self,
-        item_id: &str,
-        latest_results: &[CommandResult],
-    ) -> Result<String, String> {
+    async fn build_context(&self, item_id: &str) -> Result<String, String> {
         let workspace_path = self
             .active_workspace
             .lock()
@@ -194,12 +189,11 @@ impl AppState {
             .find(|i| i.id == item_id)
             .ok_or_else(|| format!("Item '{item_id}' not found"))?;
 
-        let results_ref = if latest_results.is_empty() {
-            None
-        } else {
-            Some(latest_results)
-        };
-        Ok(format_item_context(item, results_ref, snapshot.host_platform))
+        Ok(format_item_context(
+            item,
+            &snapshot.root_path,
+            snapshot.host_platform,
+        ))
     }
 }
 
@@ -326,13 +320,17 @@ mod tests {
     async fn app_state_reloads_builds_context_and_cancels_cleanly() {
         let state = AppState::default();
         assert!(state.reload_active().await.unwrap().is_none());
-        assert!(state.build_context("git-config", &[]).await.is_err());
+        assert!(state.build_context("git-config").await.is_err());
         assert_eq!(state.cancel_active_run("none").await, 0);
 
         let tmp = TempDir::new().unwrap();
         let item_dir = tmp.path().join(ITEMS_DIR_NAME).join("git-config");
         fs::create_dir_all(&item_dir).unwrap();
-        fs::write(item_dir.join("meta.json"), r#"{"name":"Git Config"}"#).unwrap();
+        fs::write(
+            item_dir.join("meta.json"),
+            r#"{"name":"Git Config","scripts":{"check":"git --version"}}"#,
+        )
+        .unwrap();
 
         {
             let mut active = state.active_workspace.lock().await;
@@ -350,28 +348,10 @@ mod tests {
         let reloaded = state.reload_active().await.unwrap().unwrap();
         assert_eq!(reloaded.items.len(), 1);
 
-        let md = state.build_context("git-config", &[]).await.unwrap();
+        let md = state.build_context("git-config").await.unwrap();
         assert!(md.contains("Git Config (`git-config`)"));
-        assert!(state.build_context("missing", &[]).await.is_err());
-
-        let result_entry = CommandResult {
-            run_id: "r1".to_string(),
-            command_id: "git-config::check::0".to_string(),
-            item_id: "git-config".to_string(),
-            group_key: "check".to_string(),
-            command_index: 0,
-            command_name: "Check".to_string(),
-            resolved_run: "git --version".to_string(),
-            status: settled_core::RunStatus::Pass,
-            exit_code: Some(0),
-            duration_ms: 4,
-            logs: vec![],
-            error: None,
-        };
-        let md_with_results = state
-            .build_context("git-config", &[result_entry])
-            .await
-            .unwrap();
-        assert!(md_with_results.contains("## Recent Command Results"));
+        assert!(md.contains("- **Workspace**:"));
+        assert!(md.contains("- **Scripts**: `check`"));
+        assert!(state.build_context("missing").await.is_err());
     }
 }

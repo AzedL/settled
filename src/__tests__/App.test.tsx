@@ -273,11 +273,11 @@ describe("App integration", () => {
     expect(statusDots.length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByLabelText(lang.status.label("pass")).length).toBeGreaterThanOrEqual(1);
 
-    // Copy AI context triggers IPC + clipboard write
+    // Copy item context triggers IPC + clipboard write
     await act(async () => {
       fireEvent.click(screen.getByText(lang.detail.copyAiContext));
     });
-    expect(apiMocks.buildAiContext).toHaveBeenCalled();
+    expect(apiMocks.buildAiContext).toHaveBeenCalledWith("demo");
     expect(apiMocks.copyTextToClipboard).toHaveBeenCalledWith("# Context");
 
     // Switching scope to `all`, selecting disabled item, then switching back to `current` resets selection

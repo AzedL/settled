@@ -35,7 +35,6 @@ import type {
 } from "./types";
 import { formatScriptGroupTitle } from "./utils/format";
 import {
-  collectItemCommandResults,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   matchesItemFilters,
@@ -634,8 +633,7 @@ export default function App() {
   };
 
   const handleCopyAiContext = async (item: WorkspaceItem) => {
-    const latestResults = collectItemCommandResults(item, runtimeMap);
-    const markdown = await buildAiContext(item.id, latestResults);
+    const markdown = await buildAiContext(item.id);
     await copyTextToClipboard(markdown);
   };
 

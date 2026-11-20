@@ -5,9 +5,9 @@ import {
   ChevronDown,
   ChevronRight,
   Code2,
+  Copy,
   FileText,
   FolderSearch,
-  Sparkles,
 } from "lucide-react";
 import { lang } from "../lang";
 import type {
@@ -213,7 +213,7 @@ export function DetailPanel({
                 {copiedContext ? (
                   <Check className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
                 ) : (
-                  <Sparkles className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+                  <Copy className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
                 )}
                 <span>
                   {copiedContext

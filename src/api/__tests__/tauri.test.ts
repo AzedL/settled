@@ -87,7 +87,7 @@ describe("tauri api wrappers", () => {
     await reloadWorkspace();
     await runCommands("run-1", []);
     await cancelRun("run-1");
-    await buildAiContext("git-config", []);
+    await buildAiContext("git-config");
     await openInVscode("D:\\ws\\item");
 
     expect(invokeMock).toHaveBeenCalledWith("get_initial_state");
@@ -100,7 +100,6 @@ describe("tauri api wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("cancel_run", { runId: "run-1" });
     expect(invokeMock).toHaveBeenCalledWith("build_ai_context", {
       itemId: "git-config",
-      latestResults: [],
     });
     expect(invokeMock).toHaveBeenCalledWith("open_in_vscode", {
       path: "D:\\ws\\item",
