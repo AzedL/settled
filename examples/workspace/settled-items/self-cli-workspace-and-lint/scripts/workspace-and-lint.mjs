@@ -227,6 +227,22 @@ function testLintWarnings(sandbox) {
   fs.writeFileSync(path.join(noRecurse, "scripts", "entry.sh"), "source ./nonexistent-inner.sh\n");
   fs.writeFileSync(path.join(noRecurse, "README.md"), "   \n");
 
+  // 3. 组内 & scripts 跨组重复命令告警，同时跳过不同平台/不同 shell 变体
+  const dupItem = path.join(items, "duplicate-commands");
+  writeMeta(dupItem, {
+    name: "重复命令检测",
+    scripts: {
+      check: [
+        "echo check-dup",
+        { name: "同组重复步骤", run: "echo check-dup" },
+        { name: "Windows 专用", run: "echo platform-only", platforms: ["windows"] },
+        { name: "macOS 专用不冲突", run: "echo platform-only", platforms: ["macos"] },
+      ],
+      custom: "echo check-dup",
+    },
+  });
+  fs.writeFileSync(path.join(dupItem, "README.md"), "# 重复命令检测\n");
+
   const res = runSettled(["lint", "-w", ws], sandbox, cfg, "lint 全部警告场景（退出码 0）");
   assert.equal(res.code, 0);
   assert.match(res.stdout, /0 error\(s\)/);
@@ -237,6 +253,9 @@ function testLintWarnings(sandbox) {
   assert.match(res.stdout, /references missing script 'scripts\/not-found\.mjs'/);
   assert.match(res.stdout, /never overlap item platforms/);
   assert.doesNotMatch(res.stdout, /nonexistent-inner\.sh/);
+  assert.match(res.stdout, /scripts\.check\[1\] duplicates command in scripts\.check\[0\]/);
+  assert.match(res.stdout, /scripts\.custom\[0\] duplicates command in scripts\.check\[0\]/);
+  assert.doesNotMatch(res.stdout, /scripts\.check\[3\] duplicates command/);
 
   const single = runSettled(
     ["lint", "empty-readme-and-first-level", "-w", ws],

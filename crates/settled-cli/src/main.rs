@@ -710,4 +710,115 @@ mod tests {
         // Targeting non-applicable item errors clearly
         assert!(collect_targets(&snap, Some("other-os"), "check", None).is_err());
     }
+
+    #[test]
+    fn lint_warns_on_duplicate_commands_within_and_across_script_groups() {
+        let tmp = TempDir::new().unwrap();
+        let items = tmp.path().join(ITEMS_DIR_NAME);
+        fs::create_dir_all(&items).unwrap();
+
+        let dup_item = items.join("dup-commands");
+        fs::create_dir_all(dup_item.join("scripts")).unwrap();
+        fs::write(dup_item.join("README.md"), "# Duplicate Checks\n").unwrap();
+        fs::write(dup_item.join("scripts").join("probe.sh"), "echo ok\n").unwrap();
+        fs::write(dup_item.join("scripts").join("win.bat"), "@echo off\n").unwrap();
+        fs::write(
+            dup_item.join("meta.json"),
+            r#"{
+                "name": "Duplicate Commands",
+                "scripts": {
+                    "check": [
+                        "  bash @script/probe.sh  ",
+                        {
+                            "name": "Duplicate normalized script + utf8",
+                            "run": "bash ./scripts/probe.sh",
+                            "encoding": "utf8"
+                        },
+                        {
+                            "name": "Different encoding does not warn",
+                            "run": "bash ./scripts/probe.sh",
+                            "encoding": "gbk"
+                        },
+                        {
+                            "name": "Different shell does not warn",
+                            "run": "bash ./scripts/probe.sh",
+                            "shell": "bash"
+                        },
+                        {
+                            "name": "Windows variant",
+                            "run": "call @script/win.bat",
+                            "shell": "cmd",
+                            "platforms": ["windows"]
+                        },
+                        {
+                            "name": "macOS variant disjoint",
+                            "run": "call @script/win.bat",
+                            "shell": "cmd",
+                            "platforms": ["macos"]
+                        },
+                        {
+                            "name": "Windows cmd.exe alias duplicate",
+                            "run": "call .\\scripts\\win.bat",
+                            "shell": "cmd.exe",
+                            "platforms": ["windows"]
+                        }
+                    ],
+                    "custom": {
+                        "name": "Cross-group duplicate of check[0]",
+                        "run": "bash ./scripts/probe.sh"
+                    }
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let clean_item = items.join("clean-item");
+        fs::create_dir_all(clean_item.join("scripts")).unwrap();
+        fs::write(clean_item.join("README.md"), "# Clean\n").unwrap();
+        fs::write(clean_item.join("scripts").join("probe.sh"), "echo ok\n").unwrap();
+        // Identical command in a different item must NOT trigger a duplicate warning, and
+        // narrowed disjoint effective platforms inside the same item must NOT warn either.
+        fs::write(
+            clean_item.join("meta.json"),
+            r#"{
+                "name": "Clean Cross-Item",
+                "platforms": ["windows", "linux"],
+                "scripts": {
+                    "check": [
+                        { "run": "bash ./scripts/probe.sh", "platforms": ["windows"] },
+                        { "run": "bash ./scripts/probe.sh", "platforms": ["macos", "linux"] }
+                    ]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let report = lint_workspace(tmp.path(), None).unwrap();
+        assert_eq!(report.error_count, 0);
+
+        let dup_res = report
+            .results
+            .iter()
+            .find(|r| r.item_id == "dup-commands")
+            .expect("dup-commands should emit warnings");
+        let msgs: Vec<&str> = dup_res
+            .diagnostics
+            .iter()
+            .map(|d| d.message.as_str())
+            .collect();
+        assert_eq!(
+            msgs,
+            vec![
+                "scripts.check[1] duplicates command in scripts.check[0]",
+                "scripts.check[6] duplicates command in scripts.check[4]",
+                "scripts.custom[0] duplicates command in scripts.check[0]",
+            ]
+        );
+
+        assert!(
+            report.results.iter().all(|r| r.item_id != "clean-item"),
+            "cross-item and disjoint effective platforms should not produce warnings, got: {:?}",
+            report.results
+        );
+    }
 }

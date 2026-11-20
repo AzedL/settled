@@ -1,8 +1,9 @@
 use serde_json::Value;
 use settled_core::{
-    extract_script_references, find_readme_path, CommandInput, ItemMetaRaw, Platform,
-    ITEMS_DIR_NAME,
+    extract_script_references, find_readme_path, resolve_script_tokens, runner::resolve_encoding,
+    CommandInput, ItemMetaRaw, Platform, ScriptInput, ITEMS_DIR_NAME,
 };
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -218,21 +219,148 @@ fn check_step_unknown_keys(
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CommandSignature {
+    resolved_run: String,
+    shell: Option<String>,
+    encoding: &'static str,
+}
+
+struct SeenCommand<'a> {
+    group_key: &'a str,
+    index: usize,
+    effective_platforms: BTreeSet<Platform>,
+    signature: CommandSignature,
+}
+
+fn ordered_script_groups(parsed: &ItemMetaRaw) -> Vec<(&str, &ScriptInput)> {
+    let mut ordered = Vec::with_capacity(parsed.scripts.len());
+    for priority_key in ["check", "fix"] {
+        if let Some((key, spec)) = parsed.scripts.get_key_value(priority_key) {
+            ordered.push((key.as_str(), spec));
+        }
+    }
+    for (key, spec) in &parsed.scripts {
+        if key != "check" && key != "fix" {
+            ordered.push((key.as_str(), spec));
+        }
+    }
+    ordered
+}
+
+fn normalize_shell(shell: Option<&str>) -> Option<String> {
+    shell.and_then(|raw| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return None;
+        }
+        let lower = trimmed.to_ascii_lowercase();
+        let stripped = lower.strip_suffix(".exe").unwrap_or(&lower);
+        Some(stripped.to_string())
+    })
+}
+
+fn normalize_run(raw_run: &str, shell: Option<&str>) -> String {
+    let normalized = raw_run.trim().replace("\r\n", "\n");
+    resolve_script_tokens(&normalized, shell.unwrap_or(""))
+}
+
+fn resolve_effective_platforms(
+    item_platforms: &[Platform],
+    step_platforms: &[Platform],
+) -> BTreeSet<Platform> {
+    const ALL_PLATFORMS: [Platform; 3] = [Platform::Windows, Platform::Macos, Platform::Linux];
+    let item_set: BTreeSet<Platform> = if item_platforms.is_empty() {
+        ALL_PLATFORMS.into_iter().collect()
+    } else {
+        item_platforms.iter().copied().collect()
+    };
+    if step_platforms.is_empty() {
+        item_set
+    } else {
+        step_platforms
+            .iter()
+            .copied()
+            .filter(|platform| item_set.contains(platform))
+            .collect()
+    }
+}
+
+fn has_platform_overlap(a: &BTreeSet<Platform>, b: &BTreeSet<Platform>) -> bool {
+    a.iter().any(|platform| b.contains(platform))
+}
+
+fn extract_command_fields(
+    cmd: CommandInput,
+) -> (String, Vec<Platform>, Option<String>, Option<String>) {
+    match cmd {
+        CommandInput::Shorthand(run) => (run, Vec::new(), None, None),
+        CommandInput::Step(step) => (
+            step.run,
+            step.platforms.unwrap_or_default(),
+            step.shell,
+            step.encoding,
+        ),
+    }
+}
+
+fn find_duplicate_command<'a>(
+    seen: &'a [SeenCommand<'a>],
+    group_key: &str,
+    signature: &CommandSignature,
+    effective_platforms: &BTreeSet<Platform>,
+) -> Option<&'a SeenCommand<'a>> {
+    if effective_platforms.is_empty() {
+        return None;
+    }
+    let conflicts = |prev: &&SeenCommand<'a>| {
+        prev.signature == *signature
+            && has_platform_overlap(&prev.effective_platforms, effective_platforms)
+    };
+    seen.iter()
+        .find(|prev| prev.group_key == group_key && conflicts(prev))
+        .or_else(|| seen.iter().find(conflicts))
+}
+
 fn lint_parsed_meta(parsed: &ItemMetaRaw, item_dir: &Path, diags: &mut Vec<LintDiagnostic>) {
     if parsed.name.trim().is_empty() {
         diags.push(warn("meta.json 'name' is empty"));
     }
 
-    for (group_key, spec) in &parsed.scripts {
+    let mut seen_commands: Vec<SeenCommand<'_>> = Vec::new();
+
+    for (group_key, spec) in ordered_script_groups(parsed) {
         let cmds = spec.clone().into_commands();
         for (idx, cmd) in cmds.into_iter().enumerate() {
-            let (raw_run, step_platforms): (String, Vec<Platform>) = match cmd {
-                CommandInput::Shorthand(run) => (run, Vec::new()),
-                CommandInput::Step(step) => (step.run, step.platforms.unwrap_or_default()),
-            };
+            let (raw_run, step_platforms, step_shell, step_encoding) = extract_command_fields(cmd);
 
             if raw_run.trim().is_empty() {
                 diags.push(warn(format!("scripts.{group_key}[{idx}] has an empty 'run'")));
+            } else {
+                let norm_shell = normalize_shell(step_shell.as_deref());
+                let signature = CommandSignature {
+                    resolved_run: normalize_run(&raw_run, norm_shell.as_deref()),
+                    shell: norm_shell,
+                    encoding: resolve_encoding(step_encoding.as_deref().unwrap_or("utf-8")).name(),
+                };
+                let eff_platforms =
+                    resolve_effective_platforms(&parsed.platforms, &step_platforms);
+
+                if let Some(prev) =
+                    find_duplicate_command(&seen_commands, group_key, &signature, &eff_platforms)
+                {
+                    diags.push(warn(format!(
+                        "scripts.{group_key}[{idx}] duplicates command in scripts.{}[{}]",
+                        prev.group_key, prev.index
+                    )));
+                }
+
+                seen_commands.push(SeenCommand {
+                    group_key,
+                    index: idx,
+                    effective_platforms: eff_platforms,
+                    signature,
+                });
             }
 
             if !parsed.platforms.is_empty()
