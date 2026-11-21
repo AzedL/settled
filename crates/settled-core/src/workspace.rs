@@ -60,8 +60,8 @@ pub fn resolve_script_tokens(raw: &str, shell: &str) -> String {
                 out.push_str(prefix_slash);
                 let start = after + 1;
                 if is_cmd {
-                    let opened_quote = (i > 0 && matches!(bytes[i - 1], b'"' | b'\''))
-                        .then(|| bytes[i - 1]);
+                    let opened_quote =
+                        (i > 0 && matches!(bytes[i - 1], b'"' | b'\'')).then(|| bytes[i - 1]);
                     let mut end = start;
                     while end < bytes.len() {
                         let b = bytes[end];
@@ -111,7 +111,10 @@ fn is_valid_suffix_boundary(bytes: &[u8], after: usize) -> bool {
     if after >= bytes.len() {
         return true;
     }
-    matches!(bytes[after], b' ' | b'\t' | b'\n' | b'\r' | b'"' | b'\'' | b')' | b';' | b'&' | b'|')
+    matches!(
+        bytes[after],
+        b' ' | b'\t' | b'\n' | b'\r' | b'"' | b'\'' | b')' | b';' | b'&' | b'|'
+    )
 }
 
 /// Extracts `<subpath>` references from `@script/<subpath>` (or `@script\<subpath>`) tokens in a command string.
@@ -128,8 +131,8 @@ pub fn extract_script_references(raw: &str) -> Vec<String> {
             let after = i + token.len();
             if after < bytes.len() && (bytes[after] == b'/' || bytes[after] == b'\\') {
                 let start = after + 1;
-                let opened_quote = (i > 0 && matches!(bytes[i - 1], b'"' | b'\''))
-                    .then(|| bytes[i - 1]);
+                let opened_quote =
+                    (i > 0 && matches!(bytes[i - 1], b'"' | b'\'')).then(|| bytes[i - 1]);
                 let mut end = start;
                 while end < bytes.len() {
                     let b = bytes[end];
@@ -276,10 +279,14 @@ fn load_single_item(
         .and_then(|p| fs::read_to_string(p).ok())
         .unwrap_or_default();
 
-    let item_applicable =
-        parsed.platforms.is_empty() || parsed.platforms.contains(&host_platform);
-    let script_groups =
-        build_script_groups(id, parsed.scripts, item_applicable, host_platform, default_shell);
+    let item_applicable = parsed.platforms.is_empty() || parsed.platforms.contains(&host_platform);
+    let script_groups = build_script_groups(
+        id,
+        parsed.scripts,
+        item_applicable,
+        host_platform,
+        default_shell,
+    );
 
     Ok(WorkspaceItem {
         id: id.to_string(),
@@ -436,11 +443,17 @@ mod tests {
             "call .\\scripts\\win.bat && type .\\scripts"
         );
         assert_eq!(
-            resolve_script_tokens("call @script/sub/win.bat && call \"@script/my dir/run.bat\"", "cmd"),
+            resolve_script_tokens(
+                "call @script/sub/win.bat && call \"@script/my dir/run.bat\"",
+                "cmd"
+            ),
             "call .\\scripts\\sub\\win.bat && call \".\\scripts\\my dir\\run.bat\""
         );
         assert_eq!(
-            resolve_script_tokens("node @script/a.js;@script/b.js&&@script/c.js|@script/d.js", "pwsh"),
+            resolve_script_tokens(
+                "node @script/a.js;@script/b.js&&@script/c.js|@script/d.js",
+                "pwsh"
+            ),
             "node ./scripts/a.js;./scripts/b.js&&./scripts/c.js|./scripts/d.js"
         );
         assert_eq!(
@@ -494,14 +507,18 @@ mod tests {
         assert!(snapshot.items_dir_exists);
         assert_eq!(snapshot.items.len(), 1);
         assert_eq!(snapshot.scan_warnings.len(), 2);
-        assert!(snapshot
-            .scan_warnings
-            .iter()
-            .any(|w| w.contains("no-meta") && w.contains("missing meta.json")));
-        assert!(snapshot
-            .scan_warnings
-            .iter()
-            .any(|w| w.contains("broken-item") && w.contains("invalid meta.json")));
+        assert!(
+            snapshot
+                .scan_warnings
+                .iter()
+                .any(|w| w.contains("no-meta") && w.contains("missing meta.json"))
+        );
+        assert!(
+            snapshot
+                .scan_warnings
+                .iter()
+                .any(|w| w.contains("broken-item") && w.contains("invalid meta.json"))
+        );
         assert_eq!(snapshot.all_tags, vec!["git", "init"]);
 
         let git = &snapshot.items[0];
@@ -517,7 +534,10 @@ mod tests {
         assert_eq!(check_cmds.len(), 2);
         assert_eq!(check_cmds[0].name, "git --version");
         assert_eq!(check_cmds[1].name, "Check custom script");
-        assert_eq!(check_cmds[1].description.as_deref(), Some("Runs bundled script"));
+        assert_eq!(
+            check_cmds[1].description.as_deref(),
+            Some("Runs bundled script")
+        );
         assert_eq!(check_cmds[1].resolved_run, "node ./scripts/check.mjs");
         assert_eq!(check_cmds[1].effective_shell, "bash");
     }
@@ -562,18 +582,15 @@ mod tests {
             serde_json::from_str(r#"{"name":"B","createAt":1794596400000}"#).unwrap();
         assert_eq!(ms.create_at, Some(1794596400));
 
-        let iso: ItemMetaRaw = serde_json::from_str(
-            r#"{"name":"C","createAt":"2026-11-14T03:00:00+08:00"}"#,
-        )
-        .unwrap();
+        let iso: ItemMetaRaw =
+            serde_json::from_str(r#"{"name":"C","createAt":"2026-11-14T03:00:00+08:00"}"#).unwrap();
         assert_eq!(iso.create_at, Some(1794596400));
 
         let omitted: ItemMetaRaw = serde_json::from_str(r#"{"name":"D"}"#).unwrap();
         assert_eq!(omitted.create_at, None);
 
-        let invalid = serde_json::from_str::<ItemMetaRaw>(
-            r#"{"name":"E","createAt":"not-a-timestamp"}"#,
-        );
+        let invalid =
+            serde_json::from_str::<ItemMetaRaw>(r#"{"name":"E","createAt":"not-a-timestamp"}"#);
         assert!(invalid.is_err());
     }
 
@@ -633,7 +650,11 @@ mod tests {
             assert!(item.tags.is_empty());
         }
 
-        let omitted = snapshot.items.iter().find(|i| i.id == "omitted-desc").unwrap();
+        let omitted = snapshot
+            .items
+            .iter()
+            .find(|i| i.id == "omitted-desc")
+            .unwrap();
         let cmds = &omitted.script_groups[0].commands;
         assert_eq!(cmds.len(), 4);
         for cmd in cmds {
@@ -682,6 +703,9 @@ mod tests {
         assert!(snap2.scan_warnings[0].contains("missing meta.json"));
 
         // cmd token expansion uses backslash separator
-        assert_eq!(resolve_script_tokens("call @script/run.bat && @script", "cmd"), "call .\\scripts\\run.bat && .\\scripts");
+        assert_eq!(
+            resolve_script_tokens("call @script/run.bat && @script", "cmd"),
+            "call .\\scripts\\run.bat && .\\scripts"
+        );
     }
 }

@@ -4,9 +4,7 @@ mod output;
 mod scaffold;
 
 use clap::{Args, Parser, Subcommand};
-use config::{
-    remove_workspace, resolve_workspace_with_warnings, use_workspace, CliConfigStore,
-};
+use config::{CliConfigStore, remove_workspace, resolve_workspace_with_warnings, use_workspace};
 use lint::lint_workspace;
 use output::{
     print_cli_error, print_cli_warning, print_created_item, print_execution_report,
@@ -15,8 +13,8 @@ use output::{
 };
 use scaffold::create_item_scaffold;
 use settled_core::{
-    load_workspace, run_commands_parallel, CommandExecutionTarget, CommandResult, RunRegistry,
-    RunStatus, WorkspaceSnapshot, DEFAULT_CONCURRENCY,
+    CommandExecutionTarget, CommandResult, DEFAULT_CONCURRENCY, RunRegistry, RunStatus,
+    WorkspaceSnapshot, load_workspace, run_commands_parallel,
 };
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -402,7 +400,14 @@ async fn handle_fix(snapshot: &WorkspaceSnapshot, args: &FixArgs) -> ExitCode {
     } else {
         println!();
         let (results, interrupted) = run_batch("cli-verify", check_targets).await;
-        print_execution_report(Some("Verify"), &results, snapshot, args.verbose, false, true);
+        print_execution_report(
+            Some("Verify"),
+            &results,
+            snapshot,
+            args.verbose,
+            false,
+            true,
+        );
         (results, interrupted)
     };
 
@@ -420,14 +425,13 @@ async fn handle_fix(snapshot: &WorkspaceSnapshot, args: &FixArgs) -> ExitCode {
 }
 
 async fn handle_run(snapshot: &WorkspaceSnapshot, args: &RunArgs) -> ExitCode {
-    let targets =
-        match collect_targets(snapshot, Some(&args.item), &args.script_key, args.step) {
-            Ok(t) => t,
-            Err(msg) => {
-                print_cli_error(&msg);
-                return ExitCode::from(2);
-            }
-        };
+    let targets = match collect_targets(snapshot, Some(&args.item), &args.script_key, args.step) {
+        Ok(t) => t,
+        Err(msg) => {
+            print_cli_error(&msg);
+            return ExitCode::from(2);
+        }
+    };
 
     if targets.is_empty() {
         print_cli_error(&format!(
@@ -554,7 +558,7 @@ async fn run_batch(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use settled_core::{Platform, ITEMS_DIR_NAME};
+    use settled_core::{ITEMS_DIR_NAME, Platform};
     use std::fs;
     use tempfile::TempDir;
 
@@ -735,10 +739,12 @@ mod tests {
         assert_eq!(single_warn.items_checked, 1);
         assert_eq!(single_warn.error_count, 0);
         assert_eq!(single_warn.warning_count, 6);
-        assert!(single_warn.results[0]
-            .diagnostics
-            .iter()
-            .any(|d| d.message.contains("unrecognized encoding 'uft-8-typo'")));
+        assert!(
+            single_warn.results[0]
+                .diagnostics
+                .iter()
+                .any(|d| d.message.contains("unrecognized encoding 'uft-8-typo'"))
+        );
 
         let single_ok = lint_workspace(tmp.path(), Some("ok-item")).unwrap();
         assert_eq!(single_ok.error_count, 0);
@@ -765,7 +771,9 @@ mod tests {
         .unwrap();
         fs::write(
             b_dir.join("meta.json"),
-            format!(r#"{{"name":"Other","platforms":["{other_os}"],"scripts":{{"check":"echo b"}}}}"#),
+            format!(
+                r#"{{"name":"Other","platforms":["{other_os}"],"scripts":{{"check":"echo b"}}}}"#
+            ),
         )
         .unwrap();
 

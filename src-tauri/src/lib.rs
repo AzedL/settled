@@ -1,19 +1,19 @@
 mod prefs;
 mod watcher;
 
-use prefs::{load_prefs, record_workspace, AppPrefs};
+use prefs::{AppPrefs, load_prefs, record_workspace};
 use serde::{Deserialize, Serialize};
 use settled_core::{
-    format_item_context, load_workspace, run_commands_parallel, CommandExecutionTarget,
-    CommandResult, OutputLine, Platform, ResolvedCommand, RunRegistry, RunStatus, ScriptGroup,
-    ScriptRole, WorkspaceItem, WorkspaceSnapshot, DEFAULT_CONCURRENCY,
+    CommandExecutionTarget, CommandResult, DEFAULT_CONCURRENCY, OutputLine, Platform,
+    ResolvedCommand, RunRegistry, RunStatus, ScriptGroup, ScriptRole, WorkspaceItem,
+    WorkspaceSnapshot, format_item_context, load_workspace, run_commands_parallel,
 };
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
-use tauri::{window::Color, AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State, window::Color};
 use tokio::sync::Mutex;
 use watcher::WorkspaceWatcher;
 
@@ -327,7 +327,10 @@ async fn run_commands(
 
     Ok(RunBatchResponse {
         run_id,
-        results: results.into_iter().map(DesktopCommandResult::from).collect(),
+        results: results
+            .into_iter()
+            .map(DesktopCommandResult::from)
+            .collect(),
     })
 }
 
@@ -337,10 +340,7 @@ async fn cancel_run(run_id: String, state: State<'_, AppState>) -> Result<usize,
 }
 
 #[tauri::command]
-async fn build_ai_context(
-    item_id: String,
-    state: State<'_, AppState>,
-) -> Result<String, String> {
+async fn build_ai_context(item_id: String, state: State<'_, AppState>) -> Result<String, String> {
     state.build_context(&item_id).await
 }
 
@@ -681,35 +681,41 @@ mod tests {
         assert_eq!(resolved[0].resolved_run, "git --version");
 
         // Stale/mismatched fingerprint is rejected to prevent TOCTOU execution of another command
-        assert!(state
-            .resolve_execution_targets(&[CommandSelector {
-                item_id: "git-config".to_string(),
-                group_key: "check".to_string(),
-                command_index: 0,
-                fingerprint: "stale-fingerprint".to_string(),
-            }])
-            .await
-            .is_err());
+        assert!(
+            state
+                .resolve_execution_targets(&[CommandSelector {
+                    item_id: "git-config".to_string(),
+                    group_key: "check".to_string(),
+                    command_index: 0,
+                    fingerprint: "stale-fingerprint".to_string(),
+                }])
+                .await
+                .is_err()
+        );
 
         // Inapplicable platform command and out-of-range index are rejected in Rust
-        assert!(state
-            .resolve_execution_targets(&[CommandSelector {
-                item_id: "git-config".to_string(),
-                group_key: "check".to_string(),
-                command_index: 1,
-                fingerprint: cmd1_fp,
-            }])
-            .await
-            .is_err());
-        assert!(state
-            .resolve_execution_targets(&[CommandSelector {
-                item_id: "git-config".to_string(),
-                group_key: "check".to_string(),
-                command_index: 99,
-                fingerprint: "unused".to_string(),
-            }])
-            .await
-            .is_err());
+        assert!(
+            state
+                .resolve_execution_targets(&[CommandSelector {
+                    item_id: "git-config".to_string(),
+                    group_key: "check".to_string(),
+                    command_index: 1,
+                    fingerprint: cmd1_fp,
+                }])
+                .await
+                .is_err()
+        );
+        assert!(
+            state
+                .resolve_execution_targets(&[CommandSelector {
+                    item_id: "git-config".to_string(),
+                    group_key: "check".to_string(),
+                    command_index: 99,
+                    fingerprint: "unused".to_string(),
+                }])
+                .await
+                .is_err()
+        );
 
         let md = state.build_context("git-config").await.unwrap();
         assert!(md.contains("Git Config (`git-config`)"));

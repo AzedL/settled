@@ -232,7 +232,8 @@ where
         type Value = Option<i64>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            formatter.write_str("a Unix timestamp integer, numeric string, ISO-8601 string, or null")
+            formatter
+                .write_str("a Unix timestamp integer, numeric string, ISO-8601 string, or null")
         }
 
         fn visit_none<E>(self) -> Result<Self::Value, E> {
@@ -490,13 +491,16 @@ mod tests {
         .unwrap();
         assert!(naive.create_at.is_some());
 
-        let blank_ts = serde_json::from_str::<ItemMetaRaw>(r#"{"name":"B","createAt":"   "}"#).unwrap();
+        let blank_ts =
+            serde_json::from_str::<ItemMetaRaw>(r#"{"name":"B","createAt":"   "}"#).unwrap();
         assert_eq!(blank_ts.create_at, None);
 
-        let num_str = serde_json::from_str::<ItemMetaRaw>(r#"{"name":"N","createAt":"1794596400"}"#).unwrap();
+        let num_str =
+            serde_json::from_str::<ItemMetaRaw>(r#"{"name":"N","createAt":"1794596400"}"#).unwrap();
         assert_eq!(num_str.create_at, Some(1794596400));
 
-        let null_ts = serde_json::from_str::<ItemMetaRaw>(r#"{"name":"Null","createAt":null}"#).unwrap();
+        let null_ts =
+            serde_json::from_str::<ItemMetaRaw>(r#"{"name":"Null","createAt":null}"#).unwrap();
         assert_eq!(null_ts.create_at, None);
 
         let bad_month = serde_json::from_str::<ItemMetaRaw>(

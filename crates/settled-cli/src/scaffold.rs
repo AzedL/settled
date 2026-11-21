@@ -37,7 +37,10 @@ pub fn validate_new_item_id(id: &str) -> Result<(), String> {
 }
 
 /// Creates `<workspace>/settled-items/<item-id>/` containing a starter `meta.json` and an empty `README.md`.
-pub fn create_item_scaffold(workspace_root: &Path, item_id: &str) -> Result<CreatedItemPaths, String> {
+pub fn create_item_scaffold(
+    workspace_root: &Path,
+    item_id: &str,
+) -> Result<CreatedItemPaths, String> {
     validate_new_item_id(item_id)?;
 
     let items_dir = workspace_root.join(ITEMS_DIR_NAME);

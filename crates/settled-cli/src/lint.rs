@@ -1,8 +1,8 @@
 use serde_json::Value;
 use settled_core::{
-    extract_script_references, find_readme_path, resolve_script_tokens,
+    CommandInput, ITEMS_DIR_NAME, ItemMetaRaw, Platform, ScriptInput, extract_script_references,
+    find_readme_path, resolve_script_tokens,
     runner::{is_valid_encoding_label, resolve_encoding},
-    CommandInput, ItemMetaRaw, Platform, ScriptInput, ITEMS_DIR_NAME,
 };
 use std::collections::BTreeSet;
 use std::fs;
@@ -66,10 +66,7 @@ pub fn lint_workspace(
     }
 
     let targets: Vec<(String, PathBuf)> = if let Some(item_id) = single_item {
-        if item_id.is_empty()
-            || item_id == "."
-            || item_id == ".."
-            || item_id.contains(['/', '\\'])
+        if item_id.is_empty() || item_id == "." || item_id == ".." || item_id.contains(['/', '\\'])
         {
             return Err(format!("Invalid item ID '{item_id}'"));
         }
@@ -345,7 +342,9 @@ fn lint_parsed_meta(parsed: &ItemMetaRaw, item_dir: &Path, diags: &mut Vec<LintD
             }
 
             if raw_run.trim().is_empty() {
-                diags.push(warn(format!("scripts.{group_key}[{idx}] has an empty 'run'")));
+                diags.push(warn(format!(
+                    "scripts.{group_key}[{idx}] has an empty 'run'"
+                )));
             } else {
                 let norm_shell = normalize_shell(step_shell.as_deref());
                 let signature = CommandSignature {
@@ -353,8 +352,7 @@ fn lint_parsed_meta(parsed: &ItemMetaRaw, item_dir: &Path, diags: &mut Vec<LintD
                     shell: norm_shell,
                     encoding: resolve_encoding(step_encoding.as_deref().unwrap_or("utf-8")).name(),
                 };
-                let eff_platforms =
-                    resolve_effective_platforms(&parsed.platforms, &step_platforms);
+                let eff_platforms = resolve_effective_platforms(&parsed.platforms, &step_platforms);
 
                 if let Some(prev) =
                     find_duplicate_command(&seen_commands, group_key, &signature, &eff_platforms)
@@ -375,9 +373,7 @@ fn lint_parsed_meta(parsed: &ItemMetaRaw, item_dir: &Path, diags: &mut Vec<LintD
 
             if !parsed.platforms.is_empty()
                 && !step_platforms.is_empty()
-                && !step_platforms
-                    .iter()
-                    .any(|p| parsed.platforms.contains(p))
+                && !step_platforms.iter().any(|p| parsed.platforms.contains(p))
             {
                 diags.push(warn(format!(
                     "scripts.{group_key}[{idx}] step platforms never overlap item platforms"

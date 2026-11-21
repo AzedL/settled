@@ -2,7 +2,7 @@ use crate::lint::{DiagnosticLevel, WorkspaceLintReport};
 use anstream::{eprintln, println};
 use anstyle::{AnsiColor, Color, Style};
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use settled_core::{CommandResult, Platform, RunStatus, WorkspaceItem, WorkspaceSnapshot};
 use std::collections::HashMap;
 
@@ -207,7 +207,11 @@ pub fn print_execution_report(
                     item_id, r.command_name, r.command_index, r.duration_ms
                 );
             } else {
-                let max_ms = item_results.iter().map(|r| r.duration_ms).max().unwrap_or(0);
+                let max_ms = item_results
+                    .iter()
+                    .map(|r| r.duration_ms)
+                    .max()
+                    .unwrap_or(0);
                 println!(
                     "{PASS_STYLE}PASS{PASS_STYLE:#}  {BOLD_STYLE}{}{BOLD_STYLE:#} {DIM_STYLE}({}/{} passed, {}ms){DIM_STYLE:#}",
                     item_id,
@@ -247,8 +251,14 @@ pub fn print_execution_report(
     }
 
     if print_summary {
-        let passed = results.iter().filter(|r| r.status == RunStatus::Pass).count();
-        let failed = results.iter().filter(|r| r.status == RunStatus::Fail).count();
+        let passed = results
+            .iter()
+            .filter(|r| r.status == RunStatus::Pass)
+            .count();
+        let failed = results
+            .iter()
+            .filter(|r| r.status == RunStatus::Fail)
+            .count();
         let canceled = results
             .iter()
             .filter(|r| r.status == RunStatus::Canceled)
@@ -273,12 +283,7 @@ pub fn print_execution_report(
     }
 }
 
-fn print_detailed_command(
-    res: &CommandResult,
-    item_dir: &str,
-    show_logs: bool,
-    full_logs: bool,
-) {
+fn print_detailed_command(res: &CommandResult, item_dir: &str, show_logs: bool, full_logs: bool) {
     let (badge, badge_style) = match res.status {
         RunStatus::Pass => ("PASS", PASS_STYLE),
         RunStatus::Fail => ("FAIL", ERROR_STYLE),

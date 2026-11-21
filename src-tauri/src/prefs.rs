@@ -43,8 +43,8 @@ pub fn save_prefs_to_path(path: &PathBuf, prefs: &AppPrefs) -> Result<(), String
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("Failed to create app data dir: {e}"))?;
     }
-    let content =
-        serde_json::to_string_pretty(prefs).map_err(|e| format!("Failed to serialize prefs: {e}"))?;
+    let content = serde_json::to_string_pretty(prefs)
+        .map_err(|e| format!("Failed to serialize prefs: {e}"))?;
     fs::write(path, content).map_err(|e| format!("Failed to write prefs: {e}"))
 }
 
@@ -83,7 +83,9 @@ pub fn record_workspace_at_path(path: &PathBuf, workspace_path: &str) -> Result<
     prefs
         .recent_workspaces
         .retain(|existing| !paths_equal(existing, workspace_path));
-    prefs.recent_workspaces.insert(0, workspace_path.to_string());
+    prefs
+        .recent_workspaces
+        .insert(0, workspace_path.to_string());
     prefs.recent_workspaces.truncate(MAX_RECENT_WORKSPACES);
     save_prefs_to_path(path, &prefs)?;
     Ok(prefs)

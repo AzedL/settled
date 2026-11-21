@@ -1,11 +1,7 @@
 use crate::model::{Platform, WorkspaceItem};
 
 /// Formats a concise locator context bundle identifying a Settled item for external AI coding agents.
-pub fn format_item_context(
-    item: &WorkspaceItem,
-    workspace_root: &str,
-    host: Platform,
-) -> String {
+pub fn format_item_context(item: &WorkspaceItem, workspace_root: &str, host: Platform) -> String {
     let mut out = String::new();
     let title = if item.name.trim().is_empty() {
         item.id.as_str()

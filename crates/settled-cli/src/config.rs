@@ -56,7 +56,10 @@ impl CliConfigStore {
     pub fn save(&self, config: &CliConfig) -> Result<(), String> {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|e| {
-                format!("Failed to create CLI config directory '{}': {e}", parent.display())
+                format!(
+                    "Failed to create CLI config directory '{}': {e}",
+                    parent.display()
+                )
             })?;
         }
         let content = serde_json::to_string_pretty(config)
@@ -90,7 +93,10 @@ pub fn use_workspace(
     let abs = normalize_against(raw_path, cwd);
 
     if abs.exists() && !abs.is_dir() {
-        return Err(format!("Path '{}' exists and is not a directory", abs.display()));
+        return Err(format!(
+            "Path '{}' exists and is not a directory",
+            abs.display()
+        ));
     }
 
     let items_dir = abs.join(ITEMS_DIR_NAME);
@@ -216,7 +222,10 @@ pub fn resolve_workspace_with_warnings(
     }
 
     if cwd.join(ITEMS_DIR_NAME).is_dir() {
-        return Ok((canonicalize_if_possible(&normalize_against(cwd, cwd)), warnings));
+        return Ok((
+            canonicalize_if_possible(&normalize_against(cwd, cwd)),
+            warnings,
+        ));
     }
 
     Err(format!(

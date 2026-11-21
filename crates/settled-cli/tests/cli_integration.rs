@@ -19,12 +19,7 @@ fn example_workspace_path() -> PathBuf {
         .join("workspace")
 }
 
-fn run_cli(
-    args: &[&str],
-    cwd: &Path,
-    config_file: &Path,
-    extra_env: &[(&str, &Path)],
-) -> Output {
+fn run_cli(args: &[&str], cwd: &Path, config_file: &Path, extra_env: &[(&str, &Path)]) -> Output {
     let mut cmd = Command::new(cli_bin());
     cmd.args(args)
         .current_dir(cwd)
@@ -111,8 +106,16 @@ fn workspace_subcommands_handle_init_missing_warning_and_resolution_order() {
     let ls = run_cli(&["workspace", "list"], tmp.path(), &cfg, &[]);
     assert_eq!(ls.status.code(), Some(0));
     let ls_out = stdout_str(&ls);
-    assert!(ls_out.lines().any(|l| l.starts_with("  ") && l.contains("blank-ws")));
-    assert!(ls_out.lines().any(|l| l.starts_with("* ") && l.contains("workspace")));
+    assert!(
+        ls_out
+            .lines()
+            .any(|l| l.starts_with("  ") && l.contains("blank-ws"))
+    );
+    assert!(
+        ls_out
+            .lines()
+            .any(|l| l.starts_with("* ") && l.contains("workspace"))
+    );
 
     // Switch back to blank_dir then delete it from disk to test warning + cwd fallback
     assert_eq!(
@@ -138,7 +141,11 @@ fn workspace_subcommands_handle_init_missing_warning_and_resolution_order() {
     let cur_fallback = run_cli(&["workspace", "current"], &example_ws, &cfg, &[]);
     assert_eq!(cur_fallback.status.code(), Some(0));
     assert!(stderr_str(&cur_fallback).contains("warning:"));
-    assert!(stdout_str(&cur_fallback).to_lowercase().contains("workspace"));
+    assert!(
+        stdout_str(&cur_fallback)
+            .to_lowercase()
+            .contains("workspace")
+    );
 
     // Global missing dir warns and errors exit 2 when cwd has no settled-items/
     let cur_fail = run_cli(&["workspace", "current"], tmp.path(), &cfg, &[]);
@@ -226,7 +233,15 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
 
     // 4. `run ui-check-fix-workflow fix --step 0` executes fix step 0 WITHOUT auto-verify
     let run_fix_step0 = run_cli(
-        &["run", "ui-check-fix-workflow", "fix", "--step", "0", "-w", ws_str],
+        &[
+            "run",
+            "ui-check-fix-workflow",
+            "fix",
+            "--step",
+            "0",
+            "-w",
+            ws_str,
+        ],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -289,7 +304,14 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
     assert_eq!(bad_step_flag.status.code(), Some(2));
 
     let single_step = run_cli(
-        &["check", "ui-check-fix-workflow", "--step", "0", "-w", ws_str],
+        &[
+            "check",
+            "ui-check-fix-workflow",
+            "--step",
+            "0",
+            "-w",
+            ws_str,
+        ],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -299,7 +321,13 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
 
     // 8. `run ui-check-fix-workflow inspect-and-env` & `always-fail` & `check ui-empty-and-defaults`
     let inspect = run_cli(
-        &["run", "ui-check-fix-workflow", "inspect-and-env", "-w", ws_str],
+        &[
+            "run",
+            "ui-check-fix-workflow",
+            "inspect-and-env",
+            "-w",
+            ws_str,
+        ],
         tmp.path(),
         &cfg,
         &[("SETTLED_DEMO_DIR", &demo_dir)],
@@ -332,7 +360,12 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
         &cfg,
         &[("SETTLED_BIN", bin_path)],
     );
-    assert_eq!(self_lint.status.code(), Some(0), "self-cli-workspace-and-lint output:\n{}", stdout_str(&self_lint));
+    assert_eq!(
+        self_lint.status.code(),
+        Some(0),
+        "self-cli-workspace-and-lint output:\n{}",
+        stdout_str(&self_lint)
+    );
 
     let self_exec = run_cli(
         &["check", "self-cli-execution-matrix", "-w", ws_str],
@@ -340,7 +373,12 @@ fn examples_workspace_list_lint_check_fix_and_run_cover_end_to_end_flows() {
         &cfg,
         &[("SETTLED_BIN", bin_path)],
     );
-    assert_eq!(self_exec.status.code(), Some(0), "self-cli-execution-matrix output:\n{}", stdout_str(&self_exec));
+    assert_eq!(
+        self_exec.status.code(),
+        Some(0),
+        "self-cli-execution-matrix output:\n{}",
+        stdout_str(&self_exec)
+    );
 }
 
 #[test]
@@ -396,7 +434,12 @@ fn new_lint_and_output_truncation_work_via_cli_binary() {
     )
     .unwrap();
 
-    let trunc = run_cli(&["check", "probe-item", "-w", ws_str], tmp.path(), &cfg, &[]);
+    let trunc = run_cli(
+        &["check", "probe-item", "-w", ws_str],
+        tmp.path(),
+        &cfg,
+        &[],
+    );
     assert_eq!(trunc.status.code(), Some(1));
     assert!(stdout_str(&trunc).contains("earlier line(s) omitted; pass -v to view full output"));
 
@@ -411,13 +454,22 @@ fn new_lint_and_output_truncation_work_via_cli_binary() {
     assert!(stdout_str(&full).contains("errline-139"));
 
     // Corrupt meta.json -> lint exits 1 with [ERROR]
-    fs::write(item_dir.join("meta.json"), r#"{"name": "Broken", "tags": "not-array"}"#).unwrap();
+    fs::write(
+        item_dir.join("meta.json"),
+        r#"{"name": "Broken", "tags": "not-array"}"#,
+    )
+    .unwrap();
     let lint_err = run_cli(&["lint", "probe-item", "-w", ws_str], tmp.path(), &cfg, &[]);
     assert_eq!(lint_err.status.code(), Some(1));
     assert!(stdout_str(&lint_err).contains("[ERROR] invalid meta.json"));
 
     // Checking an unloadable item prints lint hint and exits 2
-    let check_broken = run_cli(&["check", "probe-item", "-w", ws_str], tmp.path(), &cfg, &[]);
+    let check_broken = run_cli(
+        &["check", "probe-item", "-w", ws_str],
+        tmp.path(),
+        &cfg,
+        &[],
+    );
     assert_eq!(check_broken.status.code(), Some(2));
     assert!(stderr_str(&check_broken).contains("settled lint probe-item"));
 
@@ -458,7 +510,12 @@ fn new_lint_and_output_truncation_work_via_cli_binary() {
     )
     .unwrap();
 
-    let run_quiet = run_cli(&["run", "long-pass", "dump", "-w", ws_str], tmp.path(), &cfg, &[]);
+    let run_quiet = run_cli(
+        &["run", "long-pass", "dump", "-w", ws_str],
+        tmp.path(),
+        &cfg,
+        &[],
+    );
     assert_eq!(run_quiet.status.code(), Some(0));
     let run_quiet_out = stdout_str(&run_quiet);
     assert!(!run_quiet_out.contains("  dir:"));
@@ -484,9 +541,14 @@ fn new_lint_and_output_truncation_work_via_cli_binary() {
     let stale_ws = tmp.path().join("stale-global-ws");
     fs::create_dir_all(stale_ws.join(ITEMS_DIR_NAME)).unwrap();
     assert_eq!(
-        run_cli(&["workspace", "use", stale_ws.to_str().unwrap()], tmp.path(), &cfg, &[])
-            .status
-            .code(),
+        run_cli(
+            &["workspace", "use", stale_ws.to_str().unwrap()],
+            tmp.path(),
+            &cfg,
+            &[]
+        )
+        .status
+        .code(),
         Some(0)
     );
     fs::remove_dir_all(&stale_ws).unwrap();

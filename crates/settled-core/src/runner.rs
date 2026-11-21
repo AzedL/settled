@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::process::Command;
-use tokio::sync::{mpsc, watch, Mutex, Semaphore};
+use tokio::sync::{Mutex, Semaphore, mpsc, watch};
 use tokio::task::JoinSet;
 
 pub const MAX_RETAINED_LINES: usize = 5000;
@@ -144,11 +144,8 @@ impl RunRegistry {
     pub async fn cancel_all(&self) -> usize {
         let targets: Vec<(Option<u32>, watch::Sender<bool>)> = {
             let mut guard = self.inner.lock().await;
-            let active_run_ids: Vec<String> = guard
-                .commands
-                .keys()
-                .map(|(rid, _)| rid.clone())
-                .collect();
+            let active_run_ids: Vec<String> =
+                guard.commands.keys().map(|(rid, _)| rid.clone()).collect();
             for run_id in active_run_ids {
                 guard.canceled_runs.insert(run_id);
             }
@@ -294,14 +291,22 @@ where
     let encoding = resolve_encoding(&target.encoding);
     let (line_tx, mut line_rx) = mpsc::unbounded_channel::<OutputLine>();
 
-    let stdout_task = child
-        .stdout
-        .take()
-        .map(|stdout| tokio::spawn(pump_stream(stdout, LogStream::Stdout, encoding, line_tx.clone())));
-    let stderr_task = child
-        .stderr
-        .take()
-        .map(|stderr| tokio::spawn(pump_stream(stderr, LogStream::Stderr, encoding, line_tx.clone())));
+    let stdout_task = child.stdout.take().map(|stdout| {
+        tokio::spawn(pump_stream(
+            stdout,
+            LogStream::Stdout,
+            encoding,
+            line_tx.clone(),
+        ))
+    });
+    let stderr_task = child.stderr.take().map(|stderr| {
+        tokio::spawn(pump_stream(
+            stderr,
+            LogStream::Stderr,
+            encoding,
+            line_tx.clone(),
+        ))
+    });
     drop(line_tx);
 
     let mut collected_logs = Vec::new();
@@ -378,7 +383,8 @@ where
         fut.abort();
     }
 
-    let was_canceled = canceled_during_wait || registry.is_canceled(run_id, &target.command_id).await;
+    let was_canceled =
+        canceled_during_wait || registry.is_canceled(run_id, &target.command_id).await;
     registry.unregister(run_id, &target.command_id).await;
 
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -786,13 +792,23 @@ mod tests {
         assert_eq!(results.len(), 3);
         assert_eq!(results[0].status, RunStatus::Pass);
         assert_eq!(results[0].exit_code, Some(0));
-        assert!(results[0].logs.iter().any(|l| l.text.contains("hello_settled")));
+        assert!(
+            results[0]
+                .logs
+                .iter()
+                .any(|l| l.text.contains("hello_settled"))
+        );
 
         assert_eq!(results[1].status, RunStatus::Fail);
         assert_eq!(results[1].exit_code, Some(3));
 
         assert_eq!(results[2].status, RunStatus::Pass);
-        assert!(results[2].logs.iter().any(|l| l.text.contains("still_runs")));
+        assert!(
+            results[2]
+                .logs
+                .iter()
+                .any(|l| l.text.contains("still_runs"))
+        );
     }
 
     #[tokio::test]
@@ -872,32 +888,24 @@ mod tests {
         let reg2 = registry.clone();
 
         let old_handle = tokio::spawn(async move {
-            run_commands_parallel(
-                "run-old".to_string(),
-                vec![old_target],
-                1,
-                reg1,
-                |_ev| {},
-            )
-            .await
+            run_commands_parallel("run-old".to_string(), vec![old_target], 1, reg1, |_ev| {}).await
         });
 
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         assert_eq!(registry.cancel_run("run-old").await, 1);
 
-        let new_results = run_commands_parallel(
-            "run-new".to_string(),
-            vec![new_target],
-            1,
-            reg2,
-            |_ev| {},
-        )
-        .await;
+        let new_results =
+            run_commands_parallel("run-new".to_string(), vec![new_target], 1, reg2, |_ev| {}).await;
         let old_results = old_handle.await.unwrap();
 
         assert_eq!(old_results[0].status, RunStatus::Canceled);
         assert_eq!(new_results[0].status, RunStatus::Pass);
-        assert!(new_results[0].logs.iter().any(|l| l.text.contains("rerun_ok")));
+        assert!(
+            new_results[0]
+                .logs
+                .iter()
+                .any(|l| l.text.contains("rerun_ok"))
+        );
     }
 
     #[tokio::test]
@@ -965,12 +973,14 @@ mod tests {
         .await;
         assert_eq!(flood_results[0].status, RunStatus::Pass);
         assert_eq!(flood_results[0].logs.len(), MAX_RETAINED_LINES + 1);
-        assert!(flood_results[0]
-            .logs
-            .last()
-            .unwrap()
-            .text
-            .contains("output truncated after 5000 lines"));
+        assert!(
+            flood_results[0]
+                .logs
+                .last()
+                .unwrap()
+                .text
+                .contains("output truncated after 5000 lines")
+        );
     }
 
     #[tokio::test]
@@ -994,7 +1004,12 @@ mod tests {
         let elapsed = started.elapsed();
 
         assert_eq!(results[0].status, RunStatus::Pass);
-        assert!(results[0].logs.iter().any(|l| l.text.contains("parent_done")));
+        assert!(
+            results[0]
+                .logs
+                .iter()
+                .any(|l| l.text.contains("parent_done"))
+        );
         assert!(
             elapsed < Duration::from_millis(2200),
             "runner hung waiting on grandchild pipe ({elapsed:?})"

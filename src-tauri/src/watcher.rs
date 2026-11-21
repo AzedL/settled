@@ -1,9 +1,9 @@
 use notify::RecursiveMode;
-use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
+use notify_debouncer_mini::{DebounceEventResult, Debouncer, new_debouncer};
 use settled_core::ITEMS_DIR_NAME;
 use std::path::{Component, Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
@@ -45,10 +45,7 @@ impl WorkspaceWatcher {
                 let Ok(events) = res else {
                     return;
                 };
-                if events
-                    .iter()
-                    .any(|ev| paths_match(&ev.path, &cb_items_dir))
-                {
+                if events.iter().any(|ev| paths_match(&ev.path, &cb_items_dir)) {
                     cb_resync.store(true, Ordering::Release);
                 }
                 let relevant = events
@@ -228,22 +225,66 @@ mod tests {
         assert!(is_relevant_path(root, root, &items_dir));
         assert!(is_relevant_path(&items_dir, root, &items_dir));
         assert!(is_relevant_path(&item_dir, root, &items_dir));
-        assert!(is_relevant_path(&item_dir.join("meta.json"), root, &items_dir));
-        assert!(is_relevant_path(&item_dir.join("README.md"), root, &items_dir));
-        assert!(is_relevant_path(&item_dir.join("readme.md"), root, &items_dir));
+        assert!(is_relevant_path(
+            &item_dir.join("meta.json"),
+            root,
+            &items_dir
+        ));
+        assert!(is_relevant_path(
+            &item_dir.join("README.md"),
+            root,
+            &items_dir
+        ));
+        assert!(is_relevant_path(
+            &item_dir.join("readme.md"),
+            root,
+            &items_dir
+        ));
         // Removed item directory no longer exists on disk and should still trigger reload.
-        assert!(is_relevant_path(&items_dir.join("deleted-item"), root, &items_dir));
+        assert!(is_relevant_path(
+            &items_dir.join("deleted-item"),
+            root,
+            &items_dir
+        ));
 
         // Root-level project files, node_modules, target, and .git must be ignored.
-        assert!(!is_relevant_path(&root.join("package.json"), root, &items_dir));
-        assert!(!is_relevant_path(&root.join(".git").join("index"), root, &items_dir));
-        assert!(!is_relevant_path(&root.join("node_modules").join("pkg"), root, &items_dir));
+        assert!(!is_relevant_path(
+            &root.join("package.json"),
+            root,
+            &items_dir
+        ));
+        assert!(!is_relevant_path(
+            &root.join(".git").join("index"),
+            root,
+            &items_dir
+        ));
+        assert!(!is_relevant_path(
+            &root.join("node_modules").join("pkg"),
+            root,
+            &items_dir
+        ));
 
         // Loose files directly under settled-items/, hidden folders, scripts, and runtime logs are ignored.
-        assert!(!is_relevant_path(&items_dir.join("stray.txt"), root, &items_dir));
-        assert!(!is_relevant_path(&items_dir.join(".hidden").join("meta.json"), root, &items_dir));
-        assert!(!is_relevant_path(&item_dir.join("scripts").join("check.sh"), root, &items_dir));
-        assert!(!is_relevant_path(&item_dir.join("output.log"), root, &items_dir));
+        assert!(!is_relevant_path(
+            &items_dir.join("stray.txt"),
+            root,
+            &items_dir
+        ));
+        assert!(!is_relevant_path(
+            &items_dir.join(".hidden").join("meta.json"),
+            root,
+            &items_dir
+        ));
+        assert!(!is_relevant_path(
+            &item_dir.join("scripts").join("check.sh"),
+            root,
+            &items_dir
+        ));
+        assert!(!is_relevant_path(
+            &item_dir.join("output.log"),
+            root,
+            &items_dir
+        ));
 
         #[cfg(windows)]
         {
@@ -257,8 +298,8 @@ mod tests {
     #[test]
     fn syncs_settled_items_watch_dynamically_and_ignores_unrelated_root_files() {
         use std::sync::{
-            atomic::{AtomicUsize, Ordering},
             Arc,
+            atomic::{AtomicUsize, Ordering},
         };
         use std::time::Duration;
 
