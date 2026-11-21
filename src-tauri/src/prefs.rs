@@ -54,12 +54,35 @@ pub fn record_workspace(app: &AppHandle, workspace_path: &str) -> Result<AppPref
     record_workspace_at_path(&path, workspace_path)
 }
 
+fn normalize_path_for_compare(s: &str) -> String {
+    #[cfg(windows)]
+    {
+        let mut win = s.replace('/', "\\");
+        while win.len() > 3 && win.ends_with('\\') {
+            win.pop();
+        }
+        win.to_ascii_lowercase()
+    }
+    #[cfg(not(windows))]
+    {
+        let mut unix = s.to_string();
+        while unix.len() > 1 && unix.ends_with('/') {
+            unix.pop();
+        }
+        unix
+    }
+}
+
+fn paths_equal(a: &str, b: &str) -> bool {
+    normalize_path_for_compare(a) == normalize_path_for_compare(b)
+}
+
 pub fn record_workspace_at_path(path: &PathBuf, workspace_path: &str) -> Result<AppPrefs, String> {
     let mut prefs = load_prefs_from_path(path);
     prefs.last_workspace = Some(workspace_path.to_string());
     prefs
         .recent_workspaces
-        .retain(|existing| existing != workspace_path);
+        .retain(|existing| !paths_equal(existing, workspace_path));
     prefs.recent_workspaces.insert(0, workspace_path.to_string());
     prefs.recent_workspaces.truncate(MAX_RECENT_WORKSPACES);
     save_prefs_to_path(path, &prefs)?;
@@ -102,5 +125,11 @@ mod tests {
         assert_eq!(promoted.recent_workspaces.len(), MAX_RECENT_WORKSPACES);
         assert_eq!(promoted.recent_workspaces[0], "/ws/project-4");
         assert_eq!(promoted.recent_workspaces[1], "/ws/project-9");
+
+        // Trailing slashes (and case differences on Windows) deduplicate cleanly
+        let trailing = record_workspace_at_path(&prefs_file, "/ws/project-4/").unwrap();
+        assert_eq!(trailing.recent_workspaces.len(), MAX_RECENT_WORKSPACES);
+        assert_eq!(trailing.recent_workspaces[0], "/ws/project-4/");
+        assert_eq!(trailing.recent_workspaces[1], "/ws/project-9");
     }
 }

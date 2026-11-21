@@ -30,11 +30,12 @@ impl WorkspaceWatcher {
     where
         F: Fn(String) + Send + 'static,
     {
-        let items_dir = workspace_root.join(ITEMS_DIR_NAME);
-        let root_str = workspace_root.to_string_lossy().into_owned();
+        let event_root_str = workspace_root.to_string_lossy().into_owned();
+        let watch_root = canonicalize_watch_path(&workspace_root);
+        let items_dir = watch_root.join(ITEMS_DIR_NAME);
         let resync_items_dir = Arc::new(AtomicBool::new(false));
 
-        let cb_root = workspace_root.clone();
+        let cb_root = watch_root.clone();
         let cb_items_dir = items_dir.clone();
         let cb_resync = Arc::clone(&resync_items_dir);
 
@@ -44,14 +45,17 @@ impl WorkspaceWatcher {
                 let Ok(events) = res else {
                     return;
                 };
-                if events.iter().any(|ev| ev.path == cb_items_dir) {
+                if events
+                    .iter()
+                    .any(|ev| paths_match(&ev.path, &cb_items_dir))
+                {
                     cb_resync.store(true, Ordering::Release);
                 }
                 let relevant = events
                     .iter()
                     .any(|ev| is_relevant_path(&ev.path, &cb_root, &cb_items_dir));
                 if relevant {
-                    on_change(root_str.clone());
+                    on_change(event_root_str.clone());
                 }
             },
         )
@@ -59,7 +63,7 @@ impl WorkspaceWatcher {
 
         debouncer
             .watcher()
-            .watch(&workspace_root, RecursiveMode::NonRecursive)
+            .watch(&watch_root, RecursiveMode::NonRecursive)
             .map_err(|e| format!("Failed to watch workspace directory: {e}"))?;
 
         let items_watched = if items_dir.is_dir() {
@@ -105,12 +109,73 @@ impl WorkspaceWatcher {
     }
 }
 
+fn canonicalize_watch_path(path: &Path) -> PathBuf {
+    match std::fs::canonicalize(path) {
+        Ok(canon) => strip_windows_verbatim(canon),
+        Err(_) => path.to_path_buf(),
+    }
+}
+
+fn strip_windows_verbatim(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let raw = path.to_string_lossy();
+        if let Some(stripped) = raw.strip_prefix(r"\\?\UNC\") {
+            return PathBuf::from(format!(r"\\{stripped}"));
+        }
+        if let Some(stripped) = raw.strip_prefix(r"\\?\") {
+            return PathBuf::from(stripped);
+        }
+    }
+    path
+}
+
+fn normalize_path_key(path: &Path) -> String {
+    let raw = strip_windows_verbatim(path.to_path_buf())
+        .to_string_lossy()
+        .into_owned();
+    #[cfg(windows)]
+    {
+        let mut win = raw.replace('/', "\\");
+        while win.len() > 3 && win.ends_with('\\') {
+            win.pop();
+        }
+        win.to_ascii_lowercase()
+    }
+    #[cfg(not(windows))]
+    {
+        let mut unix = raw;
+        while unix.len() > 1 && unix.ends_with('/') {
+            unix.pop();
+        }
+        unix
+    }
+}
+
+fn paths_match(a: &Path, b: &Path) -> bool {
+    normalize_path_key(a) == normalize_path_key(b)
+}
+
+fn strip_prefix_normalized(changed: &Path, base: &Path) -> Option<PathBuf> {
+    if let Ok(rel) = changed.strip_prefix(base) {
+        return Some(rel.to_path_buf());
+    }
+    let changed_key = normalize_path_key(changed);
+    let base_key = normalize_path_key(base);
+    if changed_key == base_key {
+        return Some(PathBuf::new());
+    }
+    let sep = if cfg!(windows) { '\\' } else { '/' };
+    let rest = changed_key.strip_prefix(&base_key)?.strip_prefix(sep)?;
+    Some(PathBuf::from(rest))
+}
+
 fn is_relevant_path(changed: &Path, root: &Path, items_dir: &Path) -> bool {
-    if changed == root || changed == items_dir {
+    if paths_match(changed, root) || paths_match(changed, items_dir) {
         return true;
     }
 
-    let Ok(rel) = changed.strip_prefix(items_dir) else {
+    let Some(rel) = strip_prefix_normalized(changed, items_dir) else {
         return false;
     };
 
@@ -179,6 +244,14 @@ mod tests {
         assert!(!is_relevant_path(&items_dir.join(".hidden").join("meta.json"), root, &items_dir));
         assert!(!is_relevant_path(&item_dir.join("scripts").join("check.sh"), root, &items_dir));
         assert!(!is_relevant_path(&item_dir.join("output.log"), root, &items_dir));
+
+        #[cfg(windows)]
+        {
+            let upper_meta = std::path::PathBuf::from(
+                item_dir.join("meta.json").to_string_lossy().to_uppercase(),
+            );
+            assert!(is_relevant_path(&upper_meta, root, &items_dir));
+        }
     }
 
     #[test]

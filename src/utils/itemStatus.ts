@@ -1,11 +1,13 @@
 import type {
-  CommandExecutionTarget,
   CommandRuntimeState,
+  CommandSelector,
   ResolvedCommand,
   ScopeMode,
   WorkspaceItem,
   WorkspaceSnapshot,
 } from "../types";
+
+export const MAX_RETAINED_LOG_LINES = 5000;
 
 export const DEFAULT_COMMAND_RUNTIME: CommandRuntimeState = {
   status: "idle",
@@ -17,22 +19,16 @@ export const DEFAULT_COMMAND_RUNTIME: CommandRuntimeState = {
 };
 
 /**
- * Returns the execution target descriptor for a resolved command on a workspace item.
+ * Returns the UI selection descriptor sent to Rust to resolve and execute a command.
  */
-export function toExecutionTarget(
+export function toCommandSelector(
   item: WorkspaceItem,
   command: ResolvedCommand
-): CommandExecutionTarget {
+): CommandSelector {
   return {
     itemId: item.id,
-    itemDir: item.path,
     groupKey: command.key,
     commandIndex: command.index,
-    commandId: command.commandId,
-    commandName: command.name,
-    resolvedRun: command.resolvedRun,
-    shell: command.effectiveShell,
-    encoding: command.encoding,
   };
 }
 
@@ -95,20 +91,50 @@ export function matchesItemFilters(
   return true;
 }
 
-function getCommandFingerprint(cmd: ResolvedCommand): string {
-  return JSON.stringify([
-    cmd.name,
-    cmd.rawRun,
-    cmd.resolvedRun,
-    cmd.effectiveShell,
-    cmd.encoding,
-    cmd.applicable,
-  ]);
+/**
+ * Computes a deterministic `oldCommandId -> newCommandId` remapping across same-workspace reloads
+ * using per-`(item.id, group.key)` fingerprint queues provided by the Rust backend.
+ */
+export function buildCommandIdRemap(
+  prevSnapshot: WorkspaceSnapshot,
+  nextSnapshot: WorkspaceSnapshot
+): Map<string, string> {
+  const prevQueues = new Map<string, string[]>();
+
+  for (const item of prevSnapshot.items) {
+    for (const group of item.scriptGroups) {
+      const groupPrefix = `${item.id}::${group.key}`;
+      for (const cmd of group.commands) {
+        const key = `${groupPrefix}::${cmd.fingerprint}`;
+        const queue = prevQueues.get(key);
+        if (queue) {
+          queue.push(cmd.commandId);
+        } else {
+          prevQueues.set(key, [cmd.commandId]);
+        }
+      }
+    }
+  }
+
+  const idRemap = new Map<string, string>();
+  for (const item of nextSnapshot.items) {
+    for (const group of item.scriptGroups) {
+      const groupPrefix = `${item.id}::${group.key}`;
+      for (const cmd of group.commands) {
+        const key = `${groupPrefix}::${cmd.fingerprint}`;
+        const prevCommandId = prevQueues.get(key)?.shift();
+        if (prevCommandId) {
+          idRemap.set(prevCommandId, cmd.commandId);
+        }
+      }
+    }
+  }
+
+  return idRemap;
 }
 
 /**
- * Reconciles command runtime states across same-workspace reloads by matching commands via
- * per-`(item.id, group.key)` fingerprint queues.
+ * Reconciles command runtime states across same-workspace reloads using fingerprint queues.
  *
  * Newly inserted or modified commands drop stale states and start cleanly in `idle`, while
  * shifted or reordered unchanged commands retain their existing status and logs at their new index.
@@ -116,38 +142,17 @@ function getCommandFingerprint(cmd: ResolvedCommand): string {
 export function reconcileRuntimeWithSnapshot(
   prevMap: Record<string, CommandRuntimeState>,
   prevSnapshot: WorkspaceSnapshot,
-  nextSnapshot: WorkspaceSnapshot
+  nextSnapshot: WorkspaceSnapshot,
+  precomputedRemap?: Map<string, string>
 ): Record<string, CommandRuntimeState> {
-  const prevQueues = new Map<string, (CommandRuntimeState | undefined)[]>();
-
-  for (const item of prevSnapshot.items) {
-    for (const group of item.scriptGroups) {
-      const groupPrefix = `${item.id}::${group.key}`;
-      for (const cmd of group.commands) {
-        const key = `${groupPrefix}::${getCommandFingerprint(cmd)}`;
-        const queue = prevQueues.get(key);
-        const state = prevMap[cmd.commandId];
-        if (queue) {
-          queue.push(state);
-        } else {
-          prevQueues.set(key, [state]);
-        }
-      }
-    }
-  }
-
+  const idRemap =
+    precomputedRemap ?? buildCommandIdRemap(prevSnapshot, nextSnapshot);
   const nextMap: Record<string, CommandRuntimeState> = {};
 
-  for (const item of nextSnapshot.items) {
-    for (const group of item.scriptGroups) {
-      const groupPrefix = `${item.id}::${group.key}`;
-      for (const cmd of group.commands) {
-        const key = `${groupPrefix}::${getCommandFingerprint(cmd)}`;
-        const state = prevQueues.get(key)?.shift();
-        if (state) {
-          nextMap[cmd.commandId] = state;
-        }
-      }
+  for (const [prevId, nextId] of idRemap.entries()) {
+    const state = prevMap[prevId];
+    if (state) {
+      nextMap[nextId] = state;
     }
   }
 

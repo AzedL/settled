@@ -2,6 +2,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { lang } from "../../lang";
 import { makeCommand, makeGroup, makeRuntime } from "../../test/fixtures";
+
+const { openExternalUrlMock } = vi.hoisted(() => ({
+  openExternalUrlMock: vi.fn(),
+}));
+
+vi.mock("../../api/tauri", () => ({
+  openExternalUrl: openExternalUrlMock,
+}));
+
 import { Button } from "../Button";
 import { CommandRow } from "../CommandRow";
 import { ConfirmModal } from "../ConfirmModal";
@@ -79,13 +88,31 @@ describe("primitive and command UI components", () => {
     expect(onFocusToken).toHaveBeenCalledTimes(1);
   });
 
-  it("renders MarkdownView only when content is non-empty", () => {
+  it("renders MarkdownView only when content is non-empty and intercepts links safely", () => {
+    openExternalUrlMock.mockReset();
+    openExternalUrlMock.mockResolvedValue(undefined);
+
     const { container, rerender } = render(<MarkdownView content={"   \n"} />);
     expect(container.firstChild).toBeNull();
 
-    rerender(<MarkdownView content={"# 标题\n\n- 条目 A"} />);
+    rerender(
+      <MarkdownView
+        content={"# 标题\n\n- 条目 A\n\n[官网](https://example.com) [本地](./local.md)"}
+      />
+    );
     expect(screen.getByRole("heading", { name: "标题" })).toBeInTheDocument();
     expect(screen.getByText("条目 A")).toBeInTheDocument();
+
+    const extLink = screen.getByRole("link", { name: "官网" });
+    const extClick = fireEvent.click(extLink);
+    expect(extClick).toBe(false);
+    expect(openExternalUrlMock).toHaveBeenCalledWith("https://example.com");
+
+    openExternalUrlMock.mockClear();
+    const localLink = screen.getByRole("link", { name: "本地" });
+    const localClick = fireEvent.click(localLink);
+    expect(localClick).toBe(false);
+    expect(openExternalUrlMock).not.toHaveBeenCalled();
   });
 
   it("handles ConfirmModal actions, Escape key, and backdrop clicks", () => {
@@ -203,6 +230,100 @@ describe("primitive and command UI components", () => {
     expect(screen.getByText("执行出错")).toBeInTheDocument();
     expect(screen.getByText("err line")).toBeInTheDocument();
     expect(screen.getByText("sys line")).toBeInTheDocument();
+  });
+
+  it("auto-scrolls streaming logs while pinned to bottom and pauses when scrolled up", () => {
+    const cmd = makeCommand({ name: "流式日志", applicable: true });
+    const { container, rerender } = render(
+      <CommandRow
+        command={cmd}
+        runtime={makeRuntime({
+          status: "running",
+          logs: [{ stream: "stdout", text: "line-1" }],
+        })}
+        isActiveStop={false}
+        onRun={() => {}}
+        onStop={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByText(lang.scripts.logsShow));
+    const logBox = container.querySelector(".overflow-y-auto") as HTMLDivElement;
+    expect(logBox).toBeTruthy();
+
+    let scrollHeight = 400;
+    Object.defineProperty(logBox, "scrollHeight", {
+      configurable: true,
+      get: () => scrollHeight,
+    });
+    Object.defineProperty(logBox, "clientHeight", {
+      configurable: true,
+      get: () => 200,
+    });
+
+    // While pinned at bottom, incoming log lines snap scrollTop to latest scrollHeight
+    scrollHeight = 520;
+    rerender(
+      <CommandRow
+        command={cmd}
+        runtime={makeRuntime({
+          status: "running",
+          logs: [
+            { stream: "stdout", text: "line-1" },
+            { stream: "stdout", text: "line-2" },
+          ],
+        })}
+        isActiveStop={false}
+        onRun={() => {}}
+        onStop={() => {}}
+      />
+    );
+    expect(logBox.scrollTop).toBe(520);
+
+    // User scrolls up to read earlier logs -> smart auto-scroll pauses
+    logBox.scrollTop = 40;
+    fireEvent.scroll(logBox);
+    scrollHeight = 680;
+    rerender(
+      <CommandRow
+        command={cmd}
+        runtime={makeRuntime({
+          status: "running",
+          logs: [
+            { stream: "stdout", text: "line-1" },
+            { stream: "stdout", text: "line-2" },
+            { stream: "stdout", text: "line-3" },
+          ],
+        })}
+        isActiveStop={false}
+        onRun={() => {}}
+        onStop={() => {}}
+      />
+    );
+    expect(logBox.scrollTop).toBe(40);
+
+    // User scrolls back near bottom -> smart auto-scroll resumes
+    logBox.scrollTop = 470;
+    fireEvent.scroll(logBox);
+    scrollHeight = 760;
+    rerender(
+      <CommandRow
+        command={cmd}
+        runtime={makeRuntime({
+          status: "running",
+          logs: [
+            { stream: "stdout", text: "line-1" },
+            { stream: "stdout", text: "line-2" },
+            { stream: "stdout", text: "line-3" },
+            { stream: "stdout", text: "line-4" },
+          ],
+        })}
+        isActiveStop={false}
+        onRun={() => {}}
+        onStop={() => {}}
+      />
+    );
+    expect(logBox.scrollTop).toBe(760);
   });
 
   it("handles ScriptGroupCard scoping, highlighting, and stop state", () => {

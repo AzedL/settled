@@ -17,12 +17,9 @@ export interface ResolvedCommand {
   name: string;
   description: string | null;
   rawRun: string;
-  resolvedRun: string;
   platforms: Platform[];
   applicable: boolean;
-  shell: string | null;
-  effectiveShell: string;
-  encoding: string;
+  fingerprint: string;
 }
 
 export interface ScriptGroup {
@@ -52,22 +49,15 @@ export interface WorkspaceSnapshot {
   itemsDir: string;
   itemsDirExists: boolean;
   hostPlatform: Platform;
-  defaultShell: string;
   items: WorkspaceItem[];
   allTags: string[];
   scanWarnings: string[];
 }
 
-export interface CommandExecutionTarget {
+export interface CommandSelector {
   itemId: string;
-  itemDir: string;
   groupKey: string;
   commandIndex: number;
-  commandId: string;
-  commandName: string;
-  resolvedRun: string;
-  shell: string;
-  encoding: string;
 }
 
 export interface AppPrefs {
@@ -116,7 +106,6 @@ export interface CommandResult {
   groupKey: string;
   commandIndex: number;
   commandName: string;
-  resolvedRun: string;
   status: RunStatus;
   exitCode: number | null;
   durationMs: number;

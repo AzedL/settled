@@ -7,36 +7,29 @@ import {
   makeSnapshot,
 } from "../../test/fixtures";
 import {
+  buildCommandIdRemap,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   getCommandRuntime,
   matchesItemFilters,
   reconcileRuntimeWithSnapshot,
-  toExecutionTarget,
+  toCommandSelector,
 } from "../itemStatus";
 
 describe("itemStatus utilities", () => {
-  it("builds execution targets from item and resolved command", () => {
+  it("builds command selectors from item and command without runtime fields", () => {
     const item = makeItem({ id: "git-config", path: "D:\\ws\\git-config" });
     const cmd = makeCommand({
       index: 1,
       key: "check",
       commandId: "git-config::check::1",
-      resolvedRun: "git config user.name",
-      effectiveShell: "bash",
-      encoding: "utf-8",
+      rawRun: "git config user.name",
     });
 
-    expect(toExecutionTarget(item, cmd)).toEqual({
+    expect(toCommandSelector(item, cmd)).toEqual({
       itemId: "git-config",
-      itemDir: "D:\\ws\\git-config",
       groupKey: "check",
       commandIndex: 1,
-      commandId: "git-config::check::1",
-      commandName: cmd.name,
-      resolvedRun: "git config user.name",
-      shell: "bash",
-      encoding: "utf-8",
     });
   });
 
@@ -165,5 +158,11 @@ describe("itemStatus utilities", () => {
     const afterDup = reconcileRuntimeWithSnapshot({ "demo::check::1": passState }, dupSnapshot, dupSnapshot);
     expect(afterDup["demo::check::0"]).toBeUndefined();
     expect(afterDup["demo::check::1"]).toBe(passState);
+
+    // Command ID remap tracks shifted indices cleanly
+    const remap = buildCommandIdRemap(prevSnapshot, swappedSnapshot);
+    expect(remap.get("demo::check::2")).toBe("demo::check::0");
+    expect(remap.get("demo::check::0")).toBe("demo::check::1");
+    expect(remap.has("demo::check::1")).toBe(false);
   });
 });

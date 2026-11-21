@@ -22,8 +22,8 @@ import { Sidebar } from "./components/Sidebar";
 import { lang } from "./lang";
 import type {
   ActiveRunAction,
-  CommandExecutionTarget,
   CommandRuntimeState,
+  CommandSelector,
   InitialAppState,
   ResolvedCommand,
   ScopeMode,
@@ -35,11 +35,13 @@ import type {
 } from "./types";
 import { formatScriptGroupTitle } from "./utils/format";
 import {
+  buildCommandIdRemap,
   DEFAULT_COMMAND_RUNTIME,
   getApplicableCheckCommands,
   matchesItemFilters,
+  MAX_RETAINED_LOG_LINES,
   reconcileRuntimeWithSnapshot,
-  toExecutionTarget,
+  toCommandSelector,
 } from "./utils/itemStatus";
 
 interface PendingConfirmState {
@@ -48,6 +50,11 @@ interface PendingConfirmState {
   item: WorkspaceItem;
   role: ScriptRole;
   commands: ResolvedCommand[];
+}
+
+interface RunTargetEntry {
+  commandId: string;
+  selector: CommandSelector;
 }
 
 function createRunId(prefix: string): string {
@@ -106,8 +113,23 @@ export default function App() {
 
   const activeActionRef = useRef<ActiveRunAction | null>(null);
   const activeRunIdRef = useRef<string | null>(null);
+  const activeRunIdMapRef = useRef<Map<string, Map<string, string | null>>>(
+    new Map()
+  );
   const canceledRunIdsRef = useRef<Set<string>>(new Set());
   const actionSeqRef = useRef(0);
+  const workspaceLoadSeqRef = useRef(0);
+
+  const resolveMappedCommandId = useCallback(
+    (runId: string, originalCommandId: string): string | null => {
+      const runMap = activeRunIdMapRef.current.get(runId);
+      if (!runMap || !runMap.has(originalCommandId)) {
+        return originalCommandId;
+      }
+      return runMap.get(originalCommandId) ?? null;
+    },
+    []
+  );
 
   useEffect(() => {
     try {
@@ -160,11 +182,38 @@ export default function App() {
   const applyWorkspaceSnapshot = useCallback(
     (snapshot: WorkspaceSnapshot, isSameRootReload: boolean) => {
       const previousSnapshot = isSameRootReload ? workspaceRef.current : null;
+      const idRemap = previousSnapshot
+        ? buildCommandIdRemap(previousSnapshot, snapshot)
+        : null;
+
+      if (!isSameRootReload) {
+        activeRunIdMapRef.current.clear();
+      } else if (idRemap) {
+        for (const cmdMap of activeRunIdMapRef.current.values()) {
+          for (const [origId, currId] of cmdMap.entries()) {
+            if (currId !== null) {
+              cmdMap.set(origId, idRemap.get(currId) ?? null);
+            }
+          }
+        }
+        if (activeActionRef.current?.kind === "command") {
+          const nextCmdId = idRemap.get(activeActionRef.current.commandId);
+          if (nextCmdId && nextCmdId !== activeActionRef.current.commandId) {
+            const nextAction: ActiveRunAction = {
+              kind: "command",
+              commandId: nextCmdId,
+            };
+            activeActionRef.current = nextAction;
+            setActiveAction(nextAction);
+          }
+        }
+      }
+
       setWorkspace(snapshot);
 
       setRuntimeMap((prev) =>
-        previousSnapshot
-          ? reconcileRuntimeWithSnapshot(prev, previousSnapshot, snapshot)
+        previousSnapshot && idRemap
+          ? reconcileRuntimeWithSnapshot(prev, previousSnapshot, snapshot, idRemap)
           : {}
       );
 
@@ -214,9 +263,13 @@ export default function App() {
 
   const loadWorkspaceAtPath = useCallback(
     async (path: string, clearOnFailure = false) => {
+      const loadSeq = ++workspaceLoadSeqRef.current;
       try {
         const previousRoot = workspaceRef.current?.rootPath;
         const snapshot = await openWorkspace(path);
+        if (workspaceLoadSeqRef.current !== loadSeq) {
+          return;
+        }
         if (
           previousRoot &&
           previousRoot !== snapshot.rootPath &&
@@ -243,7 +296,7 @@ export default function App() {
             : prev
         );
       } catch {
-        if (clearOnFailure) {
+        if (clearOnFailure && workspaceLoadSeqRef.current === loadSeq) {
           setWorkspace(null);
         }
       }
@@ -252,11 +305,21 @@ export default function App() {
   );
 
   const handleReloadWorkspace = useCallback(async () => {
+    const expectedRoot = workspaceRef.current?.rootPath;
+    if (!expectedRoot) {
+      return;
+    }
+    const loadSeq = ++workspaceLoadSeqRef.current;
     try {
       const snapshot = await reloadWorkspace();
-      if (snapshot) {
-        applyWorkspaceSnapshot(snapshot, true);
+      if (
+        workspaceLoadSeqRef.current !== loadSeq ||
+        !snapshot ||
+        snapshot.rootPath !== expectedRoot
+      ) {
+        return;
       }
+      applyWorkspaceSnapshot(snapshot, true);
     } catch {
       // Ignore transient reload errors silently.
     }
@@ -272,8 +335,15 @@ export default function App() {
           if (!active) {
             return;
           }
+          const targetCommandId = resolveMappedCommandId(
+            event.runId,
+            event.commandId
+          );
+          if (targetCommandId === null) {
+            return;
+          }
           setRuntimeMap((prev) => {
-            const current = prev[event.commandId] ?? DEFAULT_COMMAND_RUNTIME;
+            const current = prev[targetCommandId] ?? DEFAULT_COMMAND_RUNTIME;
             if (event.kind === "started") {
               if (
                 canceledRunIdsRef.current.has(event.runId) ||
@@ -285,7 +355,7 @@ export default function App() {
               }
               return {
                 ...prev,
-                [event.commandId]: {
+                [targetCommandId]: {
                   status: "running",
                   exitCode: null,
                   durationMs: null,
@@ -296,34 +366,30 @@ export default function App() {
               };
             }
 
-            if (
-              current.lastRunId !== null &&
-              current.lastRunId !== event.runId
-            ) {
+            if (current.lastRunId !== event.runId) {
               return prev;
             }
 
             if (event.kind === "output") {
-              const nextLogs = [
-                ...current.logs,
-                { stream: event.stream, text: event.text },
-              ];
+              if (current.logs.length >= MAX_RETAINED_LOG_LINES + 1) {
+                return prev;
+              }
               return {
                 ...prev,
-                [event.commandId]: {
+                [targetCommandId]: {
                   ...current,
                   lastRunId: event.runId,
-                  logs:
-                    nextLogs.length > 2000
-                      ? nextLogs.slice(nextLogs.length - 2000)
-                      : nextLogs,
+                  logs: [
+                    ...current.logs,
+                    { stream: event.stream, text: event.text },
+                  ],
                 },
               };
             }
 
             return {
               ...prev,
-              [event.commandId]: {
+              [targetCommandId]: {
                 status: event.status,
                 exitCode: event.exitCode,
                 durationMs: event.durationMs,
@@ -381,11 +447,11 @@ export default function App() {
         unlisten();
       }
     };
-  }, [handleReloadWorkspace, loadWorkspaceAtPath]);
+  }, [handleReloadWorkspace, loadWorkspaceAtPath, resolveMappedCommandId]);
 
   const executeTargets = useCallback(
     async (
-      targets: CommandExecutionTarget[],
+      targets: RunTargetEntry[],
       seq: number,
       verifyItemAfterFix?: WorkspaceItem
     ) => {
@@ -395,6 +461,12 @@ export default function App() {
 
       const runId = createRunId(verifyItemAfterFix ? "fix" : "run");
       activeRunIdRef.current = runId;
+
+      const idMap = new Map<string, string | null>();
+      for (const target of targets) {
+        idMap.set(target.commandId, target.commandId);
+      }
+      activeRunIdMapRef.current.set(runId, idMap);
 
       setRuntimeMap((prev) => {
         const next = { ...prev };
@@ -412,13 +484,23 @@ export default function App() {
       });
 
       try {
-        const summary = await runCommands(runId, targets);
+        const summary = await runCommands(
+          runId,
+          targets.map((target) => target.selector)
+        );
         setRuntimeMap((prev) => {
           const next = { ...prev };
           for (const result of summary.results) {
-            const current = next[result.commandId];
+            const targetCommandId = resolveMappedCommandId(
+              summary.runId,
+              result.commandId
+            );
+            if (targetCommandId === null) {
+              continue;
+            }
+            const current = next[targetCommandId];
             if (current && current.lastRunId === summary.runId) {
-              next[result.commandId] = {
+              next[targetCommandId] = {
                 status: result.status,
                 exitCode: result.exitCode,
                 durationMs: result.durationMs,
@@ -443,22 +525,43 @@ export default function App() {
           const verifyCommands = getApplicableCheckCommands(currentItem);
           if (verifyCommands.length > 0) {
             await executeTargets(
-              verifyCommands.map((cmd) => toExecutionTarget(currentItem, cmd)),
+              verifyCommands.map((cmd) => ({
+                commandId: cmd.commandId,
+                selector: toCommandSelector(currentItem, cmd),
+              })),
               seq
             );
           }
         }
-      } catch {
-        // Command failures are reflected directly in command runtime state.
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : String(err || "Execution failed");
+        setRuntimeMap((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const [cmdId, entry] of Object.entries(prev)) {
+            if (entry.lastRunId === runId && entry.status === "running") {
+              next[cmdId] = {
+                ...entry,
+                status: "fail",
+                error: errorMessage,
+              };
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      } finally {
+        activeRunIdMapRef.current.delete(runId);
       }
     },
-    []
+    [resolveMappedCommandId]
   );
 
   const startTrackedAction = useCallback(
     async (
       action: ActiveRunAction,
-      targets: CommandExecutionTarget[],
+      targets: RunTargetEntry[],
       verifyItemAfterFix?: WorkspaceItem
     ) => {
       if (activeActionRef.current !== null || targets.length === 0) {
@@ -497,7 +600,10 @@ export default function App() {
       if (role === "check") {
         void startTrackedAction(
           action,
-          commands.map((cmd) => toExecutionTarget(item, cmd))
+          commands.map((cmd) => ({
+            commandId: cmd.commandId,
+            selector: toCommandSelector(item, cmd),
+          }))
         );
         return;
       }
@@ -559,10 +665,13 @@ export default function App() {
     if (activeActionRef.current !== null || !workspace) {
       return;
     }
-    const targets: CommandExecutionTarget[] = [];
+    const targets: RunTargetEntry[] = [];
     for (const item of filteredItems) {
       for (const cmd of getApplicableCheckCommands(item)) {
-        targets.push(toExecutionTarget(item, cmd));
+        targets.push({
+          commandId: cmd.commandId,
+          selector: toCommandSelector(item, cmd),
+        });
       }
     }
     if (targets.length === 0) {
@@ -611,7 +720,10 @@ export default function App() {
 
     await startTrackedAction(
       pending.action,
-      pending.commands.map((cmd) => toExecutionTarget(pending.item, cmd)),
+      pending.commands.map((cmd) => ({
+        commandId: cmd.commandId,
+        selector: toCommandSelector(pending.item, cmd),
+      })),
       pending.role === "fix" ? pending.item : undefined
     );
   };

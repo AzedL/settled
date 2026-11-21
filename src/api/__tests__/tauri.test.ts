@@ -7,6 +7,7 @@ const {
   writeTextMock,
   openDialogMock,
   openPathMock,
+  openUrlMock,
   revealItemInDirMock,
 } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   writeTextMock: vi.fn(),
   openDialogMock: vi.fn(),
   openPathMock: vi.fn(),
+  openUrlMock: vi.fn(),
   revealItemInDirMock: vi.fn(),
 }));
 
@@ -37,6 +39,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openPath: openPathMock,
+  openUrl: openUrlMock,
   revealItemInDir: revealItemInDirMock,
 }));
 
@@ -45,6 +48,7 @@ import {
   cancelRun,
   copyTextToClipboard,
   getInitialState,
+  openExternalUrl,
   openInVscode,
   openWorkspace,
   pickWorkspaceFolder,
@@ -95,7 +99,7 @@ describe("tauri api wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("reload_workspace");
     expect(invokeMock).toHaveBeenCalledWith("run_commands", {
       runId: "run-1",
-      targets: [],
+      selectors: [],
     });
     expect(invokeMock).toHaveBeenCalledWith("cancel_run", { runId: "run-1" });
     expect(invokeMock).toHaveBeenCalledWith("build_ai_context", {
@@ -121,6 +125,9 @@ describe("tauri api wrappers", () => {
 
     await copyTextToClipboard("hello");
     expect(writeTextMock).toHaveBeenCalledWith("hello");
+
+    await openExternalUrl("https://example.com");
+    expect(openUrlMock).toHaveBeenCalledWith("https://example.com");
 
     const runHandler = vi.fn();
     const watchHandler = vi.fn();

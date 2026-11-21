@@ -2,10 +2,10 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type {
-  CommandExecutionTarget,
   CommandResult,
+  CommandSelector,
   InitialAppState,
   RunEvent,
   WorkspaceSnapshot,
@@ -48,9 +48,9 @@ export async function reloadWorkspace(): Promise<WorkspaceSnapshot | null> {
 
 export async function runCommands(
   runId: string,
-  targets: CommandExecutionTarget[]
+  selectors: CommandSelector[]
 ): Promise<RunBatchResponse> {
-  return invoke<RunBatchResponse>("run_commands", { runId, targets });
+  return invoke<RunBatchResponse>("run_commands", { runId, selectors });
 }
 
 export async function cancelRun(runId: string): Promise<number> {
@@ -80,6 +80,10 @@ export async function revealPathInExplorer(path: string): Promise<void> {
   } catch {
     await openPath(path);
   }
+}
+
+export async function openExternalUrl(url: string): Promise<void> {
+  await openUrl(url);
 }
 
 export async function copyTextToClipboard(text: string): Promise<void> {

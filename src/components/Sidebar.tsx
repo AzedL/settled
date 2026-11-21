@@ -178,14 +178,14 @@ export function Sidebar({
                       {displayedCheckCommands.map((cmd) => {
                         const effectiveApplicable =
                           item.applicable && cmd.applicable;
+                        const runtimeStatus = getCommandRuntime(
+                          runtimeMap,
+                          cmd.commandId
+                        ).status;
                         const status: RunStatus | "disabled" =
-                          effectiveApplicable
-                            ? getCommandRuntime(runtimeMap, cmd.commandId).status
-                            : "disabled";
+                          effectiveApplicable ? runtimeStatus : "disabled";
                         const title = effectiveApplicable
-                          ? `${cmd.name}: ${lang.status.label(
-                              getCommandRuntime(runtimeMap, cmd.commandId).status
-                            )}`
+                          ? `${cmd.name}: ${lang.status.label(runtimeStatus)}`
                           : `${cmd.name}: ${lang.status.disabled}`;
 
                         return (

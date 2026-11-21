@@ -1,4 +1,10 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   Braces,
   Check,
@@ -121,11 +127,21 @@ export function DetailPanel({
   const [copiedContext, setCopiedContext] = useState(false);
   const [showReadme, setShowReadme] = useState(false);
   const [showRawMeta, setShowRawMeta] = useState(false);
+  const copiedTimerRef = useRef<number | null>(null);
+
+  const clearCopiedTimer = () => {
+    if (copiedTimerRef.current !== null) {
+      window.clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
+    clearCopiedTimer();
     setCopiedContext(false);
     setShowReadme(false);
     setShowRawMeta(false);
+    return clearCopiedTimer;
   }, [item?.id]);
 
   if (!item) {
@@ -161,8 +177,12 @@ export function DetailPanel({
   const handleCopyContext = async () => {
     try {
       await onCopyAiContext(item);
+      clearCopiedTimer();
       setCopiedContext(true);
-      window.setTimeout(() => setCopiedContext(false), 2000);
+      copiedTimerRef.current = window.setTimeout(() => {
+        copiedTimerRef.current = null;
+        setCopiedContext(false);
+      }, 2000);
     } catch {
       // Ignore clipboard/IPC errors silently without flashing status banners.
     }

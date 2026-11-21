@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Play, Square, Terminal } from "lucide-react";
 import { lang } from "../lang";
 import type { CommandRuntimeState, ResolvedCommand } from "../types";
@@ -6,6 +6,8 @@ import { getAnsiSegmentStyle, parseAnsiLogLines } from "../utils/ansi";
 import { formatPlatforms } from "../utils/format";
 import { TrafficLed } from "./TrafficLed";
 import { Button } from "./Button";
+
+const AUTO_SCROLL_THRESHOLD_PX = 24;
 
 interface CommandRowProps {
   command: ResolvedCommand;
@@ -24,6 +26,8 @@ export function CommandRow({
 }: CommandRowProps) {
   const isRunning = runtime.status === "running";
   const [logOpen, setLogOpen] = useState(false);
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const isPinnedToBottomRef = useRef(true);
 
   // Automatically expand logs when a command fails so diagnostics are immediately visible.
   useEffect(() => {
@@ -33,9 +37,34 @@ export function CommandRow({
   }, [runtime.status]);
 
   const parsedLogs = useMemo(
-    () => parseAnsiLogLines(runtime.logs),
-    [runtime.logs]
+    () => (logOpen ? parseAnsiLogLines(runtime.logs) : []),
+    [logOpen, runtime.logs]
   );
+
+  // Reset sticky-bottom tracking whenever the log drawer is reopened.
+  useEffect(() => {
+    if (logOpen) {
+      isPinnedToBottomRef.current = true;
+    }
+  }, [logOpen]);
+
+  // Smart auto-scroll: follow new streaming output while pinned near the bottom, pause when user scrolls up.
+  useLayoutEffect(() => {
+    const el = logContainerRef.current;
+    if (!logOpen || !el || !isPinnedToBottomRef.current) {
+      return;
+    }
+    el.scrollTop = el.scrollHeight;
+  }, [logOpen, parsedLogs.length, runtime.error]);
+
+  const handleLogScroll = () => {
+    const el = logContainerRef.current;
+    if (!el) {
+      return;
+    }
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isPinnedToBottomRef.current = distanceToBottom <= AUTO_SCROLL_THRESHOLD_PX;
+  };
 
   return (
     <div
@@ -155,6 +184,8 @@ export function CommandRow({
           </div>
 
           <div
+            ref={logContainerRef}
+            onScroll={handleLogScroll}
             className="border-t rounded-b-[calc(var(--st-radius-md)-var(--st-border-w))] p-[var(--st-space-12)] font-mono text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] max-h-[var(--st-log-max-h)] overflow-y-auto"
             style={{
               backgroundColor: "var(--st-bg-terminal)",

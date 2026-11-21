@@ -12,19 +12,20 @@ export function makeCommand(
   const index = overrides.index ?? 0;
   const key = overrides.key ?? "check";
   const commandId = overrides.commandId ?? `git-config::${key}::${index}`;
+  const name = overrides.name ?? "Git 已安装";
+  const rawRun = overrides.rawRun ?? "git --version";
+  const applicable = overrides.applicable ?? true;
   return {
     index,
     key,
     commandId,
-    name: "Git 已安装",
+    name,
     description: "确认 git 可执行",
-    rawRun: "git --version",
-    resolvedRun: "git --version",
+    rawRun,
     platforms: [],
-    applicable: true,
-    shell: null,
-    effectiveShell: "pwsh",
-    encoding: "utf-8",
+    applicable,
+    fingerprint:
+      overrides.fingerprint ?? JSON.stringify([name, rawRun, applicable]),
     ...overrides,
   };
 }
@@ -73,7 +74,6 @@ export function makeSnapshot(
     itemsDir: "D:\\ws\\settled-items",
     itemsDirExists: true,
     hostPlatform: "windows",
-    defaultShell: "pwsh",
     items,
     allTags: overrides.allTags ?? Array.from(tagSet).sort(),
     scanWarnings: [],

@@ -35,7 +35,6 @@ describe("App integration", () => {
     commandId: "demo::check::0",
     name: "检查标记",
     rawRun: "node @script/demo.mjs check",
-    resolvedRun: "node ./scripts/demo.mjs check",
     applicable: true,
   });
   const fixCmd = makeCommand({
@@ -44,7 +43,6 @@ describe("App integration", () => {
     commandId: "demo::fix::0",
     name: "写入标记",
     rawRun: "node @script/demo.mjs fix",
-    resolvedRun: "node ./scripts/demo.mjs fix",
     applicable: true,
   });
   const demoItem = makeItem({
@@ -145,7 +143,6 @@ describe("App integration", () => {
         groupKey: "check",
         commandIndex: 0,
         commandName: checkCmd.name,
-        resolvedRun: checkCmd.resolvedRun,
         status: "fail" as const,
         exitCode: 1,
         durationMs: 12,
@@ -189,7 +186,6 @@ describe("App integration", () => {
             groupKey: "fix",
             commandIndex: 0,
             commandName: fixCmd.name,
-            resolvedRun: fixCmd.resolvedRun,
             status: "pass",
             exitCode: 0,
             durationMs: 8,
@@ -208,7 +204,6 @@ describe("App integration", () => {
             groupKey: "check",
             commandIndex: 0,
             commandName: checkCmd.name,
-            resolvedRun: checkCmd.resolvedRun,
             status: "pass",
             exitCode: 0,
             durationMs: 9,
@@ -235,7 +230,6 @@ describe("App integration", () => {
       commandId: "demo::check::0",
       name: "新插入的检查项",
       rawRun: "echo brand_new",
-      resolvedRun: "echo brand_new",
       applicable: true,
     });
     const shiftedCheckCmd = makeCommand({
@@ -335,5 +329,170 @@ describe("App integration", () => {
     await waitFor(() => {
       expect(screen.getByText("D:\\ws-second")).toBeInTheDocument();
     });
+  });
+
+  it("routes in-flight run events to shifted command indices on hot reload and handles IPC failures", async () => {
+    let activeRunId = "";
+    let resolveRun: ((v: unknown) => void) | null = null;
+    apiMocks.runCommands.mockImplementationOnce(
+      (runId: string, selectors: unknown) => {
+        activeRunId = runId;
+        // Verify frontend only sends command selectors (no runtime shell/encoding/resolvedRun)
+        expect(selectors).toEqual([
+          { itemId: "demo", groupKey: "check", commandIndex: 0 },
+        ]);
+        return new Promise((resolve) => {
+          resolveRun = resolve;
+        });
+      }
+    );
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("D:\\ws-main")).toBeInTheDocument();
+    });
+
+    // Start single check command at index 0
+    fireEvent.click(screen.getAllByText(lang.scripts.runSingle)[0]);
+    expect(screen.getByText(lang.scripts.stopSingle)).toBeInTheDocument();
+
+    // While running, hot reload inserts a new command at index 0, shifting running checkCmd -> index 1
+    const brandNewCmd = makeCommand({
+      index: 0,
+      key: "check",
+      commandId: "demo::check::0",
+      name: "热插队新命令",
+      rawRun: "echo inserted",
+      applicable: true,
+    });
+    const shiftedRunningCmd = makeCommand({
+      ...checkCmd,
+      index: 1,
+      commandId: "demo::check::1",
+    });
+    const reorderedSnapshot = makeSnapshot({
+      rootPath: "D:\\ws-main",
+      items: [
+        makeItem({
+          ...demoItem,
+          scriptGroups: [
+            makeGroup({
+              key: "check",
+              role: "check",
+              commands: [brandNewCmd, shiftedRunningCmd],
+            }),
+            makeGroup({ key: "fix", role: "fix", commands: [fixCmd] }),
+          ],
+        }),
+        macItem,
+      ],
+    });
+    apiMocks.reloadWorkspace.mockResolvedValueOnce(reorderedSnapshot);
+
+    await act(async () => {
+      watchCb?.("D:\\ws-main");
+    });
+    await waitFor(() => {
+      expect(screen.getByText("热插队新命令")).toBeInTheDocument();
+    });
+
+    // Stop button stays attached to shifted running command
+    expect(screen.getByText(lang.scripts.stopSingle)).toBeInTheDocument();
+
+    // Backend emits output + finished with ORIGINAL commandId `demo::check::0`
+    await act(async () => {
+      runEventCb?.({
+        kind: "output",
+        runId: activeRunId,
+        commandId: "demo::check::0",
+        stream: "stdout",
+        text: "late-shifted-output",
+      });
+      runEventCb?.({
+        kind: "finished",
+        runId: activeRunId,
+        commandId: "demo::check::0",
+        itemId: "demo",
+        groupKey: "check",
+        commandIndex: 0,
+        status: "pass",
+        exitCode: 0,
+        durationMs: 33,
+        error: null,
+      });
+      resolveRun?.({
+        runId: activeRunId,
+        results: [
+          {
+            runId: activeRunId,
+            commandId: "demo::check::0",
+            itemId: "demo",
+            groupKey: "check",
+            commandIndex: 0,
+            commandName: checkCmd.name,
+            status: "pass",
+            exitCode: 0,
+            durationMs: 33,
+            logs: [{ stream: "stdout", text: "late-shifted-output" }],
+            error: null,
+          },
+        ],
+      });
+    });
+
+    // Newly inserted index 0 must remain idle, while shifted index 1 transitions to pass (no stuck running!)
+    expect(screen.queryAllByLabelText(lang.status.label("running"))).toHaveLength(0);
+    expect(screen.getAllByLabelText(lang.status.label("idle")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByLabelText(lang.status.label("pass")).length).toBeGreaterThanOrEqual(1);
+
+    // If runCommands IPC rejects, the command converges to `fail` instead of sticking in `running`
+    apiMocks.runCommands.mockRejectedValueOnce(new Error("ipc backend error"));
+    await act(async () => {
+      fireEvent.click(screen.getAllByText(lang.scripts.runSingle)[0]);
+    });
+    await waitFor(() => {
+      expect(screen.getByText("ipc backend error")).toBeInTheDocument();
+    });
+    expect(screen.queryAllByLabelText(lang.status.label("running"))).toHaveLength(0);
+  });
+
+  it("discards stale out-of-order workspace reload snapshots after switching workspaces", async () => {
+    let resolveStaleReload: ((v: unknown) => void) | null = null;
+    apiMocks.reloadWorkspace.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStaleReload = resolve;
+        })
+    );
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("D:\\ws-main")).toBeInTheDocument();
+    });
+
+    // Trigger reload for ws-main that stays in-flight
+    fireEvent.click(screen.getByLabelText(lang.header.reload));
+
+    // User immediately opens ws-second before ws-main reload finishes
+    const secondSnap = makeSnapshot({
+      rootPath: "D:\\ws-second",
+      items: [makeItem({ id: "second", name: "新工作区" })],
+    });
+    apiMocks.pickWorkspaceFolder.mockResolvedValueOnce("D:\\ws-second");
+    apiMocks.openWorkspace.mockResolvedValueOnce(secondSnap);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText(lang.header.openWorkspace));
+    });
+    await waitFor(() => {
+      expect(screen.getByText("D:\\ws-second")).toBeInTheDocument();
+    });
+
+    // Stale reload from ws-main resolves late -> MUST be ignored
+    await act(async () => {
+      resolveStaleReload?.(snapshot);
+    });
+    expect(screen.getByText("D:\\ws-second")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "新工作区" })).toBeInTheDocument();
   });
 });
