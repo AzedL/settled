@@ -143,7 +143,8 @@ settled list [--all-platforms]        # JSON with id, path, applicable, and raw 
 ### Diagnosing, Fixing & Verifying
 1. Run workspace or item checks:
    ```bash
-   settled check                         # run all applicable checks
+   settled check                         # run all applicable checks (warns on stderr for skipped invalid items)
+   settled check --strict                # fail (exit 1) if any item was skipped due to missing/invalid meta.json
    settled check <item-id> [--step 0] -v # -v prints passing logs and >120-line untruncated output
    ```
 2. On failure, `settled check` prints the item's `dir`, failing `cmd`, exit code, and stderr/stdout tail; inspect `<dir>/README.md`, `meta.json`, and `scripts/` directly.

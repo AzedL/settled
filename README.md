@@ -44,9 +44,11 @@ settled/
 
 完整的 Schema 定义、平台继承规则、Shell/编码默认值与执行边界见 [docs/DESIGN.md](docs/DESIGN.md)。
 
+> **安全提示**：工作区中的 `meta.json`、`README.md` 与 `scripts/` 为纯文本同步文件，请勿在其中写入明文密钥、个人 Token 或密码。
+
 ## 本地开发、构建与测试
 
-前置依赖：Node.js、Rust 工具链及 Tauri v2 桌面构建环境。
+前置依赖：Node.js、Rust 工具链（Rust ≥ 1.85，使用 Edition 2024）及 Tauri v2 桌面构建环境。
 
 ```bash
 # 安装前端依赖
@@ -99,11 +101,11 @@ settled list --all-platforms -w examples/workspace
 settled new my-new-item -w examples/workspace
 settled lint [item-id] -w examples/workspace
 
-# 执行检查（可指定条目，配合条目名使用 --step <0-based> 单步；-v 展示通过项与完整不截断日志）
-settled check [item-id] [-v] -w examples/workspace
+# 执行检查（可指定条目，配合条目名使用 --step <0-based> 单步；-v 展示通过项与完整不截断日志；--strict 在存在损坏/跳过条目时返回非 0）
+settled check [item-id] [-v] [--strict] -w examples/workspace
 settled check <item-id> --step 0 -v -w examples/workspace
 
-# 执行修复并在成功后自动重跑条目适用 check 验收（同样支持 --step 与 -v）
+# 执行修复并在未中止时自动重跑条目适用 check 验收（同样支持 --step 与 -v）
 settled fix <item-id> [--step 0] [-v] -w examples/workspace
 
 # 直接执行任意脚本分组（可直接调用 check / fix / 自定义分组，不触发自动复检）
