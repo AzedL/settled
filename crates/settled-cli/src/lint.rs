@@ -1,6 +1,7 @@
 use serde_json::Value;
 use settled_core::{
-    extract_script_references, find_readme_path, resolve_script_tokens, runner::resolve_encoding,
+    extract_script_references, find_readme_path, resolve_script_tokens,
+    runner::{is_valid_encoding_label, resolve_encoding},
     CommandInput, ItemMetaRaw, Platform, ScriptInput, ITEMS_DIR_NAME,
 };
 use std::collections::BTreeSet;
@@ -333,6 +334,15 @@ fn lint_parsed_meta(parsed: &ItemMetaRaw, item_dir: &Path, diags: &mut Vec<LintD
         let cmds = spec.clone().into_commands();
         for (idx, cmd) in cmds.into_iter().enumerate() {
             let (raw_run, step_platforms, step_shell, step_encoding) = extract_command_fields(cmd);
+
+            if let Some(raw_enc) = step_encoding.as_deref()
+                && !is_valid_encoding_label(raw_enc)
+            {
+                let trimmed = raw_enc.trim();
+                diags.push(warn(format!(
+                    "scripts.{group_key}[{idx}] uses unrecognized encoding '{trimmed}' (will fall back to utf-8)"
+                )));
+            }
 
             if raw_run.trim().is_empty() {
                 diags.push(warn(format!("scripts.{group_key}[{idx}] has an empty 'run'")));

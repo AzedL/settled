@@ -609,6 +609,12 @@ fn drain_lines(
     }
 }
 
+/// Returns `true` when `label` is blank (defaults to UTF-8) or a recognized encoding label.
+pub fn is_valid_encoding_label(label: &str) -> bool {
+    let trimmed = label.trim();
+    trimmed.is_empty() || Encoding::for_label(trimmed.as_bytes()).is_some()
+}
+
 /// Resolves an encoding label (e.g. `utf-8`, `gbk`) with `UTF-8` as the safe fallback.
 pub fn resolve_encoding(label: &str) -> &'static Encoding {
     Encoding::for_label(label.trim().as_bytes()).unwrap_or(encoding_rs::UTF_8)

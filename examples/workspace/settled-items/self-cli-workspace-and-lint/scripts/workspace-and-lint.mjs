@@ -199,7 +199,7 @@ function testLintWarnings(sandbox) {
   const ws = path.join(sandbox, "lint-warn-ws");
   const items = path.join(ws, "settled-items");
 
-  // 1. 缺 README + 未知字段 + 一级脚本不存在 + 平台无交集 -> 全部为 WARN，退出码 0
+  // 1. 缺 README + 未知字段 + 一级脚本不存在 + 平台无交集 + 非法 encoding -> 全部为 WARN，退出码 0
   const warnItem = path.join(items, "warn-matrix");
   writeMeta(warnItem, {
     name: "警告全覆盖",
@@ -211,6 +211,7 @@ function testLintWarnings(sandbox) {
           name: "缺失一级脚本且平台冲突",
           run: "node @script/not-found.mjs",
           platforms: ["macos"],
+          encoding: "uft-8-invalid",
           extraField: true,
         },
       ],
@@ -252,6 +253,7 @@ function testLintWarnings(sandbox) {
   assert.match(res.stdout, /\[WARN\] README\.md is empty/);
   assert.match(res.stdout, /references missing script 'scripts\/not-found\.mjs'/);
   assert.match(res.stdout, /never overlap item platforms/);
+  assert.match(res.stdout, /unrecognized encoding 'uft-8-invalid'/);
   assert.doesNotMatch(res.stdout, /nonexistent-inner\.sh/);
   assert.match(res.stdout, /scripts\.check\[1\] duplicates command in scripts\.check\[0\]/);
   assert.match(res.stdout, /scripts\.custom\[0\] duplicates command in scripts\.check\[0\]/);

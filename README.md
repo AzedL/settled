@@ -97,7 +97,7 @@ settled workspace remove examples/workspace
 settled list -w examples/workspace
 settled list --all-platforms -w examples/workspace
 
-# 创建新条目骨架，并通过 lint 检查语法、未知字段、文档、一级 @script/、平台交集与重复命令
+# 创建新条目骨架，并通过 lint 检查语法、未知字段、文档、一级 @script/、非法编码、平台交集与重复命令
 settled new my-new-item -w examples/workspace
 settled lint [item-id] -w examples/workspace
 

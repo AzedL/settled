@@ -249,11 +249,30 @@ pub fn normalize_against(path: &Path, cwd: &Path) -> PathBuf {
     out
 }
 
-fn canonicalize_if_possible(path: &Path) -> PathBuf {
-    match fs::canonicalize(path) {
-        Ok(canon) => strip_windows_verbatim(canon),
-        Err(_) => path.to_path_buf(),
+pub fn canonicalize_if_possible(path: &Path) -> PathBuf {
+    if let Ok(canon) = fs::canonicalize(path) {
+        return strip_windows_verbatim(canon);
     }
+
+    // When `path` itself no longer exists on disk (e.g. `workspace remove` on a deleted folder),
+    // canonicalize its nearest existing ancestor so symlinked prefixes (`/var` -> `/private/var`)
+    // and Windows 8.3 short paths (`RUNNER~1` -> `runneradmin`) still match registered paths.
+    let mut missing_tail = Vec::new();
+    let mut cur = path;
+    while let Some(parent) = cur.parent() {
+        if let Some(name) = cur.file_name() {
+            missing_tail.push(name.to_os_string());
+        }
+        if let Ok(mut base) = fs::canonicalize(parent).map(strip_windows_verbatim) {
+            for seg in missing_tail.into_iter().rev() {
+                base.push(seg);
+            }
+            return base;
+        }
+        cur = parent;
+    }
+
+    path.to_path_buf()
 }
 
 fn strip_windows_verbatim(path: PathBuf) -> PathBuf {

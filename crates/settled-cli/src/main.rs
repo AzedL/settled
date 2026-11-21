@@ -585,32 +585,51 @@ mod tests {
         // explicit -w overrides global
         let ws_explicit = tmp.path().join("ws-explicit");
         make_valid_ws(&ws_explicit);
+        let ws_explicit_canon = config::canonicalize_if_possible(&ws_explicit);
+        let ws_global_canon = config::canonicalize_if_possible(&ws_global);
+        let ws_cwd_canon = config::canonicalize_if_possible(&ws_cwd);
+
         let (res_exp, warn_exp) =
             resolve_workspace_with_warnings(Some(ws_explicit.clone()), &store, &ws_cwd).unwrap();
         assert!(warn_exp.is_empty());
-        assert!(config::paths_equal(
-            &res_exp.to_string_lossy(),
-            &ws_explicit.to_string_lossy()
-        ));
+        assert!(
+            config::paths_equal(
+                &res_exp.to_string_lossy(),
+                &ws_explicit_canon.to_string_lossy()
+            ),
+            "expected {}, got {}",
+            ws_explicit_canon.display(),
+            res_exp.display()
+        );
 
         // global wins over valid cwd
         let (res_global, warn_global) =
             resolve_workspace_with_warnings(None, &store, &ws_cwd).unwrap();
         assert!(warn_global.is_empty());
-        assert!(config::paths_equal(
-            &res_global.to_string_lossy(),
-            &ws_global.to_string_lossy()
-        ));
+        assert!(
+            config::paths_equal(
+                &res_global.to_string_lossy(),
+                &ws_global_canon.to_string_lossy()
+            ),
+            "expected {}, got {}",
+            ws_global_canon.display(),
+            res_global.display()
+        );
 
         // missing global directory emits warning and falls back to cwd if cwd has settled-items/
         fs::remove_dir_all(&ws_global).unwrap();
         let (res_fallback, warn_fallback) =
             resolve_workspace_with_warnings(None, &store, &ws_cwd).unwrap();
         assert_eq!(warn_fallback.len(), 1);
-        assert!(config::paths_equal(
-            &res_fallback.to_string_lossy(),
-            &ws_cwd.to_string_lossy()
-        ));
+        assert!(
+            config::paths_equal(
+                &res_fallback.to_string_lossy(),
+                &ws_cwd_canon.to_string_lossy()
+            ),
+            "expected {}, got {}",
+            ws_cwd_canon.display(),
+            res_fallback.display()
+        );
 
         // nested subdirectory does NOT walk upward to ws_cwd
         let nested_err = resolve_workspace_with_warnings(None, &store, &nested).unwrap_err();
@@ -667,7 +686,7 @@ mod tests {
         )
         .unwrap();
 
-        // 2. Valid meta, empty README, unknown step field, missing @script, platform conflict -> Warnings only
+        // 2. Valid meta, empty README, unknown step field, missing @script, platform conflict, unrecognized encoding -> Warnings only
         let warn_only = items.join("warn-only");
         fs::create_dir_all(&warn_only).unwrap();
         fs::write(warn_only.join("README.md"), "   \n").unwrap();
@@ -683,6 +702,7 @@ mod tests {
                             "name": "Missing script and conflict",
                             "run": "node @script/missing.mjs",
                             "platforms": ["macos"],
+                            "encoding": "uft-8-typo",
                             "extraStepKey": true
                         }
                     ]
@@ -714,7 +734,11 @@ mod tests {
         let single_warn = lint_workspace(tmp.path(), Some("warn-only")).unwrap();
         assert_eq!(single_warn.items_checked, 1);
         assert_eq!(single_warn.error_count, 0);
-        assert_eq!(single_warn.warning_count, 5);
+        assert_eq!(single_warn.warning_count, 6);
+        assert!(single_warn.results[0]
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("unrecognized encoding 'uft-8-typo'")));
 
         let single_ok = lint_workspace(tmp.path(), Some("ok-item")).unwrap();
         assert_eq!(single_ok.error_count, 0);

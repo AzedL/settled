@@ -105,7 +105,7 @@ All definitions live under `<workspace>/settled-items/`:
 4. **Read-only `check`**: `scripts.check` must only probe state and exit `0` (pass) or non-zero (fail) — put side effects in `scripts.fix` or custom script keys.
 5. **Avoid silent skips & `settled lint` warnings**:
    - Invalid JSON or wrong field types (e.g. `tags` as string, `platforms: null`, invalid platform string) cause `load_workspace` and the desktop app to skip the item — `settled lint` flags these as `[ERROR]` (exit `1`).
-   - Unexpected keys, missing/empty `README.md`, missing first-level `@script/` targets, step `platforms` disjoint from item `platforms`, and duplicate commands (same normalized `run`, `shell`, `encoding` with overlapping `platforms`) within or across `scripts` groups emit `[WARN]`.
+   - Unexpected keys, missing/empty `README.md`, missing first-level `@script/` targets, unrecognized `encoding` labels, step `platforms` disjoint from item `platforms`, and duplicate commands (same normalized `run`, `shell`, `encoding` with overlapping `platforms`) within or across `scripts` groups emit `[WARN]`.
 
 ---
 
