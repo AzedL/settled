@@ -312,6 +312,7 @@ pub struct ResolvedCommand {
     pub shell: Option<String>,
     pub effective_shell: String,
     pub encoding: String,
+    pub fingerprint: String,
 }
 
 /// Ordered script group (`check`, `fix`, or custom key) on an item.
@@ -547,6 +548,7 @@ mod tests {
             shell: None,
             effective_shell: "pwsh".to_string(),
             encoding: "utf-8".to_string(),
+            fingerprint: "fp-1".to_string(),
         };
 
         let target = CommandExecutionTarget::from_resolved(&item, &cmd);

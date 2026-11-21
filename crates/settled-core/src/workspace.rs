@@ -58,7 +58,27 @@ pub fn resolve_script_tokens(raw: &str, shell: &str) -> String {
             let after = i + token.len();
             if after < bytes.len() && (bytes[after] == b'/' || bytes[after] == b'\\') {
                 out.push_str(prefix_slash);
-                i = after + 1;
+                let start = after + 1;
+                if is_cmd {
+                    let opened_quote = (i > 0 && matches!(bytes[i - 1], b'"' | b'\''))
+                        .then(|| bytes[i - 1]);
+                    let mut end = start;
+                    while end < bytes.len() {
+                        let b = bytes[end];
+                        if let Some(q) = opened_quote {
+                            if b == q {
+                                break;
+                            }
+                        } else if is_valid_suffix_boundary(bytes, end) {
+                            break;
+                        }
+                        end += 1;
+                    }
+                    out.push_str(&raw[start..end].replace('/', "\\"));
+                    i = end;
+                } else {
+                    i = start;
+                }
                 continue;
             }
             if is_valid_suffix_boundary(bytes, after) {
@@ -81,7 +101,10 @@ fn is_valid_prefix_boundary(bytes: &[u8], idx: usize) -> bool {
     if idx == 0 {
         return true;
     }
-    matches!(bytes[idx - 1], b' ' | b'\t' | b'\n' | b'\r' | b'"' | b'\'' | b'=' | b'(')
+    matches!(
+        bytes[idx - 1],
+        b' ' | b'\t' | b'\n' | b'\r' | b'"' | b'\'' | b'=' | b'(' | b';' | b'&' | b'|'
+    )
 }
 
 fn is_valid_suffix_boundary(bytes: &[u8], after: usize) -> bool {
@@ -172,13 +195,17 @@ pub fn load_workspace(root: &Path) -> Result<WorkspaceSnapshot, SettledError> {
                 continue;
             }
 
-            let Some(item) = load_single_item(&item_dir, &id, host_platform, &default_shell) else {
-                continue;
-            };
-            for tag in &item.tags {
-                tag_set.insert(tag.clone());
+            match load_single_item(&item_dir, &id, host_platform, &default_shell) {
+                Ok(item) => {
+                    for tag in &item.tags {
+                        tag_set.insert(tag.clone());
+                    }
+                    items.push(item);
+                }
+                Err(reason) => {
+                    scan_warnings.push(format!("Skipped '{id}': {reason}"));
+                }
             }
-            items.push(item);
         }
     }
 
@@ -236,10 +263,12 @@ fn load_single_item(
     id: &str,
     host_platform: Platform,
     default_shell: &str,
-) -> Option<WorkspaceItem> {
+) -> Result<WorkspaceItem, String> {
     let meta_path = item_dir.join("meta.json");
-    let raw_meta = fs::read_to_string(&meta_path).ok()?;
-    let parsed: ItemMetaRaw = serde_json::from_str(&raw_meta).ok()?;
+    let raw_meta =
+        fs::read_to_string(&meta_path).map_err(|e| format!("failed to read meta.json: {e}"))?;
+    let parsed: ItemMetaRaw =
+        serde_json::from_str(&raw_meta).map_err(|e| format!("invalid meta.json: {e}"))?;
 
     let readme_path = find_readme_path(item_dir);
     let readme = readme_path
@@ -252,7 +281,7 @@ fn load_single_item(
     let script_groups =
         build_script_groups(id, parsed.scripts, item_applicable, host_platform, default_shell);
 
-    Some(WorkspaceItem {
+    Ok(WorkspaceItem {
         id: id.to_string(),
         path: item_dir.to_string_lossy().into_owned(),
         meta_path: meta_path.to_string_lossy().into_owned(),
@@ -358,6 +387,17 @@ fn resolve_command(
     let effective_shell = shell.clone().unwrap_or_else(|| default_shell.to_string());
     let resolved_run = resolve_script_tokens(&raw_run, &effective_shell);
     let step_applicable = platforms.is_empty() || platforms.contains(&host_platform);
+    let applicable = item_applicable && step_applicable;
+    let resolved_encoding = encoding.unwrap_or_else(|| "utf-8".to_string());
+    let fingerprint = serde_json::json!([
+        &name,
+        &raw_run,
+        &resolved_run,
+        &effective_shell,
+        &resolved_encoding,
+        applicable,
+    ])
+    .to_string();
 
     ResolvedCommand {
         index,
@@ -368,10 +408,11 @@ fn resolve_command(
         raw_run,
         resolved_run,
         platforms,
-        applicable: item_applicable && step_applicable,
+        applicable,
         shell,
         effective_shell,
-        encoding: encoding.unwrap_or_else(|| "utf-8".to_string()),
+        encoding: resolved_encoding,
+        fingerprint,
     }
 }
 
@@ -393,6 +434,14 @@ mod tests {
         assert_eq!(
             resolve_script_tokens("call @script/win.bat && type @script", "cmd"),
             "call .\\scripts\\win.bat && type .\\scripts"
+        );
+        assert_eq!(
+            resolve_script_tokens("call @script/sub/win.bat && call \"@script/my dir/run.bat\"", "cmd"),
+            "call .\\scripts\\sub\\win.bat && call \".\\scripts\\my dir\\run.bat\""
+        );
+        assert_eq!(
+            resolve_script_tokens("node @script/a.js;@script/b.js&&@script/c.js|@script/d.js", "pwsh"),
+            "node ./scripts/a.js;./scripts/b.js&&./scripts/c.js|./scripts/d.js"
         );
         assert_eq!(
             resolve_script_tokens("npx @scope/pkg @scripted/other @script/ok.sh", "bash"),
@@ -444,7 +493,15 @@ mod tests {
         let snapshot = load_workspace(tmp.path()).unwrap();
         assert!(snapshot.items_dir_exists);
         assert_eq!(snapshot.items.len(), 1);
-        assert_eq!(snapshot.scan_warnings.len(), 1);
+        assert_eq!(snapshot.scan_warnings.len(), 2);
+        assert!(snapshot
+            .scan_warnings
+            .iter()
+            .any(|w| w.contains("no-meta") && w.contains("missing meta.json")));
+        assert!(snapshot
+            .scan_warnings
+            .iter()
+            .any(|w| w.contains("broken-item") && w.contains("invalid meta.json")));
         assert_eq!(snapshot.all_tags, vec!["git", "init"]);
 
         let git = &snapshot.items[0];

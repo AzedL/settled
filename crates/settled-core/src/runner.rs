@@ -5,15 +5,18 @@ use encoding_rs::Encoding;
 use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio::process::{Child, Command};
-use tokio::sync::{mpsc, Mutex, Notify, Semaphore};
+use tokio::process::Command;
+use tokio::sync::{mpsc, watch, Mutex, Semaphore};
 use tokio::task::JoinSet;
 
-const MAX_RETAINED_LINES: usize = 5000;
+pub const MAX_RETAINED_LINES: usize = 5000;
 const LINE_BUFFER_LIMIT_BYTES: usize = 32 * 1024;
 pub const DEFAULT_CONCURRENCY: usize = 6;
+const POST_EXIT_PIPE_IDLE_TIMEOUT: Duration = Duration::from_millis(250);
+const POST_EXIT_PIPE_MAX_TIMEOUT: Duration = Duration::from_secs(2);
+const CANCEL_WAIT_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// Tracks active runs and child PIDs so callers can cancel a single command or a whole run batch.
 #[derive(Debug, Default, Clone)]
@@ -31,14 +34,14 @@ struct RegistryState {
 struct ActiveCommandHandle {
     pid: Option<u32>,
     canceled: bool,
-    notify: Arc<Notify>,
+    cancel_tx: watch::Sender<bool>,
 }
 
-async fn terminate_targets(targets: Vec<(Option<u32>, Arc<Notify>)>) -> usize {
+async fn terminate_targets(targets: Vec<(Option<u32>, watch::Sender<bool>)>) -> usize {
     let count = targets.len();
     let mut kill_set = JoinSet::new();
-    for (pid, notify) in targets {
-        notify.notify_waiters();
+    for (pid, cancel_tx) in targets {
+        let _ = cancel_tx.send(true);
         if let Some(pid) = pid {
             kill_set.spawn(terminate_process_tree(pid));
         }
@@ -52,19 +55,19 @@ impl RunRegistry {
         Self::default()
     }
 
-    async fn register(&self, run_id: &str, command_id: &str) -> Arc<Notify> {
-        let notify = Arc::new(Notify::new());
+    async fn register(&self, run_id: &str, command_id: &str) -> watch::Receiver<bool> {
         let mut guard = self.inner.lock().await;
         let canceled = guard.canceled_runs.contains(run_id);
+        let (cancel_tx, cancel_rx) = watch::channel(canceled);
         guard.commands.insert(
             (run_id.to_string(), command_id.to_string()),
             ActiveCommandHandle {
                 pid: None,
                 canceled,
-                notify: notify.clone(),
+                cancel_tx,
             },
         );
-        notify
+        cancel_rx
     }
 
     async fn attach_pid(&self, run_id: &str, command_id: &str, pid: u32) -> bool {
@@ -102,7 +105,7 @@ impl RunRegistry {
 
     /// Cancels any active runs of a single command by `command_id` and terminates their process trees.
     pub async fn cancel_command(&self, command_id: &str) -> bool {
-        let targets: Vec<(Option<u32>, Arc<Notify>)> = {
+        let targets: Vec<(Option<u32>, watch::Sender<bool>)> = {
             let mut guard = self.inner.lock().await;
             guard
                 .commands
@@ -110,7 +113,7 @@ impl RunRegistry {
                 .filter(|((_, cid), _)| cid == command_id)
                 .map(|(_, handle)| {
                     handle.canceled = true;
-                    (handle.pid, handle.notify.clone())
+                    (handle.pid, handle.cancel_tx.clone())
                 })
                 .collect()
         };
@@ -120,7 +123,7 @@ impl RunRegistry {
 
     /// Cancels every running command associated with `run_id`, plus any queued tasks for that batch.
     pub async fn cancel_run(&self, run_id: &str) -> usize {
-        let targets: Vec<(Option<u32>, Arc<Notify>)> = {
+        let targets: Vec<(Option<u32>, watch::Sender<bool>)> = {
             let mut guard = self.inner.lock().await;
             guard.canceled_runs.insert(run_id.to_string());
             guard
@@ -129,7 +132,7 @@ impl RunRegistry {
                 .filter(|((rid, _), _)| rid == run_id)
                 .map(|(_, handle)| {
                     handle.canceled = true;
-                    (handle.pid, handle.notify.clone())
+                    (handle.pid, handle.cancel_tx.clone())
                 })
                 .collect()
         };
@@ -139,7 +142,7 @@ impl RunRegistry {
 
     /// Cancels all currently running commands across all runs.
     pub async fn cancel_all(&self) -> usize {
-        let targets: Vec<(Option<u32>, Arc<Notify>)> = {
+        let targets: Vec<(Option<u32>, watch::Sender<bool>)> = {
             let mut guard = self.inner.lock().await;
             let active_run_ids: Vec<String> = guard
                 .commands
@@ -154,7 +157,7 @@ impl RunRegistry {
                 .values_mut()
                 .map(|handle| {
                     handle.canceled = true;
-                    (handle.pid, handle.notify.clone())
+                    (handle.pid, handle.cancel_tx.clone())
                 })
                 .collect()
         };
@@ -216,7 +219,7 @@ where
     F: Fn(RunEvent) + Send + Sync,
 {
     let start = Instant::now();
-    let cancel_notify = registry.register(run_id, &target.command_id).await;
+    let mut cancel_rx = registry.register(run_id, &target.command_id).await;
 
     on_event(RunEvent::Started {
         run_id: run_id.to_string(),
@@ -303,44 +306,79 @@ where
 
     let mut collected_logs = Vec::new();
     let mut truncated = false;
-    while let Some(line) = line_rx.recv().await {
-        if collected_logs.len() < MAX_RETAINED_LINES {
-            collected_logs.push(line.clone());
-        } else if !truncated {
-            truncated = true;
-            let notice = OutputLine {
-                stream: LogStream::System,
-                text: format!("[output truncated after {MAX_RETAINED_LINES} lines]"),
-            };
-            collected_logs.push(notice.clone());
-            on_event(RunEvent::Output {
-                run_id: run_id.to_string(),
-                command_id: target.command_id.clone(),
-                stream: notice.stream,
-                text: notice.text,
-            });
-            continue;
-        }
 
-        if !truncated {
-            on_event(RunEvent::Output {
-                run_id: run_id.to_string(),
-                command_id: target.command_id.clone(),
-                stream: line.stream,
-                text: line.text,
-            });
+    let (canceled_during_wait, wait_outcome) = {
+        let mut wait_fut = std::pin::pin!(child.wait());
+        let mut pipes_open = true;
+        let mut canceled_hit = false;
+        let mut outcome: Option<std::io::Result<std::process::ExitStatus>> = None;
+
+        loop {
+            tokio::select! {
+                biased;
+                _ = wait_for_cancel(&mut cancel_rx) => {
+                    canceled_hit = true;
+                    break;
+                }
+                status = &mut wait_fut => {
+                    outcome = Some(status);
+                    break;
+                }
+                maybe_line = line_rx.recv(), if pipes_open => {
+                    match maybe_line {
+                        Some(line) => push_output_line(
+                            line,
+                            &mut collected_logs,
+                            &mut truncated,
+                            run_id,
+                            &target.command_id,
+                            on_event,
+                        ),
+                        None => pipes_open = false,
+                    }
+                }
+            }
         }
+        (canceled_hit, outcome)
+    };
+
+    if canceled_during_wait {
+        if let Some(pid) = child.id() {
+            terminate_process_tree(pid).await;
+        }
+        let _ = child.kill().await;
+        let _ = tokio::time::timeout(CANCEL_WAIT_TIMEOUT, child.wait()).await;
     }
+
+    drain_remaining_lines(
+        &mut line_rx,
+        if canceled_during_wait {
+            Duration::from_millis(80)
+        } else {
+            POST_EXIT_PIPE_IDLE_TIMEOUT
+        },
+        POST_EXIT_PIPE_MAX_TIMEOUT,
+        |line| {
+            push_output_line(
+                line,
+                &mut collected_logs,
+                &mut truncated,
+                run_id,
+                &target.command_id,
+                on_event,
+            );
+        },
+    )
+    .await;
 
     if let Some(fut) = stdout_task {
-        let _ = fut.await;
+        fut.abort();
     }
     if let Some(fut) = stderr_task {
-        let _ = fut.await;
+        fut.abort();
     }
 
-    let wait_outcome = wait_with_cancel(&mut child, &cancel_notify).await;
-    let was_canceled = registry.is_canceled(run_id, &target.command_id).await;
+    let was_canceled = canceled_during_wait || registry.is_canceled(run_id, &target.command_id).await;
     registry.unregister(run_id, &target.command_id).await;
 
     let duration_ms = start.elapsed().as_millis() as u64;
@@ -349,7 +387,7 @@ where
     }
 
     let (status, exit_code, error) = match wait_outcome {
-        Ok(exit) => {
+        Some(Ok(exit)) => {
             let code = exit.code();
             let status = if exit.success() {
                 RunStatus::Pass
@@ -358,10 +396,15 @@ where
             };
             (status, code, None)
         }
-        Err(err) => (
+        Some(Err(err)) => (
             RunStatus::Fail,
             None,
             Some(format!("Process wait error: {err}")),
+        ),
+        None => (
+            RunStatus::Fail,
+            None,
+            Some("Process wait terminated unexpectedly".to_string()),
         ),
     };
 
@@ -393,19 +436,74 @@ where
     }
 }
 
-async fn wait_with_cancel(
-    child: &mut Child,
-    cancel_notify: &Notify,
-) -> std::io::Result<std::process::ExitStatus> {
-    tokio::select! {
-        status = child.wait() => status,
-        _ = cancel_notify.notified() => {
-            if let Some(pid) = child.id() {
-                terminate_process_tree(pid).await;
-            }
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Canceled"))
+async fn wait_for_cancel(rx: &mut watch::Receiver<bool>) {
+    if *rx.borrow_and_update() {
+        return;
+    }
+    while rx.changed().await.is_ok() {
+        if *rx.borrow_and_update() {
+            return;
+        }
+    }
+    std::future::pending::<()>().await;
+}
+
+fn push_output_line<F>(
+    line: OutputLine,
+    collected_logs: &mut Vec<OutputLine>,
+    truncated: &mut bool,
+    run_id: &str,
+    command_id: &str,
+    on_event: &F,
+) where
+    F: Fn(RunEvent) + Send + Sync,
+{
+    if collected_logs.len() < MAX_RETAINED_LINES {
+        collected_logs.push(line.clone());
+    } else if !*truncated {
+        *truncated = true;
+        let notice = OutputLine {
+            stream: LogStream::System,
+            text: format!("[output truncated after {MAX_RETAINED_LINES} lines]"),
+        };
+        collected_logs.push(notice.clone());
+        on_event(RunEvent::Output {
+            run_id: run_id.to_string(),
+            command_id: command_id.to_string(),
+            stream: notice.stream,
+            text: notice.text,
+        });
+        return;
+    }
+
+    if !*truncated {
+        on_event(RunEvent::Output {
+            run_id: run_id.to_string(),
+            command_id: command_id.to_string(),
+            stream: line.stream,
+            text: line.text,
+        });
+    }
+}
+
+async fn drain_remaining_lines<F>(
+    line_rx: &mut mpsc::UnboundedReceiver<OutputLine>,
+    idle_timeout: Duration,
+    max_total: Duration,
+    mut on_line: F,
+) where
+    F: FnMut(OutputLine),
+{
+    let deadline = tokio::time::Instant::now() + max_total;
+    loop {
+        let now = tokio::time::Instant::now();
+        if now >= deadline {
+            break;
+        }
+        let step = idle_timeout.min(deadline - now);
+        match tokio::time::timeout(step, line_rx.recv()).await {
+            Ok(Some(line)) => on_line(line),
+            Ok(None) | Err(_) => break,
         }
     }
 }
@@ -534,7 +632,7 @@ fn build_shell_command(target: &CommandExecutionTarget) -> Command {
             let mut c = Command::new(target.shell.trim());
             let script = if use_utf8 {
                 format!(
-                    "[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n{}",
+                    "try {{ [Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) }} catch {{}}; $OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n{}",
                     target.resolved_run
                 )
             } else {
@@ -610,6 +708,30 @@ async fn terminate_process_tree(pid: u32) {
         let pgid_arg = format!("-{pid}");
         let _ = Command::new("kill")
             .args(["-TERM", &pgid_arg])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .await;
+
+        let deadline = tokio::time::Instant::now() + Duration::from_millis(400);
+        while tokio::time::Instant::now() < deadline {
+            let alive = Command::new("kill")
+                .args(["-0", &pgid_arg])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .await
+                .is_ok_and(|s| s.success());
+            if !alive {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(40)).await;
+        }
+
+        let _ = Command::new("kill")
+            .args(["-KILL", &pgid_arg])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -843,5 +965,66 @@ mod tests {
             .unwrap()
             .text
             .contains("output truncated after 5000 lines"));
+    }
+
+    #[tokio::test]
+    async fn does_not_hang_when_background_grandchild_inherits_stdio() {
+        let tmp = TempDir::new().unwrap();
+        let target = make_target(
+            tmp.path(),
+            "grandchild-pipe",
+            r#"node -e "const { spawn } = require('child_process'); console.log('parent_done'); const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 3000)'], { detached: true, stdio: 'inherit' }); child.unref();""#,
+        );
+
+        let started = Instant::now();
+        let results = run_commands_parallel(
+            "run-grandchild".to_string(),
+            vec![target],
+            1,
+            RunRegistry::new(),
+            |_| {},
+        )
+        .await;
+        let elapsed = started.elapsed();
+
+        assert_eq!(results[0].status, RunStatus::Pass);
+        assert!(results[0].logs.iter().any(|l| l.text.contains("parent_done")));
+        assert!(
+            elapsed < Duration::from_millis(2200),
+            "runner hung waiting on grandchild pipe ({elapsed:?})"
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn escalates_sigkill_when_process_ignores_sigterm() {
+        let tmp = TempDir::new().unwrap();
+        let mut target = make_target(tmp.path(), "ignore-term", "trap '' TERM; sleep 30");
+        target.shell = "sh".to_string();
+
+        let registry = RunRegistry::new();
+        let reg_clone = registry.clone();
+
+        let handle = tokio::spawn(async move {
+            run_commands_parallel(
+                "run-sigkill".to_string(),
+                vec![target],
+                1,
+                reg_clone,
+                |_| {},
+            )
+            .await
+        });
+
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let cancel_start = Instant::now();
+        assert_eq!(registry.cancel_run("run-sigkill").await, 1);
+
+        let results = tokio::time::timeout(Duration::from_secs(3), handle)
+            .await
+            .expect("cancel timed out on SIGTERM-ignoring process")
+            .unwrap();
+        assert_eq!(results[0].status, RunStatus::Canceled);
+        assert!(cancel_start.elapsed() < Duration::from_secs(3));
     }
 }

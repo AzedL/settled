@@ -72,6 +72,7 @@ mod tests {
             shell: None,
             effective_shell: "bash".to_string(),
             encoding: "utf-8".to_string(),
+            fingerprint: format!("fp-{key}-{index}"),
         }
     }
 
