@@ -420,4 +420,82 @@ fn new_lint_and_output_truncation_work_via_cli_binary() {
     let check_broken = run_cli(&["check", "probe-item", "-w", ws_str], tmp.path(), &cfg, &[]);
     assert_eq!(check_broken.status.code(), Some(2));
     assert!(stderr_str(&check_broken).contains("settled lint probe-item"));
+
+    // Workspace-wide check warns on stderr for skipped broken item, exits 0 by default, exits 1 with --strict
+    let check_warn = run_cli(&["check", "-w", ws_str], tmp.path(), &cfg, &[]);
+    assert_eq!(check_warn.status.code(), Some(0));
+    assert!(stderr_str(&check_warn).contains("warning:"));
+    assert!(stderr_str(&check_warn).contains("probe-item"));
+
+    let check_strict = run_cli(&["check", "--strict", "-w", ws_str], tmp.path(), &cfg, &[]);
+    assert_eq!(check_strict.status.code(), Some(1));
+    assert!(stderr_str(&check_strict).contains("warning:"));
+
+    // `list` warns on stderr for broken item while keeping stdout valid JSON
+    let list_warn = run_cli(&["list", "-w", ws_str], tmp.path(), &cfg, &[]);
+    assert_eq!(list_warn.status.code(), Some(0));
+    assert!(stderr_str(&list_warn).contains("warning:"));
+    let parsed_list: Value = serde_json::from_str(&stdout_str(&list_warn)).unwrap();
+    assert!(parsed_list["items"].as_array().unwrap().is_empty());
+
+    // Invalid path-traversal item ID is rejected cleanly without lint hint
+    let bad_traversal = run_cli(&["check", "..", "-w", ws_str], tmp.path(), &cfg, &[]);
+    assert_eq!(bad_traversal.status.code(), Some(2));
+    assert!(stderr_str(&bad_traversal).contains("Invalid item ID"));
+    assert!(!stderr_str(&bad_traversal).contains("settled lint"));
+
+    // `run` respects `-v`: without `-v` omits dir/cmd and truncates >120 passing lines; with `-v` includes all
+    let long_pass_dir = ws.join(ITEMS_DIR_NAME).join("long-pass");
+    fs::create_dir_all(&long_pass_dir).unwrap();
+    fs::write(
+        long_pass_dir.join("meta.json"),
+        r#"{
+            "name": "Long Pass",
+            "scripts": {
+                "dump": "node -e \"for (let i = 0; i < 140; i++) console.log('okline-' + i)\""
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let run_quiet = run_cli(&["run", "long-pass", "dump", "-w", ws_str], tmp.path(), &cfg, &[]);
+    assert_eq!(run_quiet.status.code(), Some(0));
+    let run_quiet_out = stdout_str(&run_quiet);
+    assert!(!run_quiet_out.contains("  dir:"));
+    assert!(!run_quiet_out.contains("  cmd:"));
+    assert!(run_quiet_out.contains("earlier line(s) omitted; pass -v to view full output"));
+    assert!(!run_quiet_out.contains("okline-0\n"));
+    assert!(run_quiet_out.contains("okline-139"));
+
+    let run_verbose = run_cli(
+        &["run", "long-pass", "dump", "-v", "-w", ws_str],
+        tmp.path(),
+        &cfg,
+        &[],
+    );
+    assert_eq!(run_verbose.status.code(), Some(0));
+    let run_verbose_out = stdout_str(&run_verbose);
+    assert!(run_verbose_out.contains("  dir:"));
+    assert!(run_verbose_out.contains("  cmd:"));
+    assert!(run_verbose_out.contains("okline-0"));
+    assert!(run_verbose_out.contains("okline-139"));
+
+    // Explicit invalid `-w` must not print unrelated stale global workspace warning
+    let stale_ws = tmp.path().join("stale-global-ws");
+    fs::create_dir_all(stale_ws.join(ITEMS_DIR_NAME)).unwrap();
+    assert_eq!(
+        run_cli(&["workspace", "use", stale_ws.to_str().unwrap()], tmp.path(), &cfg, &[])
+            .status
+            .code(),
+        Some(0)
+    );
+    fs::remove_dir_all(&stale_ws).unwrap();
+    let bad_explicit = run_cli(
+        &["check", "-w", tmp.path().join("nope").to_str().unwrap()],
+        tmp.path(),
+        &cfg,
+        &[],
+    );
+    assert_eq!(bad_explicit.status.code(), Some(2));
+    assert!(!stderr_str(&bad_explicit).contains("configured workspace directory does not exist"));
 }

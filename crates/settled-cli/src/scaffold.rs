@@ -68,7 +68,7 @@ pub fn create_item_scaffold(workspace_root: &Path, item_id: &str) -> Result<Crea
         "createAt": now_secs,
         "scripts": {
             "check": [
-                "echo \"TODO: implement check\" && exit 1"
+                "echo \"TODO: implement check\"; exit 1"
             ]
         }
     });

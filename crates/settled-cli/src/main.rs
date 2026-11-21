@@ -108,6 +108,9 @@ struct CheckArgs {
     /// Show output from passing commands as well as failures
     #[arg(long, short = 'v')]
     verbose: bool,
+    /// Exit non-zero if any workspace items were skipped due to invalid or missing meta.json
+    #[arg(long)]
+    strict: bool,
 }
 
 #[derive(Debug, Args)]
@@ -178,6 +181,9 @@ async fn main() -> ExitCode {
 
             match cli.command {
                 Commands::List(args) => {
+                    for warning in &snapshot.scan_warnings {
+                        print_cli_warning(warning);
+                    }
                     print_list_report(&snapshot, args.all_platforms);
                     ExitCode::SUCCESS
                 }
@@ -195,6 +201,7 @@ fn resolve_active_workspace(
     store: &CliConfigStore,
     cwd: &Path,
 ) -> Result<PathBuf, ExitCode> {
+    let explicit_was_none = explicit.is_none();
     match resolve_workspace_with_warnings(explicit, store, cwd) {
         Ok((path, warnings)) => {
             for w in warnings {
@@ -203,7 +210,8 @@ fn resolve_active_workspace(
             Ok(path)
         }
         Err(err) => {
-            if let Ok(cfg) = store.load()
+            if explicit_was_none
+                && let Ok(cfg) = store.load()
                 && let Some(current) = cfg.current_workspace
                 && !Path::new(&current).is_dir()
             {
@@ -318,6 +326,12 @@ fn handle_lint(workspace_root: &Path, args: &LintArgs) -> ExitCode {
 }
 
 async fn handle_check(snapshot: &WorkspaceSnapshot, args: &CheckArgs) -> ExitCode {
+    if args.item.is_none() || args.strict {
+        for warning in &snapshot.scan_warnings {
+            print_cli_warning(warning);
+        }
+    }
+
     let targets = match collect_targets(snapshot, args.item.as_deref(), "check", args.step) {
         Ok(t) => t,
         Err(msg) => {
@@ -332,11 +346,20 @@ async fn handle_check(snapshot: &WorkspaceSnapshot, args: &CheckArgs) -> ExitCod
             return ExitCode::from(2);
         }
         print_no_checks_found();
+        if args.strict && !snapshot.scan_warnings.is_empty() {
+            return ExitCode::from(1);
+        }
         return ExitCode::SUCCESS;
     }
 
-    let results = run_batch("cli-check", targets).await;
+    let (results, interrupted) = run_batch("cli-check", targets).await;
     print_execution_report(None, &results, snapshot, args.verbose, false, true);
+    if interrupted {
+        return ExitCode::from(130);
+    }
+    if args.strict && !snapshot.scan_warnings.is_empty() {
+        return ExitCode::from(1);
+    }
     exit_code_for_results(&results)
 }
 
@@ -354,9 +377,12 @@ async fn handle_fix(snapshot: &WorkspaceSnapshot, args: &FixArgs) -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let fix_results = run_batch("cli-fix", fix_targets).await;
-    let check_targets =
-        collect_targets(snapshot, Some(&args.item), "check", None).unwrap_or_default();
+    let (fix_results, fix_interrupted) = run_batch("cli-fix", fix_targets).await;
+    let check_targets = if fix_interrupted {
+        Vec::new()
+    } else {
+        collect_targets(snapshot, Some(&args.item), "check", None).unwrap_or_default()
+    };
 
     print_execution_report(
         Some("Fix"),
@@ -367,14 +393,22 @@ async fn handle_fix(snapshot: &WorkspaceSnapshot, args: &FixArgs) -> ExitCode {
         check_targets.is_empty(),
     );
 
-    let verify_results = if check_targets.is_empty() {
-        Vec::new()
+    if fix_interrupted {
+        return ExitCode::from(130);
+    }
+
+    let (verify_results, verify_interrupted) = if check_targets.is_empty() {
+        (Vec::new(), false)
     } else {
         println!();
-        let results = run_batch("cli-verify", check_targets).await;
+        let (results, interrupted) = run_batch("cli-verify", check_targets).await;
         print_execution_report(Some("Verify"), &results, snapshot, args.verbose, false, true);
-        results
+        (results, interrupted)
     };
+
+    if verify_interrupted {
+        return ExitCode::from(130);
+    }
 
     let all_pass = fix_results.iter().all(|r| r.status == RunStatus::Pass)
         && verify_results.iter().all(|r| r.status == RunStatus::Pass);
@@ -403,8 +437,11 @@ async fn handle_run(snapshot: &WorkspaceSnapshot, args: &RunArgs) -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let results = run_batch("cli-run", targets).await;
+    let (results, interrupted) = run_batch("cli-run", targets).await;
     print_execution_report(None, &results, snapshot, args.verbose, true, true);
+    if interrupted {
+        return ExitCode::from(130);
+    }
     exit_code_for_results(&results)
 }
 
@@ -424,6 +461,9 @@ fn collect_targets(
     step_index: Option<usize>,
 ) -> Result<Vec<CommandExecutionTarget>, String> {
     if let Some(id) = item_id {
+        if id.is_empty() || id == "." || id == ".." || id.contains(['/', '\\']) {
+            return Err(format!("Invalid item ID '{id}'"));
+        }
         let Some(item) = snapshot.items.iter().find(|i| i.id == id) else {
             let item_dir = Path::new(&snapshot.items_dir).join(id);
             if item_dir.is_dir() {
@@ -484,16 +524,31 @@ fn collect_targets(
     Ok(targets)
 }
 
-async fn run_batch(run_id: &str, targets: Vec<CommandExecutionTarget>) -> Vec<CommandResult> {
+async fn run_batch(
+    run_id: &str,
+    targets: Vec<CommandExecutionTarget>,
+) -> (Vec<CommandResult>, bool) {
     let registry = RunRegistry::new();
-    run_commands_parallel(
-        run_id.to_string(),
+    let run_id_owned = run_id.to_string();
+    let mut run_handle = tokio::spawn(run_commands_parallel(
+        run_id_owned.clone(),
         targets,
         DEFAULT_CONCURRENCY,
-        registry,
+        registry.clone(),
         |_| {},
-    )
-    .await
+    ));
+
+    tokio::select! {
+        res = &mut run_handle => (res.unwrap_or_default(), false),
+        sig = tokio::signal::ctrl_c() => {
+            if sig.is_ok() {
+                print_cli_warning("interrupted by Ctrl+C; canceling active commands...");
+                let _ = registry.cancel_run(&run_id_owned).await;
+            }
+            let results = run_handle.await.unwrap_or_default();
+            (results, true)
+        }
+    }
 }
 
 #[cfg(test)]

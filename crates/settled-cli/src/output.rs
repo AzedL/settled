@@ -237,7 +237,7 @@ pub fn print_execution_report(
             );
         } else {
             for r in passing {
-                print_detailed_command(r, item_dir, verbose || always_show_pass_output, true);
+                print_detailed_command(r, item_dir, verbose || always_show_pass_output, verbose);
             }
         }
 
