@@ -30,6 +30,7 @@ describe("itemStatus utilities", () => {
       itemId: "git-config",
       groupKey: "check",
       commandIndex: 1,
+      fingerprint: cmd.fingerprint,
     });
   });
 

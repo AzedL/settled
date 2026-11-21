@@ -58,6 +58,7 @@ export interface CommandSelector {
   itemId: string;
   groupKey: string;
   commandIndex: number;
+  fingerprint: string;
 }
 
 export interface AppPrefs {

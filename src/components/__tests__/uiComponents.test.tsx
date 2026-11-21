@@ -97,7 +97,9 @@ describe("primitive and command UI components", () => {
 
     rerender(
       <MarkdownView
-        content={"# 标题\n\n- 条目 A\n\n[官网](https://example.com) [本地](./local.md)"}
+        content={
+          "# 标题\n\n- 条目 A\n\n[官网](https://example.com) [邮件](mailto:hi@example.com) [电话](tel:+12345) [本地](./local.md)"
+        }
       />
     );
     expect(screen.getByRole("heading", { name: "标题" })).toBeInTheDocument();
@@ -107,6 +109,14 @@ describe("primitive and command UI components", () => {
     const extClick = fireEvent.click(extLink);
     expect(extClick).toBe(false);
     expect(openExternalUrlMock).toHaveBeenCalledWith("https://example.com");
+
+    openExternalUrlMock.mockClear();
+    fireEvent.click(screen.getByRole("link", { name: "邮件" }));
+    expect(openExternalUrlMock).toHaveBeenCalledWith("mailto:hi@example.com");
+
+    openExternalUrlMock.mockClear();
+    fireEvent.click(screen.getByRole("link", { name: "电话" }));
+    expect(openExternalUrlMock).toHaveBeenCalledWith("tel:+12345");
 
     openExternalUrlMock.mockClear();
     const localLink = screen.getByRole("link", { name: "本地" });

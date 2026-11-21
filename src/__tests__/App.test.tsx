@@ -339,7 +339,12 @@ describe("App integration", () => {
         activeRunId = runId;
         // Verify frontend only sends command selectors (no runtime shell/encoding/resolvedRun)
         expect(selectors).toEqual([
-          { itemId: "demo", groupKey: "check", commandIndex: 0 },
+          {
+            itemId: "demo",
+            groupKey: "check",
+            commandIndex: 0,
+            fingerprint: checkCmd.fingerprint,
+          },
         ]);
         return new Promise((resolve) => {
           resolveRun = resolve;
@@ -494,5 +499,81 @@ describe("App integration", () => {
     });
     expect(screen.getByText("D:\\ws-second")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "新工作区" })).toBeInTheDocument();
+  });
+
+  it("closes stale confirm modal and cancels orphaned active run when hot reload removes or changes commands", async () => {
+    let resolveRun: ((v: unknown) => void) | null = null;
+    apiMocks.runCommands.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRun = resolve;
+        })
+    );
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("D:\\ws-main")).toBeInTheDocument();
+    });
+
+    // 1. Open Fix ConfirmModal, then hot-reload with a modified fix command -> modal must auto-close
+    fireEvent.click(screen.getByText(lang.scripts.runGroup("Fix")));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    const modifiedFixCmd = makeCommand({
+      ...fixCmd,
+      rawRun: "node @script/demo.mjs fix-v2",
+      fingerprint: JSON.stringify([fixCmd.name, "node @script/demo.mjs fix-v2", true]),
+    });
+    const modifiedFixSnap = makeSnapshot({
+      rootPath: "D:\\ws-main",
+      items: [
+        makeItem({
+          ...demoItem,
+          scriptGroups: [
+            makeGroup({ key: "check", role: "check", commands: [checkCmd] }),
+            makeGroup({ key: "fix", role: "fix", commands: [modifiedFixCmd] }),
+          ],
+        }),
+        macItem,
+      ],
+    });
+    apiMocks.reloadWorkspace.mockResolvedValueOnce(modifiedFixSnap);
+
+    await act(async () => {
+      watchCb?.("D:\\ws-main");
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    // 2. Start single check command, then hot-reload removes that command -> active run is auto-canceled
+    fireEvent.click(screen.getAllByText(lang.scripts.runSingle)[0]);
+    expect(screen.getByText(lang.scripts.stopSingle)).toBeInTheDocument();
+
+    const deletedCheckSnap = makeSnapshot({
+      rootPath: "D:\\ws-main",
+      items: [
+        makeItem({
+          ...demoItem,
+          scriptGroups: [
+            makeGroup({ key: "fix", role: "fix", commands: [modifiedFixCmd] }),
+          ],
+        }),
+        macItem,
+      ],
+    });
+    apiMocks.reloadWorkspace.mockResolvedValueOnce(deletedCheckSnap);
+
+    await act(async () => {
+      watchCb?.("D:\\ws-main");
+    });
+    await waitFor(() => {
+      expect(apiMocks.cancelRun).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText(lang.scripts.stopSingle)).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveRun?.({ runId: "canceled", results: [] });
+    });
   });
 });

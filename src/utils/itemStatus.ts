@@ -29,6 +29,7 @@ export function toCommandSelector(
     itemId: item.id,
     groupKey: command.key,
     commandIndex: command.index,
+    fingerprint: command.fingerprint,
   };
 }
 

@@ -31,7 +31,8 @@ struct ActiveWorkspace {
 pub struct AppState {
     registry: RunRegistry,
     workspace: Mutex<Option<ActiveWorkspace>>,
-    workspace_op_seq: AtomicU64,
+    open_seq: AtomicU64,
+    snapshot_seq: AtomicU64,
     main_window_shown: Arc<AtomicBool>,
 }
 
@@ -181,6 +182,7 @@ pub struct CommandSelector {
     pub item_id: String,
     pub group_key: String,
     pub command_index: usize,
+    pub fingerprint: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -256,10 +258,15 @@ async fn open_workspace(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<DesktopWorkspaceSnapshot, String> {
-    let op_seq = state.workspace_op_seq.fetch_add(1, Ordering::AcqRel) + 1;
+    let my_open_seq = state.open_seq.fetch_add(1, Ordering::AcqRel) + 1;
+    state.snapshot_seq.fetch_add(1, Ordering::AcqRel);
     let workspace_path = PathBuf::from(&path);
     let snapshot = load_workspace_blocking(workspace_path.clone()).await?;
     let dto = DesktopWorkspaceSnapshot::from(&snapshot);
+
+    if state.open_seq.load(Ordering::Acquire) != my_open_seq {
+        return Ok(dto);
+    }
 
     let watcher_app = app.clone();
     let watcher_path = workspace_path.clone();
@@ -272,7 +279,7 @@ async fn open_workspace(
 
     let committed = {
         let mut guard = state.workspace.lock().await;
-        if state.workspace_op_seq.load(Ordering::Acquire) == op_seq {
+        if state.open_seq.load(Ordering::Acquire) == my_open_seq {
             *guard = Some(ActiveWorkspace {
                 root_path: workspace_path,
                 snapshot,
@@ -339,7 +346,7 @@ async fn build_ai_context(
 
 impl AppState {
     async fn reload_active(&self) -> Result<Option<DesktopWorkspaceSnapshot>, String> {
-        let (op_seq, root_path) = {
+        let (my_open_seq, my_snap_seq, root_path) = {
             let mut guard = self.workspace.lock().await;
             let Some(active) = guard.as_mut() else {
                 return Ok(None);
@@ -348,7 +355,8 @@ impl AppState {
                 watcher.sync_items_watch();
             }
             (
-                self.workspace_op_seq.load(Ordering::Acquire),
+                self.open_seq.load(Ordering::Acquire),
+                self.snapshot_seq.fetch_add(1, Ordering::AcqRel) + 1,
                 active.root_path.clone(),
             )
         };
@@ -357,7 +365,9 @@ impl AppState {
         let dto = DesktopWorkspaceSnapshot::from(&snapshot);
 
         let mut guard = self.workspace.lock().await;
-        if self.workspace_op_seq.load(Ordering::Acquire) != op_seq {
+        if self.open_seq.load(Ordering::Acquire) != my_open_seq
+            || self.snapshot_seq.load(Ordering::Acquire) != my_snap_seq
+        {
             return Ok(None);
         }
         if let Some(active) = guard.as_mut()
@@ -408,6 +418,12 @@ impl AppState {
                     sel.command_index, sel.item_id, sel.group_key
                 )
             })?;
+            if cmd.fingerprint != sel.fingerprint {
+                return Err(format!(
+                    "Command '{}.{}[{}]' changed since selection; please re-confirm",
+                    sel.item_id, sel.group_key, sel.command_index
+                ));
+            }
             if !cmd.applicable {
                 return Err(format!(
                     "Command '{}.{}[{}]' is not applicable on {}",
@@ -500,14 +516,14 @@ fn open_in_vscode(path: String) -> Result<(), String> {
         {
             return Ok(());
         }
-        return Command::new("open")
+        Command::new("open")
             .args(["-a", "Visual Studio Code", &path])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
             .map(|_| ())
-            .map_err(|e| format!("Failed to open VS Code: {e}"));
+            .map_err(|e| format!("Failed to open VS Code: {e}"))
     }
 
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -642,14 +658,21 @@ mod tests {
 
         let reloaded = state.reload_active().await.unwrap().unwrap();
         assert_eq!(reloaded.items.len(), 1);
-        assert!(!reloaded.items[0].script_groups[0].commands[0].fingerprint.is_empty());
+        let cmd0_fp = reloaded.items[0].script_groups[0].commands[0]
+            .fingerprint
+            .clone();
+        let cmd1_fp = reloaded.items[0].script_groups[0].commands[1]
+            .fingerprint
+            .clone();
+        assert!(!cmd0_fp.is_empty());
 
-        // Valid applicable selector resolves cleanly inside Rust
+        // Valid applicable selector with matching fingerprint resolves cleanly inside Rust
         let resolved = state
             .resolve_execution_targets(&[CommandSelector {
                 item_id: "git-config".to_string(),
                 group_key: "check".to_string(),
                 command_index: 0,
+                fingerprint: cmd0_fp,
             }])
             .await
             .unwrap();
@@ -657,12 +680,24 @@ mod tests {
         assert_eq!(resolved[0].command_id, "git-config::check::0");
         assert_eq!(resolved[0].resolved_run, "git --version");
 
+        // Stale/mismatched fingerprint is rejected to prevent TOCTOU execution of another command
+        assert!(state
+            .resolve_execution_targets(&[CommandSelector {
+                item_id: "git-config".to_string(),
+                group_key: "check".to_string(),
+                command_index: 0,
+                fingerprint: "stale-fingerprint".to_string(),
+            }])
+            .await
+            .is_err());
+
         // Inapplicable platform command and out-of-range index are rejected in Rust
         assert!(state
             .resolve_execution_targets(&[CommandSelector {
                 item_id: "git-config".to_string(),
                 group_key: "check".to_string(),
                 command_index: 1,
+                fingerprint: cmd1_fp,
             }])
             .await
             .is_err());
@@ -671,6 +706,7 @@ mod tests {
                 item_id: "git-config".to_string(),
                 group_key: "check".to_string(),
                 command_index: 99,
+                fingerprint: "unused".to_string(),
             }])
             .await
             .is_err());

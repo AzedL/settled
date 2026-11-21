@@ -1,4 +1,4 @@
-import Markdown from "react-markdown";
+import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { openExternalUrl } from "../api/tauri";
 
@@ -12,10 +12,22 @@ function isAllowedExternalHref(href: string | undefined): href is string {
   }
   try {
     const parsed = new URL(href);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    return (
+      parsed.protocol === "http:" ||
+      parsed.protocol === "https:" ||
+      parsed.protocol === "mailto:" ||
+      parsed.protocol === "tel:"
+    );
   } catch {
     return false;
   }
+}
+
+function transformMarkdownUrl(url: string): string {
+  if (/^tel:/i.test(url.trim())) {
+    return url.trim();
+  }
+  return defaultUrlTransform(url);
 }
 
 export function MarkdownView({ content }: MarkdownViewProps) {
@@ -27,8 +39,9 @@ export function MarkdownView({ content }: MarkdownViewProps) {
     <div className="st-markdown">
       <Markdown
         remarkPlugins={[remarkGfm]}
+        urlTransform={transformMarkdownUrl}
         components={{
-          a: ({ href, children, ...props }) => (
+          a: ({ node: _node, href, children, ...props }) => (
             <a
               {...props}
               href={href}

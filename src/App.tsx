@@ -179,6 +179,30 @@ export default function App() {
     return () => window.clearTimeout(fallbackTimer);
   }, [isBootstrapping]);
 
+  const handleStopActiveAction = useCallback(() => {
+    if (activeActionRef.current === null) {
+      return;
+    }
+    const runId = activeRunIdRef.current;
+    actionSeqRef.current += 1;
+    activeActionRef.current = null;
+    activeRunIdRef.current = null;
+    setActiveAction(null);
+
+    if (!runId) {
+      return;
+    }
+    const canceledIds = canceledRunIdsRef.current;
+    canceledIds.add(runId);
+    if (canceledIds.size > 100) {
+      const oldest = canceledIds.values().next().value;
+      if (oldest !== undefined) {
+        canceledIds.delete(oldest);
+      }
+    }
+    void cancelRun(runId).catch(() => {});
+  }, []);
+
   const applyWorkspaceSnapshot = useCallback(
     (snapshot: WorkspaceSnapshot, isSameRootReload: boolean) => {
       const previousSnapshot = isSameRootReload ? workspaceRef.current : null;
@@ -186,8 +210,10 @@ export default function App() {
         ? buildCommandIdRemap(previousSnapshot, snapshot)
         : null;
 
+      let shouldCancelActiveRun = false;
       if (!isSameRootReload) {
         activeRunIdMapRef.current.clear();
+        setPendingConfirm(null);
       } else if (idRemap) {
         for (const cmdMap of activeRunIdMapRef.current.values()) {
           for (const [origId, currId] of cmdMap.entries()) {
@@ -196,9 +222,13 @@ export default function App() {
             }
           }
         }
-        if (activeActionRef.current?.kind === "command") {
-          const nextCmdId = idRemap.get(activeActionRef.current.commandId);
-          if (nextCmdId && nextCmdId !== activeActionRef.current.commandId) {
+
+        const currentAction = activeActionRef.current;
+        if (currentAction?.kind === "command") {
+          const nextCmdId = idRemap.get(currentAction.commandId);
+          if (!nextCmdId) {
+            shouldCancelActiveRun = true;
+          } else if (nextCmdId !== currentAction.commandId) {
             const nextAction: ActiveRunAction = {
               kind: "command",
               commandId: nextCmdId,
@@ -206,7 +236,52 @@ export default function App() {
             activeActionRef.current = nextAction;
             setActiveAction(nextAction);
           }
+        } else if (currentAction?.kind === "group") {
+          const nextItem = snapshot.items.find(
+            (it) => it.id === currentAction.itemId
+          );
+          const nextGroup = nextItem?.scriptGroups.find(
+            (g) => g.key === currentAction.groupKey
+          );
+          const hasApplicable =
+            Boolean(nextItem?.applicable) &&
+            Boolean(nextGroup?.commands.some((c) => c.applicable));
+          const activeMap = activeRunIdRef.current
+            ? activeRunIdMapRef.current.get(activeRunIdRef.current)
+            : undefined;
+          const allUnmapped =
+            Boolean(activeMap && activeMap.size > 0) &&
+            Array.from(activeMap!.values()).every((id) => id === null);
+          if (!hasApplicable || allUnmapped) {
+            shouldCancelActiveRun = true;
+          }
         }
+
+        setPendingConfirm((prev) => {
+          if (!prev) {
+            return null;
+          }
+          const nextItem = snapshot.items.find((it) => it.id === prev.item.id);
+          if (!nextItem || !nextItem.applicable) {
+            return null;
+          }
+          for (const cmd of prev.commands) {
+            const group = nextItem.scriptGroups.find((g) => g.key === cmd.key);
+            const nextCmd = group?.commands[cmd.index];
+            if (
+              !nextCmd ||
+              !nextCmd.applicable ||
+              nextCmd.fingerprint !== cmd.fingerprint
+            ) {
+              return null;
+            }
+          }
+          return prev;
+        });
+      }
+
+      if (shouldCancelActiveRun) {
+        handleStopActiveAction();
       }
 
       setWorkspace(snapshot);
@@ -234,32 +309,8 @@ export default function App() {
         return firstApplicable?.id ?? snapshot.items[0]?.id ?? null;
       });
     },
-    []
+    [handleStopActiveAction]
   );
-
-  const handleStopActiveAction = useCallback(() => {
-    if (activeActionRef.current === null) {
-      return;
-    }
-    const runId = activeRunIdRef.current;
-    actionSeqRef.current += 1;
-    activeActionRef.current = null;
-    activeRunIdRef.current = null;
-    setActiveAction(null);
-
-    if (!runId) {
-      return;
-    }
-    const canceledIds = canceledRunIdsRef.current;
-    canceledIds.add(runId);
-    if (canceledIds.size > 100) {
-      const oldest = canceledIds.values().next().value;
-      if (oldest !== undefined) {
-        canceledIds.delete(oldest);
-      }
-    }
-    void cancelRun(runId).catch(() => {});
-  }, []);
 
   const loadWorkspaceAtPath = useCallback(
     async (path: string, clearOnFailure = false) => {
