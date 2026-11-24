@@ -114,6 +114,14 @@ export const lang = {
     copyCmdBtn: "复制命令",
     copiedCmdBtn: "已复制",
     needsApplicationsMove: "请将 Settled 拖入「应用程序」并注册 CLI",
+    conflict: (path: string | null): string =>
+      path
+        ? `目标路径已存在其他 settled 文件，请先检查并移除：${path}`
+        : "目标路径已存在其他 settled 文件，请先检查并移除",
+    shadowed: (path: string | null): string =>
+      path
+        ? `PATH 中存在其他 settled 优先于当前版本：${path}`
+        : "PATH 中存在其他 settled 优先于当前版本",
     dismissAria: "关闭提示",
   },
 } as const;

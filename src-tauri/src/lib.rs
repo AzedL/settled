@@ -250,11 +250,7 @@ fn get_workspace_prefs(app: AppHandle) -> AppPrefs {
 async fn get_cli_status() -> CliRegistrationInfo {
     tokio::task::spawn_blocking(inspect_or_auto_register_cli)
         .await
-        .unwrap_or(CliRegistrationInfo {
-            status: cli_install::CliPathStatus::Unavailable,
-            bundled_path: None,
-            manual_command: None,
-        })
+        .unwrap_or_else(|_| CliRegistrationInfo::unavailable())
 }
 
 #[tauri::command]

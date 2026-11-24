@@ -118,11 +118,13 @@ describe("App integration", () => {
     apiMocks.getCliStatus.mockResolvedValue({
       status: "ready",
       bundledPath: null,
+      conflictPath: null,
       manualCommand: null,
     });
     apiMocks.registerCli.mockResolvedValue({
       status: "ready",
       bundledPath: null,
+      conflictPath: null,
       manualCommand: null,
     });
     apiMocks.openWorkspace.mockResolvedValue(snapshot);
@@ -857,6 +859,7 @@ describe("App integration", () => {
     apiMocks.getCliStatus.mockResolvedValueOnce({
       status: "not_in_path",
       bundledPath: "/Applications/Settled.app/Contents/MacOS/settled",
+      conflictPath: null,
       manualCommand:
         "sudo mkdir -p /usr/local/bin && sudo ln -sf '/Applications/Settled.app/Contents/MacOS/settled' /usr/local/bin/settled",
     });
@@ -882,6 +885,7 @@ describe("App integration", () => {
     apiMocks.registerCli.mockResolvedValueOnce({
       status: "ready",
       bundledPath: "/Applications/Settled.app/Contents/MacOS/settled",
+      conflictPath: null,
       manualCommand: null,
     });
     await act(async () => {
@@ -909,6 +913,7 @@ describe("App integration", () => {
     apiMocks.getCliStatus.mockResolvedValueOnce({
       status: "needs_applications_move",
       bundledPath: "/Volumes/Settled/Settled.app/Contents/MacOS/settled",
+      conflictPath: null,
       manualCommand: null,
     });
 
@@ -924,5 +929,38 @@ describe("App integration", () => {
     expect(
       screen.queryByText(lang.cliBanner.needsApplicationsMove)
     ).not.toBeInTheDocument();
+  });
+
+  it("shows conflict and shadowed warnings with offending path and without overwrite button", async () => {
+    apiMocks.getCliStatus.mockResolvedValueOnce({
+      status: "conflict",
+      bundledPath: "/Applications/Settled.app/Contents/MacOS/settled",
+      conflictPath: "/usr/local/bin/settled",
+      manualCommand: null,
+    });
+
+    const { unmount } = render(<App />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(lang.cliBanner.conflict("/usr/local/bin/settled"))
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(lang.cliBanner.registerBtn)).not.toBeInTheDocument();
+    unmount();
+
+    apiMocks.getCliStatus.mockResolvedValueOnce({
+      status: "shadowed",
+      bundledPath: "/Applications/Settled.app/Contents/MacOS/settled",
+      conflictPath: "/opt/homebrew/bin/settled",
+      manualCommand: null,
+    });
+
+    render(<App />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(lang.cliBanner.shadowed("/opt/homebrew/bin/settled"))
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(lang.cliBanner.registerBtn)).not.toBeInTheDocument();
   });
 });

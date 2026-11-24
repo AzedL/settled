@@ -78,11 +78,14 @@ export type CliPathStatus =
   | "ready"
   | "not_in_path"
   | "needs_applications_move"
+  | "conflict"
+  | "shadowed"
   | "unavailable";
 
 export interface CliRegistrationInfo {
   status: CliPathStatus;
   bundledPath: string | null;
+  conflictPath: string | null;
   manualCommand: string | null;
 }
 

@@ -34,15 +34,22 @@ export function CliStatusBanner({
 
   if (
     info.status !== "not_in_path" &&
-    info.status !== "needs_applications_move"
+    info.status !== "needs_applications_move" &&
+    info.status !== "conflict" &&
+    info.status !== "shadowed"
   ) {
     return null;
   }
 
-  const isNeedsMove = info.status === "needs_applications_move";
-  const message = isNeedsMove
-    ? lang.cliBanner.needsApplicationsMove
-    : lang.cliBanner.notInPath;
+  const canRegister = info.status === "not_in_path";
+  const message =
+    info.status === "needs_applications_move"
+      ? lang.cliBanner.needsApplicationsMove
+      : info.status === "conflict"
+        ? lang.cliBanner.conflict(info.conflictPath)
+        : info.status === "shadowed"
+          ? lang.cliBanner.shadowed(info.conflictPath)
+          : lang.cliBanner.notInPath;
 
   const handleCopy = async () => {
     if (!info.manualCommand) {
@@ -91,7 +98,7 @@ export function CliStatusBanner({
       </div>
 
       <div className="flex items-center gap-[var(--st-space-8)] shrink-0">
-        {!isNeedsMove && (
+        {canRegister && (
           <>
             <Button
               size="sm"

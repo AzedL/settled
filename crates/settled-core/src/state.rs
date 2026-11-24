@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Application data subdirectory shared by Settled desktop and CLI.
 pub const APP_DATA_DIR_NAME: &str = "dev.settled.app";
@@ -9,6 +11,8 @@ pub const APP_DATA_DIR_NAME: &str = "dev.settled.app";
 pub const WORKSPACES_STATE_FILE_NAME: &str = "workspaces.json";
 const LEGACY_CLI_CONFIG_FILE_NAME: &str = "cli.json";
 const LEGACY_DESKTOP_PREFS_FILE_NAME: &str = "prefs.json";
+
+static TEMP_FILE_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Shared workspace state persisted in OS application data (never inside a workspace directory).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,7 +31,7 @@ struct LegacyDesktopPrefs {
     recent_workspaces: Vec<String>,
 }
 
-/// Manages reading and writing the shared `workspaces.json` state store.
+/// Manages cross-process synchronized reading and writing of the shared `workspaces.json` store.
 #[derive(Debug, Clone)]
 pub struct WorkspaceStateStore {
     path: PathBuf,
@@ -65,39 +69,16 @@ impl WorkspaceStateStore {
         &self.path
     }
 
-    /// Loads workspace state strictly, transparently migrating legacy `cli.json` / `prefs.json`
-    /// when `workspaces.json` has not been created yet.
-    pub fn load(&self) -> Result<WorkspaceState, String> {
-        if self.path.exists() {
-            let raw = fs::read_to_string(&self.path).map_err(|e| {
-                format!(
-                    "Failed to read workspace state '{}': {e}",
-                    self.path.display()
-                )
-            })?;
-            return serde_json::from_str::<WorkspaceState>(&raw).map_err(|e| {
-                format!(
-                    "Failed to parse workspace state '{}': {e}",
-                    self.path.display()
-                )
-            });
-        }
-
-        if let Some(migrated) = self.load_legacy_migration() {
-            return Ok(migrated);
-        }
-
-        Ok(WorkspaceState::default())
+    fn lock_path(&self) -> PathBuf {
+        let mut os = self.path.as_os_str().to_os_string();
+        os.push(".lock");
+        PathBuf::from(os)
     }
 
-    /// Loads workspace state leniently, returning defaults on read or parse errors.
-    pub fn load_lenient(&self) -> WorkspaceState {
-        self.load().unwrap_or_default()
-    }
-
-    /// Persists workspace state to disk, creating parent directories as needed.
-    pub fn save(&self, state: &WorkspaceState) -> Result<(), String> {
-        if let Some(parent) = self.path.parent() {
+    fn acquire_exclusive_lock(&self) -> Result<File, String> {
+        if let Some(parent) = self.path.parent()
+            && !parent.as_os_str().is_empty()
+        {
             fs::create_dir_all(parent).map_err(|e| {
                 format!(
                     "Failed to create workspace state directory '{}': {e}",
@@ -105,33 +86,196 @@ impl WorkspaceStateStore {
                 )
             })?;
         }
+        let lock_file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(self.lock_path())
+            .map_err(|e| {
+                format!(
+                    "Failed to open workspace state lock '{}': {e}",
+                    self.lock_path().display()
+                )
+            })?;
+        lock_file.lock().map_err(|e| {
+            format!(
+                "Failed to acquire exclusive workspace state lock '{}': {e}",
+                self.lock_path().display()
+            )
+        })?;
+        Ok(lock_file)
+    }
+
+    fn acquire_shared_lock_if_dir_exists(&self) -> Result<Option<File>, String> {
+        if let Some(parent) = self.path.parent()
+            && !parent.as_os_str().is_empty()
+            && !parent.is_dir()
+        {
+            return Ok(None);
+        }
+        let lock_file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(self.lock_path())
+            .map_err(|e| {
+                format!(
+                    "Failed to open workspace state lock '{}': {e}",
+                    self.lock_path().display()
+                )
+            })?;
+        lock_file.lock_shared().map_err(|e| {
+            format!(
+                "Failed to acquire shared workspace state lock '{}': {e}",
+                self.lock_path().display()
+            )
+        })?;
+        Ok(Some(lock_file))
+    }
+
+    fn load_unlocked(&self) -> Result<WorkspaceState, String> {
+        match fs::read_to_string(&self.path) {
+            Ok(raw) => serde_json::from_str::<WorkspaceState>(&raw).map_err(|e| {
+                format!(
+                    "Failed to parse workspace state '{}': {e}",
+                    self.path.display()
+                )
+            }),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                Ok(self.load_legacy_migration().unwrap_or_default())
+            }
+            Err(err) => Err(format!(
+                "Failed to read workspace state '{}': {err}",
+                self.path.display()
+            )),
+        }
+    }
+
+    fn save_atomic_unlocked(&self, state: &WorkspaceState) -> Result<(), String> {
+        let parent = self
+            .path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create workspace state directory '{}': {e}",
+                parent.display()
+            )
+        })?;
+
         let content = serde_json::to_string_pretty(state)
             .map_err(|e| format!("Failed to serialize workspace state: {e}"))?;
-        fs::write(&self.path, content).map_err(|e| {
-            format!(
-                "Failed to write workspace state '{}': {e}",
+
+        let pid = std::process::id();
+        let file_name = self
+            .path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or(WORKSPACES_STATE_FILE_NAME);
+
+        let mut tmp_path = None;
+        let mut tmp_file = None;
+        for _ in 0..32 {
+            let seq = TEMP_FILE_SEQ.fetch_add(1, Ordering::Relaxed);
+            let candidate = parent.join(format!(".{file_name}.{pid}.{seq}.tmp"));
+            match OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&candidate)
+            {
+                Ok(f) => {
+                    tmp_path = Some(candidate);
+                    tmp_file = Some(f);
+                    break;
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(err) => {
+                    return Err(format!(
+                        "Failed to create temporary workspace state file '{}': {err}",
+                        candidate.display()
+                    ));
+                }
+            }
+        }
+
+        let (Some(tmp_path), Some(mut tmp_file)) = (tmp_path, tmp_file) else {
+            return Err("Failed to allocate unique temporary workspace state file".to_string());
+        };
+
+        let write_result = (|| -> std::io::Result<()> {
+            tmp_file.write_all(content.as_bytes())?;
+            tmp_file.sync_all()?;
+            Ok(())
+        })();
+        drop(tmp_file);
+
+        if let Err(err) = write_result {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(format!(
+                "Failed to write temporary workspace state '{}': {err}",
+                tmp_path.display()
+            ));
+        }
+
+        if let Err(err) = replace_file_atomically(&tmp_path, &self.path) {
+            let _ = fs::remove_file(&tmp_path);
+            return Err(format!(
+                "Failed to atomically replace workspace state '{}': {err}",
                 self.path.display()
-            )
-        })
+            ));
+        }
+
+        Ok(())
     }
 
-    /// Marks `workspace_path` as active and promotes it to the front of `workspaces` (strict load).
+    /// Loads workspace state under a shared cross-process lock, migrating legacy `cli.json`/`prefs.json`
+    /// only when `workspaces.json` does not exist yet.
+    pub fn load(&self) -> Result<WorkspaceState, String> {
+        let _guard = self.acquire_shared_lock_if_dir_exists()?;
+        self.load_unlocked()
+    }
+
+    /// Loads workspace state leniently for read-only UI display, returning defaults on error.
+    /// Never writes back or overwrites existing files on disk.
+    pub fn load_lenient(&self) -> WorkspaceState {
+        self.load().unwrap_or_default()
+    }
+
+    /// Executes an atomic read-modify-write transaction under an exclusive cross-process file lock.
+    ///
+    /// If the existing state file cannot be read or parsed, returns `Err` without overwriting disk.
+    /// When the closure returns `Ok((value, true))`, the mutated state is atomically persisted;
+    /// when it returns `Ok((value, false))`, disk is left untouched.
+    pub fn update<F, R>(&self, mutate: F) -> Result<R, String>
+    where
+        F: FnOnce(&mut WorkspaceState) -> Result<(R, bool), String>,
+    {
+        let _guard = self.acquire_exclusive_lock()?;
+        let mut state = self.load_unlocked()?;
+        let (result, dirty) = mutate(&mut state)?;
+        if dirty {
+            self.save_atomic_unlocked(&state)?;
+        }
+        Ok(result)
+    }
+
+    /// Atomically persists a full workspace state snapshot under an exclusive cross-process lock.
+    pub fn save(&self, state: &WorkspaceState) -> Result<(), String> {
+        let _guard = self.acquire_exclusive_lock()?;
+        self.save_atomic_unlocked(state)
+    }
+
+    /// Marks `workspace_path` as active and promotes it to the front of `workspaces` transactionally.
+    ///
+    /// Fails cleanly without overwriting if an existing state file is unreadable or corrupt.
     pub fn record_active_workspace(&self, workspace_path: &str) -> Result<WorkspaceState, String> {
-        let mut state = self.load()?;
-        promote_workspace(&mut state, workspace_path);
-        self.save(&state)?;
-        Ok(state)
-    }
-
-    /// Marks `workspace_path` as active and promotes it to the front of `workspaces` (lenient load).
-    pub fn record_active_workspace_lenient(
-        &self,
-        workspace_path: &str,
-    ) -> Result<WorkspaceState, String> {
-        let mut state = self.load_lenient();
-        promote_workspace(&mut state, workspace_path);
-        self.save(&state)?;
-        Ok(state)
+        self.update(|state| {
+            promote_workspace(state, workspace_path);
+            Ok((state.clone(), true))
+        })
     }
 
     fn load_legacy_migration(&self) -> Option<WorkspaceState> {
@@ -190,6 +334,32 @@ impl WorkspaceStateStore {
             current_workspace,
             workspaces,
         })
+    }
+}
+
+fn replace_file_atomically(src: &Path, dest: &Path) -> std::io::Result<()> {
+    #[cfg(not(windows))]
+    {
+        fs::rename(src, dest)
+    }
+
+    #[cfg(windows)]
+    {
+        // Rust's std::fs::rename on Windows uses MoveFileExW(MOVEFILE_REPLACE_EXISTING).
+        // Brief retries tolerate transient sharing conflicts from AV/indexers while the
+        // companion lock file serializes Settled desktop and CLI processes.
+        let mut last_err = None;
+        for attempt in 0..8 {
+            match fs::rename(src, dest) {
+                Ok(()) => return Ok(()),
+                Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied && attempt < 7 => {
+                    last_err = Some(err);
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(err) => return Err(err),
+            }
+        }
+        Err(last_err.unwrap_or_else(|| std::io::Error::other("rename retry exhausted")))
     }
 }
 
@@ -355,5 +525,48 @@ mod tests {
             Some("/ws/from-desktop")
         );
         assert_eq!(migrated.workspaces, vec!["/ws/from-desktop", "/ws/second"]);
+    }
+
+    #[test]
+    fn refuses_to_clobber_corrupt_state_file_on_write() {
+        let tmp = TempDir::new().unwrap();
+        let state_path = tmp.path().join(WORKSPACES_STATE_FILE_NAME);
+        fs::write(&state_path, "{ corrupt json").unwrap();
+
+        let store = WorkspaceStateStore::at(state_path.clone());
+        // Read-only lenient load returns empty defaults without mutating disk
+        assert_eq!(store.load_lenient(), WorkspaceState::default());
+        // Transactional write MUST fail instead of overwriting the corrupt file with an empty list
+        assert!(store.record_active_workspace("/ws/new").is_err());
+        assert_eq!(fs::read_to_string(&state_path).unwrap(), "{ corrupt json");
+    }
+
+    #[test]
+    fn serializes_concurrent_writers_without_lost_updates() {
+        let tmp = TempDir::new().unwrap();
+        let state_path = tmp.path().join(WORKSPACES_STATE_FILE_NAME);
+
+        let workers: Vec<_> = (0..8)
+            .map(|i| {
+                let path = state_path.clone();
+                std::thread::spawn(move || {
+                    let store = WorkspaceStateStore::at(path);
+                    for round in 0..3 {
+                        store
+                            .record_active_workspace(&format!("/ws/worker-{i}-{round}"))
+                            .unwrap();
+                        let _ = store.load().unwrap();
+                    }
+                })
+            })
+            .collect();
+
+        for handle in workers {
+            handle.join().unwrap();
+        }
+
+        let final_state = WorkspaceStateStore::at(state_path).load().unwrap();
+        assert_eq!(final_state.workspaces.len(), 24);
+        assert!(final_state.current_workspace.is_some());
     }
 }

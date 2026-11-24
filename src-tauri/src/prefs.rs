@@ -66,7 +66,7 @@ pub fn record_workspace_at_path(path: &Path, workspace_path: &str) -> Result<App
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| workspace_path.to_string());
     let store = WorkspaceStateStore::at(path.to_path_buf());
-    let state = store.record_active_workspace_lenient(&normalized)?;
+    let state = store.record_active_workspace(&normalized)?;
     Ok(AppPrefs::from(state))
 }
 
@@ -85,9 +85,12 @@ mod tests {
         assert_eq!(initial.last_workspace, None);
         assert!(initial.recent_workspaces.is_empty());
 
-        // Malformed file -> falls back cleanly to defaults
+        // Malformed file -> read-only fallback returns defaults, and writes refuse to clobber it
         fs::write(&state_file, "{ bad json").unwrap();
         assert_eq!(load_prefs_from_path(&state_file).last_workspace, None);
+        assert!(record_workspace_at_path(&state_file, "/ws/should-not-wipe").is_err());
+        assert_eq!(fs::read_to_string(&state_file).unwrap(), "{ bad json");
+        fs::remove_file(&state_file).unwrap();
 
         // Recording workspaces deduplicates, moves active to front, and caps desktop view at 8
         // while keeping the full shared list intact for CLI.

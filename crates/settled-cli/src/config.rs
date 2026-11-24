@@ -70,18 +70,16 @@ pub fn use_workspace(
     })
 }
 
-/// Removes a registered workspace from the shared state store (clearing `current_workspace` if matched).
+/// Removes a registered workspace from the shared state store inside an exclusive lock transaction.
 pub fn remove_workspace(
     store: &CliConfigStore,
     raw_path: &Path,
     cwd: &Path,
 ) -> Result<RemoveWorkspaceOutcome, String> {
-    let mut config = store.load()?;
-    let raw_str = raw_path.to_string_lossy();
-    let abs_str = normalize_against(raw_path, cwd)
-        .to_string_lossy()
-        .into_owned();
-    let canon_str = canonicalize_if_possible(&normalize_against(raw_path, cwd))
+    let raw_str = raw_path.to_string_lossy().into_owned();
+    let abs_path = normalize_against(raw_path, cwd);
+    let abs_str = abs_path.to_string_lossy().into_owned();
+    let canon_str = canonicalize_if_possible(&abs_path)
         .to_string_lossy()
         .into_owned();
 
@@ -91,27 +89,30 @@ pub fn remove_workspace(
             || paths_equal(candidate, &canon_str)
     };
 
-    let Some(idx) = config.workspaces.iter().position(|w| matches_target(w)) else {
-        return Err(format!(
-            "Workspace '{}' is not registered in CLI list",
-            raw_path.display()
-        ));
-    };
+    store.update(|config| {
+        let Some(idx) = config.workspaces.iter().position(|w| matches_target(w)) else {
+            return Err(format!(
+                "Workspace '{}' is not registered in CLI list",
+                raw_path.display()
+            ));
+        };
 
-    let removed = config.workspaces.remove(idx);
-    let was_current = config
-        .current_workspace
-        .as_deref()
-        .is_some_and(matches_target);
-    if was_current {
-        config.current_workspace = None;
-    }
+        let removed = config.workspaces.remove(idx);
+        let was_current = config
+            .current_workspace
+            .as_deref()
+            .is_some_and(matches_target);
+        if was_current {
+            config.current_workspace = None;
+        }
 
-    store.save(&config)?;
-
-    Ok(RemoveWorkspaceOutcome {
-        path: removed,
-        was_current,
+        Ok((
+            RemoveWorkspaceOutcome {
+                path: removed,
+                was_current,
+            },
+            true,
+        ))
     })
 }
 
