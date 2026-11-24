@@ -315,6 +315,10 @@ mod tests {
         .unwrap();
         assert!(!watcher.items_watched);
 
+        // Allow macOS FSEvents to flush any initial directory-creation event from TempDir::new()
+        std::thread::sleep(Duration::from_millis(450));
+        hits.store(0, Ordering::SeqCst);
+
         // Unrelated file change at root should not emit events
         fs::write(root.join("unrelated.txt"), "hi").unwrap();
         std::thread::sleep(Duration::from_millis(450));
