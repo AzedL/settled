@@ -22,7 +22,7 @@ jobs:
             targets: x86_64-pc-windows-msvc
             artifact: settled-windows-x64
           - label: macOS Apple Silicon + Intel (DMG)
-            os: macos-latest
+            os: macos-15
             targets: aarch64-apple-darwin,x86_64-apple-darwin
             artifact: settled-macos
           - label: Linux x64 (deb/rpm/AppImage)
