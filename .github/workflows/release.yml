@@ -19,19 +19,15 @@ jobs:
         include:
           - label: Windows x64 (NSIS)
             os: windows-latest
-            target: x86_64-pc-windows-msvc
+            targets: x86_64-pc-windows-msvc
             artifact: settled-windows-x64
-          - label: macOS Apple Silicon (DMG)
+          - label: macOS Apple Silicon + Intel (DMG)
             os: macos-latest
-            target: aarch64-apple-darwin
-            artifact: settled-macos-arm64
-          - label: macOS Intel (DMG)
-            os: macos-latest
-            target: x86_64-apple-darwin
-            artifact: settled-macos-x64
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+            artifact: settled-macos
           - label: Linux x64 (deb/rpm/AppImage)
             os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+            targets: x86_64-unknown-linux-gnu
             artifact: settled-linux-x64
 
     steps:
@@ -60,28 +56,44 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.targets }}
 
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          key: release-${{ matrix.target }}
+          key: release-${{ matrix.artifact }}
 
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build bundled desktop + CLI installer
+      - name: Build bundled desktop + CLI installer (Windows)
+        if: runner.os == 'Windows'
         env:
-          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.targets }}
+        run: npx tauri build --target ${{ matrix.targets }}
+
+      - name: Build bundled desktop + CLI installers (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          for t in aarch64-apple-darwin x86_64-apple-darwin; do
+            echo "=== Building macOS bundle for $t ==="
+            TAURI_ENV_TARGET_TRIPLE="$t" npx tauri build --target "$t"
+          done
+
+      - name: Build bundled desktop + CLI installer (Linux)
+        if: runner.os == 'Linux'
+        env:
+          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.targets }}
           APPIMAGE_EXTRACT_AND_RUN: "1"
-        run: npx tauri build --target ${{ matrix.target }}
+        run: npx tauri build --target ${{ matrix.targets }}
 
       - name: Collect release installers (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
-          $files = Get-ChildItem -Path "target/${{ matrix.target }}/release/bundle/nsis" -Filter "*.exe" -File
+          $files = Get-ChildItem -Path "target/${{ matrix.targets }}/release/bundle/nsis" -Filter "*.exe" -File
           if (-not $files) { throw "No NSIS installer produced" }
           Copy-Item $files.FullName -Destination release-assets/
           Get-ChildItem release-assets
@@ -92,9 +104,12 @@ jobs:
         run: |
           mkdir -p release-assets
           shopt -s nullglob
-          files=(target/${{ matrix.target }}/release/bundle/dmg/*.dmg)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No DMG installer produced" >&2
+          files=(
+            target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
+          )
+          if [ ${#files[@]} -lt 2 ]; then
+            echo "Expected both arm64 and x64 DMG installers, found: ${files[*]}" >&2
             exit 1
           fi
           cp "${files[@]}" release-assets/
@@ -107,9 +122,9 @@ jobs:
           mkdir -p release-assets
           shopt -s nullglob
           files=(
-            target/${{ matrix.target }}/release/bundle/deb/*.deb
-            target/${{ matrix.target }}/release/bundle/rpm/*.rpm
-            target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+            target/${{ matrix.targets }}/release/bundle/deb/*.deb
+            target/${{ matrix.targets }}/release/bundle/rpm/*.rpm
+            target/${{ matrix.targets }}/release/bundle/appimage/*.AppImage
           )
           if [ ${#files[@]} -eq 0 ]; then
             echo "No Linux installers produced" >&2
