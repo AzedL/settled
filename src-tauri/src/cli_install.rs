@@ -731,18 +731,16 @@ fn inspect_for_bundled_cli(bundled: &Path) -> CliRegistrationInfo {
                     return CliRegistrationInfo::ready(bundled);
                 }
                 ManagedTargetState::Absent | ManagedTargetState::ManagedUpdatable
-                    if local_in_path =>
+                    if local_in_path
+                        && install_managed_linux_copy(
+                            bundled,
+                            &local_target,
+                            &manifest_path,
+                            current_version,
+                        )
+                        .is_ok() =>
                 {
-                    if install_managed_linux_copy(
-                        bundled,
-                        &local_target,
-                        &manifest_path,
-                        current_version,
-                    )
-                    .is_ok()
-                    {
-                        return CliRegistrationInfo::ready(bundled);
-                    }
+                    return CliRegistrationInfo::ready(bundled);
                 }
                 _ => {}
             }
