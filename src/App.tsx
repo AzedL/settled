@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, X } from "lucide-react";
 import {
   buildAiContext,
   cancelRun,
@@ -18,6 +19,7 @@ import {
   subscribeWorkspaceChanges,
   syncWindowTheme,
 } from "./api/tauri";
+import { Button } from "./components/Button";
 import { CliStatusBanner } from "./components/CliStatusBanner";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { DetailPanel } from "./components/DetailPanel";
@@ -127,6 +129,7 @@ export default function App() {
   const [cliBannerDismissed, setCliBannerDismissed] = useState(false);
   const [isRegisteringCli, setIsRegisteringCli] = useState(false);
   const [cliError, setCliError] = useState<string | null>(null);
+  const [stateSyncWarning, setStateSyncWarning] = useState<string | null>(null);
 
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
   workspaceRef.current = workspace;
@@ -362,6 +365,7 @@ export default function App() {
           handleStopActiveAction();
         }
         applyWorkspaceSnapshot(snapshot, isSameSession);
+        setStateSyncWarning(snapshot.stateSyncWarning ?? null);
         setInitialState((prev) =>
           prev
             ? {
@@ -978,6 +982,40 @@ export default function App() {
           onCopyCommand={handleCopyCliCommand}
           onDismiss={() => setCliBannerDismissed(true)}
         />
+      )}
+
+      {stateSyncWarning && (
+        <div
+          role="alert"
+          className="shrink-0 border-b px-[var(--st-space-16)] py-[var(--st-space-8)] flex items-center justify-between gap-[var(--st-space-12)]"
+          style={{
+            backgroundColor: "var(--st-bg-panel)",
+            borderColor: "var(--st-border-warn)",
+          }}
+        >
+          <div className="flex items-center gap-[var(--st-space-8)] min-w-0">
+            <AlertTriangle
+              className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0"
+              style={{ color: "var(--st-status-canceled-text)" }}
+            />
+            <span
+              className="text-[length:var(--st-text-xs)] leading-[var(--st-leading-xs)] font-medium text-[color:var(--st-text-primary)] truncate"
+              title={lang.cliBanner.stateSyncWarning(stateSyncWarning)}
+            >
+              {lang.cliBanner.stateSyncWarning(stateSyncWarning)}
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="surface"
+            iconOnly
+            aria-label={lang.cliBanner.dismissAria}
+            title={lang.cliBanner.dismissAria}
+            onClick={() => setStateSyncWarning(null)}
+          >
+            <X className="w-[var(--st-icon-sm)] h-[var(--st-icon-sm)] shrink-0" />
+          </Button>
+        </div>
       )}
 
       {isBootstrapping && !workspace ? (

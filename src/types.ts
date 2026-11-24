@@ -53,6 +53,7 @@ export interface WorkspaceSnapshot {
   items: WorkspaceItem[];
   allTags: string[];
   scanWarnings: string[];
+  stateSyncWarning?: string | null;
 }
 
 export interface CommandSelector {

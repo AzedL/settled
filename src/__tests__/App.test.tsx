@@ -963,4 +963,43 @@ describe("App integration", () => {
     });
     expect(screen.queryByText(lang.cliBanner.registerBtn)).not.toBeInTheDocument();
   });
+
+  it("displays a dismissible warning when shared workspace state sync fails and clears it on next clean switch", async () => {
+    const warnSnap = makeSnapshot({
+      workspaceGeneration: 1,
+      rootPath: "D:\\ws-main",
+      items: [demoItem],
+      stateSyncWarning: "Failed to parse workspace state: corrupt JSON",
+    });
+    apiMocks.openWorkspace.mockResolvedValueOnce(warnSnap);
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("D:\\ws-main")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(
+        lang.cliBanner.stateSyncWarning(
+          "Failed to parse workspace state: corrupt JSON"
+        )
+      )
+    ).toBeInTheDocument();
+
+    // Switching to another workspace whose shared state sync succeeds clears the warning
+    const cleanSnap = makeSnapshot({
+      workspaceGeneration: 2,
+      rootPath: "D:\\ws-clean",
+      items: [makeItem({ id: "clean", name: "正常同步工作区" })],
+    });
+    apiMocks.pickWorkspaceFolder.mockResolvedValueOnce("D:\\ws-clean");
+    apiMocks.openWorkspace.mockResolvedValueOnce(cleanSnap);
+
+    await act(async () => {
+      fireEvent.click(screen.getByText(lang.header.openWorkspace));
+    });
+    await waitFor(() => {
+      expect(screen.getByText("D:\\ws-clean")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

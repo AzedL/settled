@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
 use settled_core::{APP_DATA_DIR_NAME, canonicalize_if_possible, paths_equal};
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
 const MANAGED_CLI_MANIFEST_NAME: &str = "managed-cli.json";
+
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+static MANAGED_TEMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -89,6 +94,8 @@ enum SymlinkAttempt {
 struct ManagedCliManifest {
     target_path: String,
     content_hash: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pending_hash: Option<String>,
     version: String,
 }
 
@@ -140,6 +147,24 @@ fn same_canonical_path(a: &Path, b: &Path) -> bool {
     paths_equal(&a_canon.to_string_lossy(), &b_canon.to_string_lossy())
 }
 
+fn is_executable_file(path: &Path) -> bool {
+    let Ok(meta) = fs::metadata(path) else {
+        return false;
+    };
+    if !meta.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        meta.permissions().mode() & 0o111 != 0
+    }
+    #[cfg(not(unix))]
+    {
+        true
+    }
+}
+
 fn resolve_first_settled_in_dirs<F>(
     dirs: &[PathBuf],
     candidate_names: &[&str],
@@ -151,7 +176,7 @@ where
     for dir in dirs {
         for name in candidate_names {
             let candidate = dir.join(name);
-            if candidate.is_file() {
+            if is_executable_file(&candidate) {
                 if is_bundled_match(&candidate) {
                     return PathHit::MatchesBundled;
                 }
@@ -470,6 +495,100 @@ fn default_managed_manifest_path() -> Option<PathBuf> {
 }
 
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+fn acquire_manifest_lock(manifest_path: &Path) -> Result<File, String> {
+    if let Some(parent) = manifest_path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create '{}': {e}", parent.display()))?;
+    }
+    let mut lock_os = manifest_path.as_os_str().to_os_string();
+    lock_os.push(".lock");
+    let lock_path = PathBuf::from(lock_os);
+    let file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(&lock_path)
+        .map_err(|e| {
+            format!(
+                "Failed to open managed CLI lock '{}': {e}",
+                lock_path.display()
+            )
+        })?;
+    file.lock()
+        .map_err(|e| format!("Failed to lock managed CLI '{}': {e}", lock_path.display()))?;
+    Ok(file)
+}
+
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+fn write_manifest_atomically(
+    manifest_path: &Path,
+    manifest: &ManagedCliManifest,
+) -> Result<(), String> {
+    let parent = manifest_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent)
+        .map_err(|e| format!("Failed to create '{}': {e}", parent.display()))?;
+
+    let json = serde_json::to_string_pretty(manifest)
+        .map_err(|e| format!("Failed to serialize managed CLI manifest: {e}"))?;
+    let seq = MANAGED_TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp_path = parent.join(format!(
+        ".{MANAGED_CLI_MANIFEST_NAME}.{}.{seq}.tmp",
+        std::process::id()
+    ));
+
+    let write_res = (|| -> std::io::Result<()> {
+        let mut f = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&tmp_path)?;
+        f.write_all(json.as_bytes())?;
+        f.sync_all()?;
+        Ok(())
+    })();
+    if let Err(err) = write_res {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(format!(
+            "Failed to write temporary managed CLI manifest '{}': {err}",
+            tmp_path.display()
+        ));
+    }
+
+    if let Err(err) = fs::rename(&tmp_path, manifest_path) {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(format!(
+            "Failed to replace managed CLI manifest '{}': {err}",
+            manifest_path.display()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+fn read_managed_manifest(manifest_path: &Path) -> Option<ManagedCliManifest> {
+    fs::read_to_string(manifest_path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<ManagedCliManifest>(&raw).ok())
+}
+
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+fn manifest_owns_target(manifest: &ManagedCliManifest, target: &Path, target_hash: &str) -> bool {
+    let path_matches = paths_equal(
+        &canonicalize_if_possible(Path::new(&manifest.target_path)).to_string_lossy(),
+        &canonicalize_if_possible(target).to_string_lossy(),
+    );
+    if !path_matches {
+        return false;
+    }
+    manifest.content_hash == target_hash || manifest.pending_hash.as_deref() == Some(target_hash)
+}
+
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
 fn inspect_managed_copy_target(
     target: &Path,
     bundled: &Path,
@@ -495,19 +614,14 @@ fn inspect_managed_copy_target(
     let Some(target_hash) = compute_file_fingerprint(target) else {
         return ManagedTargetState::Conflict(target.to_path_buf());
     };
-    if bundled_hash == target_hash {
+
+    let executable = is_executable_file(target);
+    if bundled_hash == target_hash && executable {
         return ManagedTargetState::UpToDate;
     }
 
-    let manifest = fs::read_to_string(manifest_path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<ManagedCliManifest>(&raw).ok());
-    if let Some(manifest) = manifest
-        && paths_equal(
-            &canonicalize_if_possible(Path::new(&manifest.target_path)).to_string_lossy(),
-            &canonicalize_if_possible(target).to_string_lossy(),
-        )
-        && manifest.content_hash == target_hash
+    if let Some(manifest) = read_managed_manifest(manifest_path)
+        && manifest_owns_target(&manifest, target, &target_hash)
         && version_ge(current_version, &manifest.version)
     {
         return ManagedTargetState::ManagedUpdatable;
@@ -516,14 +630,22 @@ fn inspect_managed_copy_target(
     ManagedTargetState::Conflict(target.to_path_buf())
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
-fn install_managed_linux_copy(
+/// Transactionally inspects and (when absent or Settled-managed) installs/updates a local CLI copy
+/// under an exclusive cross-process lock using a two-phase manifest (`pendingHash` -> atomic binary
+/// replace -> finalized `contentHash`) so crashes between binary and manifest writes recover cleanly.
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+fn install_managed_copy_transactional(
     bundled: &Path,
     target: &Path,
     manifest_path: &Path,
     current_version: &str,
-) -> Result<(), String> {
-    use std::os::unix::fs::PermissionsExt;
+) -> Result<ManagedTargetState, String> {
+    let _lock = acquire_manifest_lock(manifest_path)?;
+    let state = inspect_managed_copy_target(target, bundled, manifest_path, current_version);
+    match state {
+        ManagedTargetState::UpToDate | ManagedTargetState::Conflict(_) => return Ok(state),
+        ManagedTargetState::Absent | ManagedTargetState::ManagedUpdatable => {}
+    }
 
     let Some(parent) = target.parent() else {
         return Err("Missing target directory".to_string());
@@ -531,16 +653,57 @@ fn install_managed_linux_copy(
     fs::create_dir_all(parent)
         .map_err(|e| format!("Failed to create '{}': {e}", parent.display()))?;
 
-    let tmp_path = parent.join(format!(".settled.{}.tmp", std::process::id()));
+    let new_hash = compute_file_fingerprint(bundled)
+        .ok_or_else(|| format!("Failed to read bundled CLI '{}'", bundled.display()))?;
+    let target_canon = canonicalize_if_possible(target)
+        .to_string_lossy()
+        .into_owned();
+    let existing_manifest = read_managed_manifest(manifest_path);
+
+    // Phase 1: Write intent (`pending_hash`) atomically BEFORE touching the target binary.
+    // If manifest persistence fails, abort cleanly before modifying `~/.local/bin/settled`.
+    let pending_manifest = ManagedCliManifest {
+        target_path: target_canon.clone(),
+        content_hash: existing_manifest
+            .as_ref()
+            .map(|m| m.content_hash.clone())
+            .unwrap_or_default(),
+        pending_hash: Some(new_hash.clone()),
+        version: existing_manifest
+            .as_ref()
+            .map(|m| m.version.clone())
+            .unwrap_or_else(|| current_version.to_string()),
+    };
+    write_manifest_atomically(manifest_path, &pending_manifest)?;
+
+    // Phase 2: Copy binary to a unique temporary file in the same directory, mark executable, and atomically rename.
+    let seq = MANAGED_TEMP_SEQ.fetch_add(1, Ordering::Relaxed);
+    let tmp_path = parent.join(format!(".settled.{}.{seq}.tmp", std::process::id()));
     let copy_result = (|| -> Result<(), String> {
-        fs::copy(bundled, &tmp_path)
-            .map_err(|e| format!("Failed to copy CLI binary to '{}': {e}", tmp_path.display()))?;
-        let mut perms = fs::metadata(&tmp_path)
-            .map_err(|e| format!("Failed to inspect '{}': {e}", tmp_path.display()))?
-            .permissions();
-        perms.set_mode(0o755);
-        fs::set_permissions(&tmp_path, perms)
-            .map_err(|e| format!("Failed to mark '{}' executable: {e}", tmp_path.display()))?;
+        let bytes = fs::read(bundled)
+            .map_err(|e| format!("Failed to read bundled CLI '{}': {e}", bundled.display()))?;
+        let mut tmp_file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&tmp_path)
+            .map_err(|e| format!("Failed to create '{}': {e}", tmp_path.display()))?;
+        tmp_file
+            .write_all(&bytes)
+            .and_then(|_| tmp_file.sync_all())
+            .map_err(|e| format!("Failed to write '{}': {e}", tmp_path.display()))?;
+        drop(tmp_file);
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&tmp_path)
+                .map_err(|e| format!("Failed to inspect '{}': {e}", tmp_path.display()))?
+                .permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&tmp_path, perms)
+                .map_err(|e| format!("Failed to mark '{}' executable: {e}", tmp_path.display()))?;
+        }
+
         fs::rename(&tmp_path, target).map_err(|e| {
             format!(
                 "Failed to install CLI binary to '{}': {e}",
@@ -555,23 +718,17 @@ fn install_managed_linux_copy(
         return Err(err);
     }
 
-    if let Some(hash) = compute_file_fingerprint(target) {
-        if let Some(manifest_parent) = manifest_path.parent() {
-            let _ = fs::create_dir_all(manifest_parent);
-        }
-        let manifest = ManagedCliManifest {
-            target_path: canonicalize_if_possible(target)
-                .to_string_lossy()
-                .into_owned(),
-            content_hash: hash,
-            version: current_version.to_string(),
-        };
-        if let Ok(json) = serde_json::to_string_pretty(&manifest) {
-            let _ = fs::write(manifest_path, json);
-        }
-    }
+    // Phase 3: Commit finalized manifest (`content_hash = new_hash`, clearing `pending_hash`).
+    // Even if a crash happened right before this step, `pending_hash == new_hash` ensures recovery on next run.
+    let committed_manifest = ManagedCliManifest {
+        target_path: target_canon,
+        content_hash: new_hash,
+        pending_hash: None,
+        version: current_version.to_string(),
+    };
+    write_manifest_atomically(manifest_path, &committed_manifest)?;
 
-    Ok(())
+    Ok(ManagedTargetState::UpToDate)
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
@@ -586,6 +743,26 @@ fn env_path_contains_dir(dir: &Path) -> bool {
     env_path_dirs()
         .iter()
         .any(|entry| same_canonical_path(entry, dir))
+}
+
+#[cfg_attr(windows, allow(dead_code))]
+fn classify_post_symlink_path_state(
+    path_dirs: &[PathBuf],
+    bundled: &Path,
+    link_dir: &str,
+) -> CliRegistrationInfo {
+    match resolve_first_settled_in_dirs(path_dirs, &["settled"], |p| {
+        same_canonical_path(p, bundled)
+    }) {
+        PathHit::MatchesBundled => CliRegistrationInfo::ready(bundled),
+        PathHit::ShadowedBy(active) => CliRegistrationInfo::shadowed(bundled, &active),
+        PathHit::NotFound => CliRegistrationInfo {
+            status: CliPathStatus::NotInPath,
+            bundled_path: Some(bundled.to_string_lossy().into_owned()),
+            conflict_path: None,
+            manual_command: Some(format!("export PATH=\"{link_dir}:$PATH\"")),
+        },
+    }
 }
 
 /// Checks bundled CLI registration status on startup.
@@ -623,21 +800,13 @@ fn inspect_for_bundled_cli(bundled: &Path) -> CliRegistrationInfo {
                 if !same_canonical_path(&active, link_path) {
                     return CliRegistrationInfo::shadowed(bundled, &active);
                 }
-                // `active` IS `/usr/local/bin/settled` but points elsewhere.
-                // Let `try_direct_symlink_classified` decide if it's a replaceable Settled symlink or a conflict.
             }
             PathHit::NotFound => {}
         }
 
         match try_direct_symlink_classified(bundled, link_path) {
             SymlinkAttempt::Linked => {
-                match resolve_first_settled_in_dirs(&path_dirs, &["settled"], |p| {
-                    same_canonical_path(p, bundled)
-                }) {
-                    PathHit::MatchesBundled => CliRegistrationInfo::ready(bundled),
-                    PathHit::ShadowedBy(active) => CliRegistrationInfo::shadowed(bundled, &active),
-                    PathHit::NotFound => CliRegistrationInfo::ready(bundled),
-                }
+                classify_post_symlink_path_state(&path_dirs, bundled, "/usr/local/bin")
             }
             SymlinkAttempt::Conflict(conflict_path) => {
                 CliRegistrationInfo::conflict(bundled, &conflict_path)
@@ -731,16 +900,22 @@ fn inspect_for_bundled_cli(bundled: &Path) -> CliRegistrationInfo {
                     return CliRegistrationInfo::ready(bundled);
                 }
                 ManagedTargetState::Absent | ManagedTargetState::ManagedUpdatable
-                    if local_in_path
-                        && install_managed_linux_copy(
-                            bundled,
-                            &local_target,
-                            &manifest_path,
-                            current_version,
-                        )
-                        .is_ok() =>
+                    if local_in_path =>
                 {
-                    return CliRegistrationInfo::ready(bundled);
+                    match install_managed_copy_transactional(
+                        bundled,
+                        &local_target,
+                        &manifest_path,
+                        current_version,
+                    ) {
+                        Ok(ManagedTargetState::UpToDate) => {
+                            return CliRegistrationInfo::ready(bundled);
+                        }
+                        Ok(ManagedTargetState::Conflict(conflict_path)) => {
+                            return CliRegistrationInfo::conflict(bundled, &conflict_path);
+                        }
+                        _ => {}
+                    }
                 }
                 _ => {}
             }
@@ -772,13 +947,7 @@ fn inspect_for_bundled_cli(bundled: &Path) -> CliRegistrationInfo {
 
         match try_direct_symlink_classified(bundled, link_path) {
             SymlinkAttempt::Linked => {
-                match resolve_first_settled_in_dirs(&path_dirs, &["settled"], |p| {
-                    same_canonical_path(p, bundled)
-                }) {
-                    PathHit::MatchesBundled => CliRegistrationInfo::ready(bundled),
-                    PathHit::ShadowedBy(active) => CliRegistrationInfo::shadowed(bundled, &active),
-                    PathHit::NotFound => CliRegistrationInfo::ready(bundled),
-                }
+                classify_post_symlink_path_state(&path_dirs, bundled, "/usr/local/bin")
             }
             SymlinkAttempt::Conflict(conflict_path) => {
                 CliRegistrationInfo::conflict(bundled, &conflict_path)
@@ -876,11 +1045,18 @@ pub fn register_cli_in_path() -> Result<CliRegistrationInfo, String> {
     {
         let current_version = env!("CARGO_PKG_VERSION");
         let link_path = Path::new("/usr/local/bin/settled");
+        let path_dirs = env_path_dirs();
         let is_appimage = std::env::var_os("APPIMAGE").is_some();
 
         if !is_appimage {
             match try_direct_symlink_classified(&bundled, link_path) {
-                SymlinkAttempt::Linked => return Ok(inspect_for_bundled_cli(&bundled)),
+                SymlinkAttempt::Linked => {
+                    return Ok(classify_post_symlink_path_state(
+                        &path_dirs,
+                        &bundled,
+                        "/usr/local/bin",
+                    ));
+                }
                 SymlinkAttempt::Conflict(conflict_path) => {
                     return Ok(CliRegistrationInfo::conflict(&bundled, &conflict_path));
                 }
@@ -895,20 +1071,18 @@ pub fn register_cli_in_path() -> Result<CliRegistrationInfo, String> {
         let manifest_path = default_managed_manifest_path()
             .ok_or_else(|| "Unable to resolve OS application data directory".to_string())?;
 
-        match inspect_managed_copy_target(&local_target, &bundled, &manifest_path, current_version)
-        {
+        match install_managed_copy_transactional(
+            &bundled,
+            &local_target,
+            &manifest_path,
+            current_version,
+        )? {
             ManagedTargetState::Conflict(conflict_path) => {
                 return Ok(CliRegistrationInfo::conflict(&bundled, &conflict_path));
             }
-            ManagedTargetState::UpToDate => {}
-            ManagedTargetState::Absent | ManagedTargetState::ManagedUpdatable => {
-                install_managed_linux_copy(
-                    &bundled,
-                    &local_target,
-                    &manifest_path,
-                    current_version,
-                )?;
-            }
+            ManagedTargetState::UpToDate
+            | ManagedTargetState::Absent
+            | ManagedTargetState::ManagedUpdatable => {}
         }
 
         if env_path_contains_dir(&local_bin) {
@@ -928,6 +1102,20 @@ pub fn register_cli_in_path() -> Result<CliRegistrationInfo, String> {
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    fn mark_test_executable(path: &Path) {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(path).unwrap().permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(path, perms).unwrap();
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = path;
+        }
+    }
 
     #[test]
     fn detects_ephemeral_macos_locations() {
@@ -985,8 +1173,10 @@ mod tests {
         let bundled_cli = dir_bundled.join(cli_name);
         fs::write(&old_cli, "old").unwrap();
         fs::write(&bundled_cli, "new").unwrap();
+        mark_test_executable(&old_cli);
+        mark_test_executable(&bundled_cli);
 
-        // Earlier PATH entry shadows bundled binary -> ShadowedBy(old_cli)
+        // Earlier executable PATH entry shadows bundled binary -> ShadowedBy(old_cli)
         let shadowed = resolve_first_settled_in_dirs(
             &[dir_first.clone(), dir_bundled.clone()],
             &[cli_name],
@@ -1002,58 +1192,126 @@ mod tests {
     }
 
     #[test]
-    fn protects_unmanaged_or_newer_local_copy_and_allows_managed_upgrade() {
+    fn post_symlink_check_reports_not_in_path_when_link_dir_absent_from_path() {
+        let tmp = TempDir::new().unwrap();
+        let bundled = tmp.path().join("bundled").join("settled");
+        let unrelated_dir = tmp.path().join("other-path");
+        fs::create_dir_all(bundled.parent().unwrap()).unwrap();
+        fs::create_dir_all(&unrelated_dir).unwrap();
+        fs::write(&bundled, "bin").unwrap();
+        mark_test_executable(&bundled);
+
+        let info = classify_post_symlink_path_state(&[unrelated_dir], &bundled, "/usr/local/bin");
+        assert_eq!(info.status, CliPathStatus::NotInPath);
+        assert_eq!(
+            info.manual_command.as_deref(),
+            Some("export PATH=\"/usr/local/bin:$PATH\"")
+        );
+    }
+
+    #[test]
+    fn transactional_managed_copy_protects_unmanaged_files_and_recovers_pending_manifest() {
         let tmp = TempDir::new().unwrap();
         let bundled_v1 = tmp.path().join("bundled-v1");
         let bundled_v2 = tmp.path().join("bundled-v2");
         let target = tmp.path().join("local-bin").join("settled");
-        let manifest = tmp.path().join("managed-cli.json");
+        let manifest = tmp.path().join("state").join(MANAGED_CLI_MANIFEST_NAME);
 
         fs::create_dir_all(target.parent().unwrap()).unwrap();
         fs::write(&bundled_v1, "settled-binary-v1").unwrap();
         fs::write(&bundled_v2, "settled-binary-v2").unwrap();
 
-        // Missing target -> Absent (safe to install)
+        // Missing target -> transactional install succeeds and records committed manifest
         assert_eq!(
-            inspect_managed_copy_target(&target, &bundled_v1, &manifest, "0.1.0"),
-            ManagedTargetState::Absent
+            install_managed_copy_transactional(&bundled_v1, &target, &manifest, "0.2.0").unwrap(),
+            ManagedTargetState::UpToDate
         );
+        assert!(is_executable_file(&target));
+        let recorded = read_managed_manifest(&manifest).unwrap();
+        assert_eq!(recorded.pending_hash, None);
+        assert_eq!(recorded.version, "0.2.0");
 
-        // Unmanaged existing file -> Conflict (never silently overwritten!)
-        fs::write(&target, "user-custom-script").unwrap();
+        // Upgrade from 0.2.0 -> 0.3.0 succeeds cleanly
         assert_eq!(
-            inspect_managed_copy_target(&target, &bundled_v1, &manifest, "0.1.0"),
+            install_managed_copy_transactional(&bundled_v2, &target, &manifest, "0.3.0").unwrap(),
+            ManagedTargetState::UpToDate
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "settled-binary-v2");
+
+        // Older desktop (0.1.0) MUST NOT downgrade newer managed CLI (0.3.0)
+        assert_eq!(
+            install_managed_copy_transactional(&bundled_v1, &target, &manifest, "0.1.0").unwrap(),
             ManagedTargetState::Conflict(target.clone())
         );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "settled-binary-v2");
 
-        // Managed v1 copy -> identical returns UpToDate, newer v2 returns ManagedUpdatable
-        fs::copy(&bundled_v1, &target).unwrap();
-        let hash_v1 = compute_file_fingerprint(&target).unwrap();
-        fs::write(
+        // Simulate crash between binary replace and final manifest commit (`pending_hash` matches target):
+        // next run MUST recognize ownership via `pending_hash` and recover cleanly!
+        let hash_v2 = compute_file_fingerprint(&target).unwrap();
+        write_manifest_atomically(
             &manifest,
-            serde_json::to_string(&ManagedCliManifest {
+            &ManagedCliManifest {
                 target_path: canonicalize_if_possible(&target)
                     .to_string_lossy()
                     .into_owned(),
-                content_hash: hash_v1,
+                content_hash: "stale-v1-hash".to_string(),
+                pending_hash: Some(hash_v2),
                 version: "0.2.0".to_string(),
-            })
-            .unwrap(),
+            },
         )
         .unwrap();
-
+        let bundled_v3 = tmp.path().join("bundled-v3");
+        fs::write(&bundled_v3, "settled-binary-v3").unwrap();
         assert_eq!(
-            inspect_managed_copy_target(&target, &bundled_v1, &manifest, "0.2.0"),
+            install_managed_copy_transactional(&bundled_v3, &target, &manifest, "0.4.0").unwrap(),
             ManagedTargetState::UpToDate
         );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "settled-binary-v3");
+
+        // User replaces target with custom script -> MUST report Conflict and never overwrite
+        fs::write(&target, "user-custom-script").unwrap();
         assert_eq!(
-            inspect_managed_copy_target(&target, &bundled_v2, &manifest, "0.3.0"),
-            ManagedTargetState::ManagedUpdatable
-        );
-        // Older desktop app (0.1.0) MUST NOT downgrade a newer managed CLI (0.2.0)
-        assert_eq!(
-            inspect_managed_copy_target(&target, &bundled_v2, &manifest, "0.1.0"),
+            install_managed_copy_transactional(&bundled_v3, &target, &manifest, "0.5.0").unwrap(),
             ManagedTargetState::Conflict(target.clone())
+        );
+        assert_eq!(fs::read_to_string(&target).unwrap(), "user-custom-script");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ignores_non_executable_files_in_path_and_non_executable_local_copies() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tmp = TempDir::new().unwrap();
+        let dir_first = tmp.path().join("first-non-exec");
+        let dir_second = tmp.path().join("second-exec");
+        fs::create_dir_all(&dir_first).unwrap();
+        fs::create_dir_all(&dir_second).unwrap();
+
+        let non_exec = dir_first.join("settled");
+        let bundled = dir_second.join("settled");
+        fs::write(&non_exec, "not executable").unwrap();
+        fs::set_permissions(&non_exec, fs::Permissions::from_mode(0o644)).unwrap();
+        fs::write(&bundled, "real cli").unwrap();
+        mark_test_executable(&bundled);
+
+        // Non-executable file earlier in PATH MUST NOT shadow the valid executable later in PATH
+        let hit = resolve_first_settled_in_dirs(&[dir_first, dir_second], &["settled"], |p| {
+            same_canonical_path(p, &bundled)
+        });
+        assert_eq!(hit, PathHit::MatchesBundled);
+
+        // A managed copy that lost its execute bit MUST NOT be classified as UpToDate
+        let target = tmp.path().join("local-bin").join("settled");
+        let manifest = tmp.path().join("managed-cli.json");
+        assert_eq!(
+            install_managed_copy_transactional(&bundled, &target, &manifest, "0.2.0").unwrap(),
+            ManagedTargetState::UpToDate
+        );
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(
+            inspect_managed_copy_target(&target, &bundled, &manifest, "0.2.0"),
+            ManagedTargetState::ManagedUpdatable
         );
     }
 

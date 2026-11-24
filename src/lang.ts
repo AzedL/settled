@@ -122,6 +122,8 @@ export const lang = {
       path
         ? `PATH 中存在其他 settled 优先于当前版本：${path}`
         : "PATH 中存在其他 settled 优先于当前版本",
+    stateSyncWarning: (detail: string): string =>
+      `共享工作区状态同步失败，CLI 可能仍指向旧工作区：${detail}`,
     dismissAria: "关闭提示",
   },
 } as const;

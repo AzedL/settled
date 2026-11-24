@@ -163,6 +163,8 @@ pub struct DesktopWorkspaceSnapshot {
     pub items: Vec<DesktopWorkspaceItem>,
     pub all_tags: Vec<String>,
     pub scan_warnings: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub state_sync_warning: Option<String>,
 }
 
 impl DesktopWorkspaceSnapshot {
@@ -176,6 +178,7 @@ impl DesktopWorkspaceSnapshot {
             items: snap.items.iter().map(DesktopWorkspaceItem::from).collect(),
             all_tags: snap.all_tags.clone(),
             scan_warnings: snap.scan_warnings.clone(),
+            state_sync_warning: None,
         }
     }
 }
@@ -285,14 +288,14 @@ async fn open_workspace(
     state: State<'_, AppState>,
 ) -> Result<DesktopWorkspaceSnapshot, String> {
     let watcher_app = app.clone();
-    let (dto, committed) = state
+    let (mut dto, committed) = state
         .open_workspace_with_watcher(PathBuf::from(&path), move |watcher_path| {
             WorkspaceWatcher::start(watcher_app, watcher_path).ok()
         })
         .await?;
 
-    if committed {
-        let _ = record_workspace(&app, &dto.root_path);
+    if committed && let Err(err) = record_workspace(&app, &dto.root_path) {
+        dto.state_sync_warning = Some(err);
     }
     Ok(dto)
 }
