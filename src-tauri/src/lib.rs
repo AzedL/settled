@@ -21,6 +21,7 @@ const RUN_EVENT_NAME: &str = "settled://run-event";
 const FALLBACK_WINDOW_SHOW_SECS: u64 = 10;
 
 struct ActiveWorkspace {
+    generation: u64,
     root_path: PathBuf,
     snapshot: WorkspaceSnapshot,
     watcher: Option<WorkspaceWatcher>,
@@ -152,6 +153,7 @@ impl From<&WorkspaceItem> for DesktopWorkspaceItem {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopWorkspaceSnapshot {
+    pub workspace_generation: u64,
     pub root_path: String,
     pub items_dir: String,
     pub items_dir_exists: bool,
@@ -161,9 +163,10 @@ pub struct DesktopWorkspaceSnapshot {
     pub scan_warnings: Vec<String>,
 }
 
-impl From<&WorkspaceSnapshot> for DesktopWorkspaceSnapshot {
-    fn from(snap: &WorkspaceSnapshot) -> Self {
+impl DesktopWorkspaceSnapshot {
+    fn from_snapshot(snap: &WorkspaceSnapshot, workspace_generation: u64) -> Self {
         Self {
+            workspace_generation,
             root_path: snap.root_path.clone(),
             items_dir: snap.items_dir.clone(),
             items_dir_exists: snap.items_dir_exists,
@@ -179,6 +182,8 @@ impl From<&WorkspaceSnapshot> for DesktopWorkspaceSnapshot {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandSelector {
+    pub workspace_root: String,
+    pub workspace_generation: u64,
     pub item_id: String,
     pub group_key: String,
     pub command_index: usize,
@@ -258,38 +263,12 @@ async fn open_workspace(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<DesktopWorkspaceSnapshot, String> {
-    let my_open_seq = state.open_seq.fetch_add(1, Ordering::AcqRel) + 1;
-    state.snapshot_seq.fetch_add(1, Ordering::AcqRel);
-    let workspace_path = PathBuf::from(&path);
-    let snapshot = load_workspace_blocking(workspace_path.clone()).await?;
-    let dto = DesktopWorkspaceSnapshot::from(&snapshot);
-
-    if state.open_seq.load(Ordering::Acquire) != my_open_seq {
-        return Ok(dto);
-    }
-
     let watcher_app = app.clone();
-    let watcher_path = workspace_path.clone();
-    let new_watcher = tokio::task::spawn_blocking(move || {
-        WorkspaceWatcher::start(watcher_app, watcher_path).ok()
-    })
-    .await
-    .ok()
-    .flatten();
-
-    let committed = {
-        let mut guard = state.workspace.lock().await;
-        if state.open_seq.load(Ordering::Acquire) == my_open_seq {
-            *guard = Some(ActiveWorkspace {
-                root_path: workspace_path,
-                snapshot,
-                watcher: new_watcher,
-            });
-            true
-        } else {
-            false
-        }
-    };
+    let (dto, committed) = state
+        .open_workspace_with_watcher(PathBuf::from(&path), move |watcher_path| {
+            WorkspaceWatcher::start(watcher_app, watcher_path).ok()
+        })
+        .await?;
 
     if committed {
         let _ = record_workspace(&app, &dto.root_path);
@@ -299,9 +278,10 @@ async fn open_workspace(
 
 #[tauri::command]
 async fn reload_workspace(
+    expected_generation: Option<u64>,
     state: State<'_, AppState>,
 ) -> Result<Option<DesktopWorkspaceSnapshot>, String> {
-    state.reload_active().await
+    state.reload_active(expected_generation).await
 }
 
 #[tauri::command]
@@ -345,12 +325,62 @@ async fn build_ai_context(item_id: String, state: State<'_, AppState>) -> Result
 }
 
 impl AppState {
-    async fn reload_active(&self) -> Result<Option<DesktopWorkspaceSnapshot>, String> {
-        let (my_open_seq, my_snap_seq, root_path) = {
+    async fn open_workspace_with_watcher<F>(
+        &self,
+        workspace_path: PathBuf,
+        start_watcher: F,
+    ) -> Result<(DesktopWorkspaceSnapshot, bool), String>
+    where
+        F: FnOnce(PathBuf) -> Option<WorkspaceWatcher> + Send + 'static,
+    {
+        let my_open_seq = self.open_seq.fetch_add(1, Ordering::AcqRel) + 1;
+        self.snapshot_seq.fetch_add(1, Ordering::AcqRel);
+        let snapshot = load_workspace_blocking(workspace_path.clone()).await?;
+        let dto = DesktopWorkspaceSnapshot::from_snapshot(&snapshot, my_open_seq);
+
+        if self.open_seq.load(Ordering::Acquire) != my_open_seq {
+            return Ok((dto, false));
+        }
+
+        let watcher_path = workspace_path.clone();
+        let new_watcher = tokio::task::spawn_blocking(move || start_watcher(watcher_path))
+            .await
+            .ok()
+            .flatten();
+
+        let committed = {
+            let mut guard = self.workspace.lock().await;
+            if self.open_seq.load(Ordering::Acquire) == my_open_seq {
+                self.snapshot_seq.fetch_add(1, Ordering::AcqRel);
+                *guard = Some(ActiveWorkspace {
+                    generation: my_open_seq,
+                    root_path: workspace_path,
+                    snapshot,
+                    watcher: new_watcher,
+                });
+                true
+            } else {
+                false
+            }
+        };
+
+        Ok((dto, committed))
+    }
+
+    async fn reload_active(
+        &self,
+        expected_generation: Option<u64>,
+    ) -> Result<Option<DesktopWorkspaceSnapshot>, String> {
+        let (my_open_seq, my_snap_seq, root_path, generation) = {
             let mut guard = self.workspace.lock().await;
             let Some(active) = guard.as_mut() else {
                 return Ok(None);
             };
+            if let Some(expected_gen) = expected_generation
+                && active.generation != expected_gen
+            {
+                return Ok(None);
+            }
             if let Some(watcher) = active.watcher.as_mut() {
                 watcher.sync_items_watch();
             }
@@ -358,11 +388,12 @@ impl AppState {
                 self.open_seq.load(Ordering::Acquire),
                 self.snapshot_seq.fetch_add(1, Ordering::AcqRel) + 1,
                 active.root_path.clone(),
+                active.generation,
             )
         };
 
         let snapshot = load_workspace_blocking(root_path.clone()).await?;
-        let dto = DesktopWorkspaceSnapshot::from(&snapshot);
+        let dto = DesktopWorkspaceSnapshot::from_snapshot(&snapshot, generation);
 
         let mut guard = self.workspace.lock().await;
         if self.open_seq.load(Ordering::Acquire) != my_open_seq
@@ -371,6 +402,7 @@ impl AppState {
             return Ok(None);
         }
         if let Some(active) = guard.as_mut()
+            && active.generation == generation
             && active.root_path == root_path
         {
             active.snapshot = snapshot;
@@ -390,6 +422,13 @@ impl AppState {
 
         let mut targets = Vec::with_capacity(selectors.len());
         for sel in selectors {
+            if sel.workspace_generation != active.generation
+                || sel.workspace_root != active.snapshot.root_path
+            {
+                return Err(
+                    "Workspace changed since selection; command execution was rejected".to_string(),
+                );
+            }
             let item = active
                 .snapshot
                 .items
@@ -616,7 +655,7 @@ mod tests {
     #[tokio::test]
     async fn app_state_reloads_resolves_selectors_builds_context_and_cancels_cleanly() {
         let state = AppState::default();
-        assert!(state.reload_active().await.unwrap().is_none());
+        assert!(state.reload_active(None).await.unwrap().is_none());
         assert!(state.build_context("git-config").await.is_err());
         assert!(state.resolve_execution_targets(&[]).await.is_err());
         assert_eq!(state.cancel_active_run("none").await, 0);
@@ -644,19 +683,30 @@ mod tests {
         )
         .unwrap();
 
-        let initial_snap = load_workspace(tmp.path()).unwrap();
-        let watcher =
-            watcher::WorkspaceWatcher::start_with_callback(tmp.path().to_path_buf(), |_| {}).ok();
-        {
-            let mut guard = state.workspace.lock().await;
-            *guard = Some(ActiveWorkspace {
-                root_path: tmp.path().to_path_buf(),
-                snapshot: initial_snap,
-                watcher,
-            });
-        }
+        let (opened, committed) = state
+            .open_workspace_with_watcher(tmp.path().to_path_buf(), |p| {
+                watcher::WorkspaceWatcher::start_with_callback(p, |_| {}).ok()
+            })
+            .await
+            .unwrap();
+        assert!(committed);
+        assert_eq!(opened.workspace_generation, 1);
 
-        let reloaded = state.reload_active().await.unwrap().unwrap();
+        // Reload with mismatched expected generation is ignored cleanly
+        assert!(
+            state
+                .reload_active(Some(opened.workspace_generation + 1))
+                .await
+                .unwrap()
+                .is_none()
+        );
+
+        let reloaded = state
+            .reload_active(Some(opened.workspace_generation))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(reloaded.workspace_generation, opened.workspace_generation);
         assert_eq!(reloaded.items.len(), 1);
         let cmd0_fp = reloaded.items[0].script_groups[0].commands[0]
             .fingerprint
@@ -666,9 +716,11 @@ mod tests {
             .clone();
         assert!(!cmd0_fp.is_empty());
 
-        // Valid applicable selector with matching fingerprint resolves cleanly inside Rust
+        // Valid applicable selector with matching workspace identity and fingerprint resolves cleanly inside Rust
         let resolved = state
             .resolve_execution_targets(&[CommandSelector {
+                workspace_root: reloaded.root_path.clone(),
+                workspace_generation: reloaded.workspace_generation,
                 item_id: "git-config".to_string(),
                 group_key: "check".to_string(),
                 command_index: 0,
@@ -684,6 +736,8 @@ mod tests {
         assert!(
             state
                 .resolve_execution_targets(&[CommandSelector {
+                    workspace_root: reloaded.root_path.clone(),
+                    workspace_generation: reloaded.workspace_generation,
                     item_id: "git-config".to_string(),
                     group_key: "check".to_string(),
                     command_index: 0,
@@ -697,6 +751,8 @@ mod tests {
         assert!(
             state
                 .resolve_execution_targets(&[CommandSelector {
+                    workspace_root: reloaded.root_path.clone(),
+                    workspace_generation: reloaded.workspace_generation,
                     item_id: "git-config".to_string(),
                     group_key: "check".to_string(),
                     command_index: 1,
@@ -708,6 +764,8 @@ mod tests {
         assert!(
             state
                 .resolve_execution_targets(&[CommandSelector {
+                    workspace_root: reloaded.root_path.clone(),
+                    workspace_generation: reloaded.workspace_generation,
                     item_id: "git-config".to_string(),
                     group_key: "check".to_string(),
                     command_index: 99,
@@ -722,5 +780,160 @@ mod tests {
         assert!(md.contains("- **Workspace**:"));
         assert!(md.contains("- **Scripts**: `check`"));
         assert!(state.build_context("missing").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn rejects_cross_workspace_and_superseded_selectors_even_with_identical_fingerprint() {
+        let state = AppState::default();
+        let ws_a = TempDir::new().unwrap();
+        let ws_b = TempDir::new().unwrap();
+
+        let shared_meta = r#"{
+            "name": "Demo Item",
+            "scripts": {
+                "fix": "node @script/fix.mjs"
+            }
+        }"#;
+
+        for (ws, marker) in [(&ws_a, "WORKSPACE_A"), (&ws_b, "WORKSPACE_B")] {
+            let item_dir = ws.path().join(ITEMS_DIR_NAME).join("demo");
+            fs::create_dir_all(item_dir.join("scripts")).unwrap();
+            fs::write(item_dir.join("meta.json"), shared_meta).unwrap();
+            fs::write(
+                item_dir.join("scripts").join("fix.mjs"),
+                format!("console.log('{marker}');\n"),
+            )
+            .unwrap();
+        }
+
+        let (snap_a, committed_a) = state
+            .open_workspace_with_watcher(ws_a.path().to_path_buf(), |_| None)
+            .await
+            .unwrap();
+        assert!(committed_a);
+
+        let cmd_a = &snap_a.items[0].script_groups[0].commands[0];
+        let selector_a = CommandSelector {
+            workspace_root: snap_a.root_path.clone(),
+            workspace_generation: snap_a.workspace_generation,
+            item_id: "demo".to_string(),
+            group_key: "fix".to_string(),
+            command_index: 0,
+            fingerprint: cmd_a.fingerprint.clone(),
+        };
+
+        // Switch active workspace from A to B
+        let (snap_b, committed_b) = state
+            .open_workspace_with_watcher(ws_b.path().to_path_buf(), |_| None)
+            .await
+            .unwrap();
+        assert!(committed_b);
+        assert_ne!(snap_a.workspace_generation, snap_b.workspace_generation);
+
+        let cmd_b = &snap_b.items[0].script_groups[0].commands[0];
+        // Precondition: both workspaces produce identical command fingerprints despite different @script contents
+        assert_eq!(cmd_a.fingerprint, cmd_b.fingerprint);
+
+        // Stale selector from A MUST be rejected while B is active
+        let err = state
+            .resolve_execution_targets(std::slice::from_ref(&selector_a))
+            .await
+            .unwrap_err();
+        assert!(err.contains("Workspace changed"));
+
+        // Mismatched workspace_root with B's generation is also rejected
+        assert!(
+            state
+                .resolve_execution_targets(&[CommandSelector {
+                    workspace_root: snap_a.root_path.clone(),
+                    workspace_generation: snap_b.workspace_generation,
+                    item_id: "demo".to_string(),
+                    group_key: "fix".to_string(),
+                    command_index: 0,
+                    fingerprint: cmd_b.fingerprint.clone(),
+                }])
+                .await
+                .is_err()
+        );
+
+        // Selector created for B resolves exclusively to B's item directory and script
+        let resolved_b = state
+            .resolve_execution_targets(&[CommandSelector {
+                workspace_root: snap_b.root_path.clone(),
+                workspace_generation: snap_b.workspace_generation,
+                item_id: "demo".to_string(),
+                group_key: "fix".to_string(),
+                command_index: 0,
+                fingerprint: cmd_b.fingerprint.clone(),
+            }])
+            .await
+            .unwrap();
+        assert_eq!(resolved_b.len(), 1);
+        let script_body =
+            fs::read_to_string(PathBuf::from(&resolved_b[0].item_dir).join("scripts/fix.mjs"))
+                .unwrap();
+        assert!(script_body.contains("WORKSPACE_B"));
+        assert!(!script_body.contains("WORKSPACE_A"));
+
+        // Same-workspace hot-reload preserves workspace_generation and supports command reordering
+        let b_item_dir = ws_b.path().join(ITEMS_DIR_NAME).join("demo");
+        fs::write(
+            b_item_dir.join("meta.json"),
+            r#"{
+                "name": "Demo Item",
+                "scripts": {
+                    "fix": ["echo prep", "node @script/fix.mjs"]
+                }
+            }"#,
+        )
+        .unwrap();
+
+        let reloaded_b = state
+            .reload_active(Some(snap_b.workspace_generation))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(reloaded_b.workspace_generation, snap_b.workspace_generation);
+
+        // Old index 0 with original fingerprint is rejected; shifted index 1 with same generation succeeds
+        assert!(
+            state
+                .resolve_execution_targets(&[CommandSelector {
+                    workspace_root: snap_b.root_path.clone(),
+                    workspace_generation: snap_b.workspace_generation,
+                    item_id: "demo".to_string(),
+                    group_key: "fix".to_string(),
+                    command_index: 0,
+                    fingerprint: cmd_b.fingerprint.clone(),
+                }])
+                .await
+                .is_err()
+        );
+        let shifted_b = state
+            .resolve_execution_targets(&[CommandSelector {
+                workspace_root: snap_b.root_path.clone(),
+                workspace_generation: snap_b.workspace_generation,
+                item_id: "demo".to_string(),
+                group_key: "fix".to_string(),
+                command_index: 1,
+                fingerprint: cmd_b.fingerprint.clone(),
+            }])
+            .await
+            .unwrap();
+        assert_eq!(shifted_b[0].command_id, "demo::fix::1");
+
+        // Re-opening A creates a new generation; the old selector from A's previous session remains rejected
+        let (reopened_a, committed_a2) = state
+            .open_workspace_with_watcher(ws_a.path().to_path_buf(), |_| None)
+            .await
+            .unwrap();
+        assert!(committed_a2);
+        assert!(reopened_a.workspace_generation > snap_b.workspace_generation);
+        assert!(
+            state
+                .resolve_execution_targets(&[selector_a])
+                .await
+                .is_err()
+        );
     }
 }

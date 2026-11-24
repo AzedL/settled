@@ -89,6 +89,7 @@ describe("tauri api wrappers", () => {
     await getInitialState();
     await openWorkspace("D:\\ws");
     await reloadWorkspace();
+    await reloadWorkspace(2);
     await runCommands("run-1", []);
     await cancelRun("run-1");
     await buildAiContext("git-config");
@@ -97,6 +98,9 @@ describe("tauri api wrappers", () => {
     expect(invokeMock).toHaveBeenCalledWith("get_initial_state");
     expect(invokeMock).toHaveBeenCalledWith("open_workspace", { path: "D:\\ws" });
     expect(invokeMock).toHaveBeenCalledWith("reload_workspace");
+    expect(invokeMock).toHaveBeenCalledWith("reload_workspace", {
+      expectedGeneration: 2,
+    });
     expect(invokeMock).toHaveBeenCalledWith("run_commands", {
       runId: "run-1",
       selectors: [],

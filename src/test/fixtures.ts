@@ -70,6 +70,7 @@ export function makeSnapshot(
     }
   }
   return {
+    workspaceGeneration: 1,
     rootPath: "D:\\ws",
     itemsDir: "D:\\ws\\settled-items",
     itemsDirExists: true,

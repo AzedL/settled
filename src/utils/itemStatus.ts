@@ -19,13 +19,17 @@ export const DEFAULT_COMMAND_RUNTIME: CommandRuntimeState = {
 };
 
 /**
- * Returns the UI selection descriptor sent to Rust to resolve and execute a command.
+ * Returns the UI selection descriptor bound to a workspace identity and generation,
+ * sent to Rust to resolve and execute a command.
  */
 export function toCommandSelector(
+  workspace: Pick<WorkspaceSnapshot, "rootPath" | "workspaceGeneration">,
   item: WorkspaceItem,
   command: ResolvedCommand
 ): CommandSelector {
   return {
+    workspaceRoot: workspace.rootPath,
+    workspaceGeneration: workspace.workspaceGeneration,
     itemId: item.id,
     groupKey: command.key,
     commandIndex: command.index,

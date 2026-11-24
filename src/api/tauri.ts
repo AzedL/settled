@@ -42,8 +42,14 @@ export async function openWorkspace(path: string): Promise<WorkspaceSnapshot> {
   return invoke<WorkspaceSnapshot>("open_workspace", { path });
 }
 
-export async function reloadWorkspace(): Promise<WorkspaceSnapshot | null> {
-  return invoke<WorkspaceSnapshot | null>("reload_workspace");
+export async function reloadWorkspace(
+  expectedGeneration?: number
+): Promise<WorkspaceSnapshot | null> {
+  return expectedGeneration === undefined
+    ? invoke<WorkspaceSnapshot | null>("reload_workspace")
+    : invoke<WorkspaceSnapshot | null>("reload_workspace", {
+        expectedGeneration,
+      });
 }
 
 export async function runCommands(

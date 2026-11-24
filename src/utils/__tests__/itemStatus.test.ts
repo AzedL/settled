@@ -17,8 +17,10 @@ import {
 } from "../itemStatus";
 
 describe("itemStatus utilities", () => {
-  it("builds command selectors from item and command without runtime fields", () => {
-    const item = makeItem({ id: "git-config", path: "D:\\ws\\git-config" });
+  it("builds command selectors bound to workspace identity and generation without runtime fields", () => {
+    const wsA = makeSnapshot({ rootPath: "D:\\ws-a", workspaceGeneration: 1 });
+    const wsB = makeSnapshot({ rootPath: "D:\\ws-b", workspaceGeneration: 2 });
+    const item = makeItem({ id: "git-config", path: "D:\\ws-a\\git-config" });
     const cmd = makeCommand({
       index: 1,
       key: "check",
@@ -26,12 +28,26 @@ describe("itemStatus utilities", () => {
       rawRun: "git config user.name",
     });
 
-    expect(toCommandSelector(item, cmd)).toEqual({
+    const selectorA = toCommandSelector(wsA, item, cmd);
+    const selectorB = toCommandSelector(wsB, item, cmd);
+
+    expect(selectorA).toEqual({
+      workspaceRoot: "D:\\ws-a",
+      workspaceGeneration: 1,
       itemId: "git-config",
       groupKey: "check",
       commandIndex: 1,
       fingerprint: cmd.fingerprint,
     });
+    expect(selectorB).toEqual({
+      workspaceRoot: "D:\\ws-b",
+      workspaceGeneration: 2,
+      itemId: "git-config",
+      groupKey: "check",
+      commandIndex: 1,
+      fingerprint: cmd.fingerprint,
+    });
+    expect(selectorA).not.toEqual(selectorB);
   });
 
   it("extracts applicable check commands cleanly", () => {

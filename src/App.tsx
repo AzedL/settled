@@ -44,12 +44,23 @@ import {
   toCommandSelector,
 } from "./utils/itemStatus";
 
+interface WorkspaceIdentity {
+  rootPath: string;
+  workspaceGeneration: number;
+}
+
 interface PendingConfirmState {
+  workspace: WorkspaceIdentity;
   title: string;
   action: ActiveRunAction;
   item: WorkspaceItem;
   role: ScriptRole;
   commands: ResolvedCommand[];
+}
+
+interface VerifyAfterFixTarget {
+  workspace: WorkspaceIdentity;
+  item: WorkspaceItem;
 }
 
 interface RunTargetEntry {
@@ -118,7 +129,9 @@ export default function App() {
   );
   const canceledRunIdsRef = useRef<Set<string>>(new Set());
   const actionSeqRef = useRef(0);
-  const workspaceLoadSeqRef = useRef(0);
+  const workspaceOpenSeqRef = useRef(0);
+  const pendingOpenSeqRef = useRef<number | null>(null);
+  const workspaceReloadSeqRef = useRef(0);
 
   const resolveMappedCommandId = useCallback(
     (runId: string, originalCommandId: string): string | null => {
@@ -258,7 +271,12 @@ export default function App() {
         }
 
         setPendingConfirm((prev) => {
-          if (!prev) {
+          if (
+            !prev ||
+            prev.workspace.workspaceGeneration !==
+              snapshot.workspaceGeneration ||
+            prev.workspace.rootPath !== snapshot.rootPath
+          ) {
             return null;
           }
           const nextItem = snapshot.items.find((it) => it.id === prev.item.id);
@@ -284,6 +302,7 @@ export default function App() {
         handleStopActiveAction();
       }
 
+      workspaceRef.current = snapshot;
       setWorkspace(snapshot);
 
       setRuntimeMap((prev) =>
@@ -314,21 +333,26 @@ export default function App() {
 
   const loadWorkspaceAtPath = useCallback(
     async (path: string, clearOnFailure = false) => {
-      const loadSeq = ++workspaceLoadSeqRef.current;
+      const openSeq = ++workspaceOpenSeqRef.current;
+      pendingOpenSeqRef.current = openSeq;
+      workspaceReloadSeqRef.current += 1;
+      setPendingConfirm(null);
       try {
-        const previousRoot = workspaceRef.current?.rootPath;
         const snapshot = await openWorkspace(path);
-        if (workspaceLoadSeqRef.current !== loadSeq) {
+        if (workspaceOpenSeqRef.current !== openSeq) {
           return;
         }
-        if (
-          previousRoot &&
-          previousRoot !== snapshot.rootPath &&
-          activeActionRef.current !== null
-        ) {
+        workspaceReloadSeqRef.current += 1;
+        const previousWorkspace = workspaceRef.current;
+        const isSameSession =
+          previousWorkspace !== null &&
+          previousWorkspace.workspaceGeneration ===
+            snapshot.workspaceGeneration &&
+          previousWorkspace.rootPath === snapshot.rootPath;
+        if (!isSameSession && activeActionRef.current !== null) {
           handleStopActiveAction();
         }
-        applyWorkspaceSnapshot(snapshot, previousRoot === snapshot.rootPath);
+        applyWorkspaceSnapshot(snapshot, isSameSession);
         setInitialState((prev) =>
           prev
             ? {
@@ -347,8 +371,13 @@ export default function App() {
             : prev
         );
       } catch {
-        if (clearOnFailure && workspaceLoadSeqRef.current === loadSeq) {
+        if (clearOnFailure && workspaceOpenSeqRef.current === openSeq) {
+          workspaceRef.current = null;
           setWorkspace(null);
+        }
+      } finally {
+        if (pendingOpenSeqRef.current === openSeq) {
+          pendingOpenSeqRef.current = null;
         }
       }
     },
@@ -356,17 +385,28 @@ export default function App() {
   );
 
   const handleReloadWorkspace = useCallback(async () => {
-    const expectedRoot = workspaceRef.current?.rootPath;
-    if (!expectedRoot) {
+    const expectedWorkspace = workspaceRef.current;
+    if (!expectedWorkspace || pendingOpenSeqRef.current !== null) {
       return;
     }
-    const loadSeq = ++workspaceLoadSeqRef.current;
+    const openSeqAtStart = workspaceOpenSeqRef.current;
+    const reloadSeq = ++workspaceReloadSeqRef.current;
     try {
-      const snapshot = await reloadWorkspace();
+      const snapshot = await reloadWorkspace(
+        expectedWorkspace.workspaceGeneration
+      );
+      const currentWorkspace = workspaceRef.current;
       if (
-        workspaceLoadSeqRef.current !== loadSeq ||
+        workspaceOpenSeqRef.current !== openSeqAtStart ||
+        workspaceReloadSeqRef.current !== reloadSeq ||
+        pendingOpenSeqRef.current !== null ||
         !snapshot ||
-        snapshot.rootPath !== expectedRoot
+        !currentWorkspace ||
+        snapshot.workspaceGeneration !==
+          expectedWorkspace.workspaceGeneration ||
+        snapshot.workspaceGeneration !== currentWorkspace.workspaceGeneration ||
+        snapshot.rootPath !== expectedWorkspace.rootPath ||
+        snapshot.rootPath !== currentWorkspace.rootPath
       ) {
         return;
       }
@@ -504,13 +544,13 @@ export default function App() {
     async (
       targets: RunTargetEntry[],
       seq: number,
-      verifyItemAfterFix?: WorkspaceItem
+      verifyAfterFix?: VerifyAfterFixTarget
     ) => {
       if (targets.length === 0 || actionSeqRef.current !== seq) {
         return;
       }
 
-      const runId = createRunId(verifyItemAfterFix ? "fix" : "run");
+      const runId = createRunId(verifyAfterFix ? "fix" : "run");
       activeRunIdRef.current = runId;
 
       const idMap = new Map<string, string | null>();
@@ -568,17 +608,27 @@ export default function App() {
           actionSeqRef.current !== seq ||
           summary.results.some((result) => result.status === "canceled");
 
-        if (verifyItemAfterFix && !wasCanceled && actionSeqRef.current === seq) {
+        const currentWorkspace = workspaceRef.current;
+        if (
+          verifyAfterFix &&
+          !wasCanceled &&
+          actionSeqRef.current === seq &&
+          pendingOpenSeqRef.current === null &&
+          currentWorkspace &&
+          currentWorkspace.workspaceGeneration ===
+            verifyAfterFix.workspace.workspaceGeneration &&
+          currentWorkspace.rootPath === verifyAfterFix.workspace.rootPath
+        ) {
           const currentItem =
-            workspaceRef.current?.items.find(
-              (candidate) => candidate.id === verifyItemAfterFix.id
-            ) ?? verifyItemAfterFix;
+            currentWorkspace.items.find(
+              (candidate) => candidate.id === verifyAfterFix.item.id
+            ) ?? verifyAfterFix.item;
           const verifyCommands = getApplicableCheckCommands(currentItem);
           if (verifyCommands.length > 0) {
             await executeTargets(
               verifyCommands.map((cmd) => ({
                 commandId: cmd.commandId,
-                selector: toCommandSelector(currentItem, cmd),
+                selector: toCommandSelector(currentWorkspace, currentItem, cmd),
               })),
               seq
             );
@@ -613,7 +663,7 @@ export default function App() {
     async (
       action: ActiveRunAction,
       targets: RunTargetEntry[],
-      verifyItemAfterFix?: WorkspaceItem
+      verifyAfterFix?: VerifyAfterFixTarget
     ) => {
       if (activeActionRef.current !== null || targets.length === 0) {
         return;
@@ -625,7 +675,7 @@ export default function App() {
       setActiveAction(action);
 
       try {
-        await executeTargets(targets, seq, verifyItemAfterFix);
+        await executeTargets(targets, seq, verifyAfterFix);
       } finally {
         if (actionSeqRef.current === seq) {
           activeActionRef.current = null;
@@ -645,21 +695,38 @@ export default function App() {
       role: ScriptRole,
       commands: ResolvedCommand[]
     ) => {
-      if (activeActionRef.current !== null || commands.length === 0) {
+      const currentWorkspace = workspaceRef.current;
+      if (
+        activeActionRef.current !== null ||
+        pendingOpenSeqRef.current !== null ||
+        !currentWorkspace ||
+        commands.length === 0
+      ) {
         return;
       }
+      const workspaceIdentity: WorkspaceIdentity = {
+        rootPath: currentWorkspace.rootPath,
+        workspaceGeneration: currentWorkspace.workspaceGeneration,
+      };
       if (role === "check") {
         void startTrackedAction(
           action,
           commands.map((cmd) => ({
             commandId: cmd.commandId,
-            selector: toCommandSelector(item, cmd),
+            selector: toCommandSelector(workspaceIdentity, item, cmd),
           }))
         );
         return;
       }
 
-      setPendingConfirm({ title, action, item, role, commands });
+      setPendingConfirm({
+        workspace: workspaceIdentity,
+        title,
+        action,
+        item,
+        role,
+        commands,
+      });
     },
     [startTrackedAction]
   );
@@ -713,7 +780,11 @@ export default function App() {
   }, [scope, search, selectedTags, workspace]);
 
   const handleRunHeaderChecks = () => {
-    if (activeActionRef.current !== null || !workspace) {
+    if (
+      activeActionRef.current !== null ||
+      pendingOpenSeqRef.current !== null ||
+      !workspace
+    ) {
       return;
     }
     const targets: RunTargetEntry[] = [];
@@ -721,7 +792,7 @@ export default function App() {
       for (const cmd of getApplicableCheckCommands(item)) {
         targets.push({
           commandId: cmd.commandId,
-          selector: toCommandSelector(item, cmd),
+          selector: toCommandSelector(workspace, item, cmd),
         });
       }
     }
@@ -732,7 +803,11 @@ export default function App() {
   };
 
   const handleRunGroup = (item: WorkspaceItem, group: ScriptGroup) => {
-    if (activeActionRef.current !== null || !item.applicable) {
+    if (
+      activeActionRef.current !== null ||
+      pendingOpenSeqRef.current !== null ||
+      !item.applicable
+    ) {
       return;
     }
     const commands = group.commands.filter((cmd) => cmd.applicable);
@@ -750,7 +825,12 @@ export default function App() {
     group: ScriptGroup,
     cmd: ResolvedCommand
   ) => {
-    if (activeActionRef.current !== null || !item.applicable || !cmd.applicable) {
+    if (
+      activeActionRef.current !== null ||
+      pendingOpenSeqRef.current !== null ||
+      !item.applicable ||
+      !cmd.applicable
+    ) {
       return;
     }
     triggerWithConfirm(
@@ -769,13 +849,26 @@ export default function App() {
     const pending = pendingConfirm;
     setPendingConfirm(null);
 
+    const currentWorkspace = workspaceRef.current;
+    if (
+      pendingOpenSeqRef.current !== null ||
+      !currentWorkspace ||
+      currentWorkspace.workspaceGeneration !==
+        pending.workspace.workspaceGeneration ||
+      currentWorkspace.rootPath !== pending.workspace.rootPath
+    ) {
+      return;
+    }
+
     await startTrackedAction(
       pending.action,
       pending.commands.map((cmd) => ({
         commandId: cmd.commandId,
-        selector: toCommandSelector(pending.item, cmd),
+        selector: toCommandSelector(pending.workspace, pending.item, cmd),
       })),
-      pending.role === "fix" ? pending.item : undefined
+      pending.role === "fix"
+        ? { workspace: pending.workspace, item: pending.item }
+        : undefined
     );
   };
 

@@ -45,6 +45,7 @@ export interface WorkspaceItem {
 }
 
 export interface WorkspaceSnapshot {
+  workspaceGeneration: number;
   rootPath: string;
   itemsDir: string;
   itemsDirExists: boolean;
@@ -55,6 +56,8 @@ export interface WorkspaceSnapshot {
 }
 
 export interface CommandSelector {
+  workspaceRoot: string;
+  workspaceGeneration: number;
   itemId: string;
   groupKey: string;
   commandIndex: number;
