@@ -89,14 +89,22 @@ enum SymlinkAttempt {
 }
 
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ManagedBinaryRecord {
+    content_hash: String,
+    version: String,
+}
+
+#[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ManagedCliManifest {
     target_path: String,
-    content_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pending_hash: Option<String>,
-    version: String,
+    committed: Option<ManagedBinaryRecord>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pending: Option<ManagedBinaryRecord>,
 }
 
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
@@ -574,15 +582,29 @@ fn read_managed_manifest(manifest_path: &Path) -> Option<ManagedCliManifest> {
 }
 
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
-fn manifest_owns_target(manifest: &ManagedCliManifest, target: &Path, target_hash: &str) -> bool {
+fn resolve_managed_record(
+    manifest: &ManagedCliManifest,
+    target: &Path,
+    target_hash: &str,
+) -> Option<(ManagedBinaryRecord, bool)> {
     let path_matches = paths_equal(
         &canonicalize_if_possible(Path::new(&manifest.target_path)).to_string_lossy(),
         &canonicalize_if_possible(target).to_string_lossy(),
     );
     if !path_matches {
-        return false;
+        return None;
     }
-    manifest.content_hash == target_hash || manifest.pending_hash.as_deref() == Some(target_hash)
+    if let Some(pending) = &manifest.pending
+        && pending.content_hash == target_hash
+    {
+        return Some((pending.clone(), true));
+    }
+    if let Some(committed) = &manifest.committed
+        && committed.content_hash == target_hash
+    {
+        return Some((committed.clone(), false));
+    }
+    None
 }
 
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
@@ -618,8 +640,9 @@ fn inspect_managed_copy_target(
     }
 
     if let Some(manifest) = read_managed_manifest(manifest_path)
-        && manifest_owns_target(&manifest, target, &target_hash)
-        && version_ge(current_version, &manifest.version)
+        && let Some((record, _from_pending)) =
+            resolve_managed_record(&manifest, target, &target_hash)
+        && version_ge(current_version, &record.version)
     {
         return ManagedTargetState::ManagedUpdatable;
     }
@@ -628,8 +651,12 @@ fn inspect_managed_copy_target(
 }
 
 /// Transactionally inspects and (when absent or Settled-managed) installs/updates a local CLI copy
-/// under an exclusive cross-process lock using a two-phase manifest (`pendingHash` -> atomic binary
-/// replace -> finalized `contentHash`) so crashes between binary and manifest writes recover cleanly.
+/// under an exclusive cross-process lock using a two-phase `(committed, pending)` manifest state
+/// machine where each hash is bound to its exact version.
+///
+/// Before writing a new `pending` intent, the actual verified on-disk file record (including any
+/// recovered `pending` record from an interrupted prior upgrade) becomes `committed`, preserving
+/// ownership across consecutive interruptions and preventing older desktop versions from downgrading.
 #[cfg_attr(not(all(unix, not(target_os = "macos"))), allow(dead_code))]
 fn install_managed_copy_transactional(
     bundled: &Path,
@@ -638,11 +665,51 @@ fn install_managed_copy_transactional(
     current_version: &str,
 ) -> Result<ManagedTargetState, String> {
     let _lock = acquire_manifest_lock(manifest_path)?;
-    let state = inspect_managed_copy_target(target, bundled, manifest_path, current_version);
-    match state {
-        ManagedTargetState::UpToDate | ManagedTargetState::Conflict(_) => return Ok(state),
-        ManagedTargetState::Absent | ManagedTargetState::ManagedUpdatable => {}
-    }
+
+    let target_canon = canonicalize_if_possible(target)
+        .to_string_lossy()
+        .into_owned();
+    let existing_manifest = read_managed_manifest(manifest_path);
+
+    let base_record = match fs::symlink_metadata(target) {
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return Ok(ManagedTargetState::Conflict(target.to_path_buf())),
+        Ok(meta) if meta.file_type().is_symlink() || !meta.file_type().is_file() => {
+            return Ok(ManagedTargetState::Conflict(target.to_path_buf()));
+        }
+        Ok(_) => {
+            let Some(bundled_hash) = compute_file_fingerprint(bundled) else {
+                return Ok(ManagedTargetState::Conflict(target.to_path_buf()));
+            };
+            let Some(target_hash) = compute_file_fingerprint(target) else {
+                return Ok(ManagedTargetState::Conflict(target.to_path_buf()));
+            };
+
+            let resolved = existing_manifest
+                .as_ref()
+                .and_then(|m| resolve_managed_record(m, target, &target_hash));
+
+            // If an interrupted prior transaction left `pending` matching the live file on disk,
+            // finalize that recovered record into `committed` before deciding whether to upgrade.
+            if let Some((record, true)) = &resolved {
+                let recovered = ManagedCliManifest {
+                    target_path: target_canon.clone(),
+                    committed: Some(record.clone()),
+                    pending: None,
+                };
+                write_manifest_atomically(manifest_path, &recovered)?;
+            }
+
+            if bundled_hash == target_hash && is_executable_file(target) {
+                return Ok(ManagedTargetState::UpToDate);
+            }
+
+            match resolved {
+                Some((record, _)) if version_ge(current_version, &record.version) => Some(record),
+                _ => return Ok(ManagedTargetState::Conflict(target.to_path_buf())),
+            }
+        }
+    };
 
     let Some(parent) = target.parent() else {
         return Err("Missing target directory".to_string());
@@ -652,24 +719,15 @@ fn install_managed_copy_transactional(
 
     let new_hash = compute_file_fingerprint(bundled)
         .ok_or_else(|| format!("Failed to read bundled CLI '{}'", bundled.display()))?;
-    let target_canon = canonicalize_if_possible(target)
-        .to_string_lossy()
-        .into_owned();
-    let existing_manifest = read_managed_manifest(manifest_path);
 
-    // Phase 1: Write intent (`pending_hash`) atomically BEFORE touching the target binary.
-    // If manifest persistence fails, abort cleanly before modifying `~/.local/bin/settled`.
+    // Phase 1: Record verified on-disk file as `committed` and the incoming binary + version as `pending`.
     let pending_manifest = ManagedCliManifest {
         target_path: target_canon.clone(),
-        content_hash: existing_manifest
-            .as_ref()
-            .map(|m| m.content_hash.clone())
-            .unwrap_or_default(),
-        pending_hash: Some(new_hash.clone()),
-        version: existing_manifest
-            .as_ref()
-            .map(|m| m.version.clone())
-            .unwrap_or_else(|| current_version.to_string()),
+        committed: base_record,
+        pending: Some(ManagedBinaryRecord {
+            content_hash: new_hash.clone(),
+            version: current_version.to_string(),
+        }),
     };
     write_manifest_atomically(manifest_path, &pending_manifest)?;
 
@@ -715,13 +773,14 @@ fn install_managed_copy_transactional(
         return Err(err);
     }
 
-    // Phase 3: Commit finalized manifest (`content_hash = new_hash`, clearing `pending_hash`).
-    // Even if a crash happened right before this step, `pending_hash == new_hash` ensures recovery on next run.
+    // Phase 3: Commit finalized manifest (`committed = new record`, clearing `pending`).
     let committed_manifest = ManagedCliManifest {
         target_path: target_canon,
-        content_hash: new_hash,
-        pending_hash: None,
-        version: current_version.to_string(),
+        committed: Some(ManagedBinaryRecord {
+            content_hash: new_hash,
+            version: current_version.to_string(),
+        }),
+        pending: None,
     };
     write_manifest_atomically(manifest_path, &committed_manifest)?;
 
@@ -1211,56 +1270,110 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let bundled_v1 = tmp.path().join("bundled-v1");
         let bundled_v2 = tmp.path().join("bundled-v2");
+        let bundled_v3 = tmp.path().join("bundled-v3");
         let target = tmp.path().join("local-bin").join("settled");
         let manifest = tmp.path().join("state").join(MANAGED_CLI_MANIFEST_NAME);
 
         fs::create_dir_all(target.parent().unwrap()).unwrap();
         fs::write(&bundled_v1, "settled-binary-v1").unwrap();
         fs::write(&bundled_v2, "settled-binary-v2").unwrap();
+        fs::write(&bundled_v3, "settled-binary-v3").unwrap();
 
         // Missing target -> transactional install succeeds and records committed manifest
         assert_eq!(
-            install_managed_copy_transactional(&bundled_v1, &target, &manifest, "0.2.0").unwrap(),
+            install_managed_copy_transactional(&bundled_v1, &target, &manifest, "0.1.0").unwrap(),
             ManagedTargetState::UpToDate
         );
         assert!(is_executable_file(&target));
         let recorded = read_managed_manifest(&manifest).unwrap();
-        assert_eq!(recorded.pending_hash, None);
-        assert_eq!(recorded.version, "0.2.0");
+        assert_eq!(recorded.pending, None);
+        assert_eq!(recorded.committed.as_ref().unwrap().version, "0.1.0");
 
-        // Upgrade from 0.2.0 -> 0.3.0 succeeds cleanly
+        // Upgrade from 0.1.0 -> 0.2.0 succeeds cleanly
         assert_eq!(
-            install_managed_copy_transactional(&bundled_v2, &target, &manifest, "0.3.0").unwrap(),
+            install_managed_copy_transactional(&bundled_v2, &target, &manifest, "0.2.0").unwrap(),
             ManagedTargetState::UpToDate
         );
         assert_eq!(fs::read_to_string(&target).unwrap(), "settled-binary-v2");
 
-        // Older desktop (0.1.0) MUST NOT downgrade newer managed CLI (0.3.0)
+        // Simulate interrupted upgrade from 0.1.0 -> 0.2.0: binary on disk is ALREADY v2,
+        // `committed` still says v1, and `pending` records v2 with version 0.2.0.
+        let hash_v1 = compute_file_fingerprint(&bundled_v1).unwrap();
+        let hash_v2 = compute_file_fingerprint(&target).unwrap();
+        let target_canon = canonicalize_if_possible(&target)
+            .to_string_lossy()
+            .into_owned();
+        write_manifest_atomically(
+            &manifest,
+            &ManagedCliManifest {
+                target_path: target_canon.clone(),
+                committed: Some(ManagedBinaryRecord {
+                    content_hash: hash_v1,
+                    version: "0.1.0".to_string(),
+                }),
+                pending: Some(ManagedBinaryRecord {
+                    content_hash: hash_v2.clone(),
+                    version: "0.2.0".to_string(),
+                }),
+            },
+        )
+        .unwrap();
+
+        // 1. Older desktop (0.1.0) MUST NOT downgrade the pending 0.2.0 binary on disk,
+        // and recovers the manifest so `committed` becomes 0.2.0!
         assert_eq!(
             install_managed_copy_transactional(&bundled_v1, &target, &manifest, "0.1.0").unwrap(),
             ManagedTargetState::Conflict(target.clone())
         );
         assert_eq!(fs::read_to_string(&target).unwrap(), "settled-binary-v2");
+        let recovered = read_managed_manifest(&manifest).unwrap();
+        assert_eq!(recovered.pending, None);
+        assert_eq!(
+            recovered.committed,
+            Some(ManagedBinaryRecord {
+                content_hash: hash_v2.clone(),
+                version: "0.2.0".to_string(),
+            })
+        );
 
-        // Simulate crash between binary replace and final manifest commit (`pending_hash` matches target):
-        // next run MUST recognize ownership via `pending_hash` and recover cleanly!
-        let hash_v2 = compute_file_fingerprint(&target).unwrap();
+        // 2. Simulate consecutive interruption:
+        //    - v2 replaced binary and crashed (committed=v1, pending=v2)
+        //    - v3 starts, recovers committed=v2, writes pending=v3, and crashes before replacing binary
+        //    - v3 restarts -> binary is still v2, which matches recovered committed=v2 -> upgrades cleanly!
         write_manifest_atomically(
             &manifest,
             &ManagedCliManifest {
-                target_path: canonicalize_if_possible(&target)
-                    .to_string_lossy()
-                    .into_owned(),
-                content_hash: "stale-v1-hash".to_string(),
-                pending_hash: Some(hash_v2),
-                version: "0.2.0".to_string(),
+                target_path: target_canon.clone(),
+                committed: Some(ManagedBinaryRecord {
+                    content_hash: compute_file_fingerprint(&bundled_v1).unwrap(),
+                    version: "0.1.0".to_string(),
+                }),
+                pending: Some(ManagedBinaryRecord {
+                    content_hash: hash_v2.clone(),
+                    version: "0.2.0".to_string(),
+                }),
             },
         )
         .unwrap();
-        let bundled_v3 = tmp.path().join("bundled-v3");
-        fs::write(&bundled_v3, "settled-binary-v3").unwrap();
+        // Verify that a subsequent Phase-1-interrupted manifest keeps `committed = v2` (not v1)
+        let hash_v3 = compute_file_fingerprint(&bundled_v3).unwrap();
+        write_manifest_atomically(
+            &manifest,
+            &ManagedCliManifest {
+                target_path: target_canon,
+                committed: Some(ManagedBinaryRecord {
+                    content_hash: hash_v2,
+                    version: "0.2.0".to_string(),
+                }),
+                pending: Some(ManagedBinaryRecord {
+                    content_hash: hash_v3,
+                    version: "0.3.0".to_string(),
+                }),
+            },
+        )
+        .unwrap();
         assert_eq!(
-            install_managed_copy_transactional(&bundled_v3, &target, &manifest, "0.4.0").unwrap(),
+            install_managed_copy_transactional(&bundled_v3, &target, &manifest, "0.3.0").unwrap(),
             ManagedTargetState::UpToDate
         );
         assert_eq!(fs::read_to_string(&target).unwrap(), "settled-binary-v3");
@@ -1268,7 +1381,7 @@ mod tests {
         // User replaces target with custom script -> MUST report Conflict and never overwrite
         fs::write(&target, "user-custom-script").unwrap();
         assert_eq!(
-            install_managed_copy_transactional(&bundled_v3, &target, &manifest, "0.5.0").unwrap(),
+            install_managed_copy_transactional(&bundled_v3, &target, &manifest, "0.4.0").unwrap(),
             ManagedTargetState::Conflict(target.clone())
         );
         assert_eq!(fs::read_to_string(&target).unwrap(), "user-custom-script");
