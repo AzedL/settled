@@ -1,73 +1,10 @@
-use serde::{Deserialize, Serialize};
-use settled_core::ITEMS_DIR_NAME;
+use settled_core::{ITEMS_DIR_NAME, WorkspaceStateStore, normalize_against};
+pub use settled_core::{canonicalize_if_possible, paths_equal};
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
-const APP_DIR_NAME: &str = "dev.settled.app";
-const CLI_CONFIG_FILE_NAME: &str = "cli.json";
-
-/// Persisted CLI workspace state stored alongside desktop prefs in OS app data, kept strictly separate.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CliConfig {
-    pub current_workspace: Option<String>,
-    #[serde(default)]
-    pub workspaces: Vec<String>,
-}
-
-/// Manages reading and writing CLI workspace registration state (`cli.json`).
-#[derive(Debug, Clone)]
-pub struct CliConfigStore {
-    path: PathBuf,
-}
-
-impl CliConfigStore {
-    /// Returns the default CLI config store path inside `<data_dir>/dev.settled.app/cli.json`.
-    pub fn default_store() -> Result<Self, String> {
-        if let Some(override_path) = std::env::var_os("SETTLED_CLI_CONFIG")
-            && !override_path.is_empty()
-        {
-            return Ok(Self {
-                path: PathBuf::from(override_path),
-            });
-        }
-        let base = dirs::data_dir()
-            .ok_or_else(|| "Failed to resolve OS application data directory".to_string())?;
-        Ok(Self {
-            path: base.join(APP_DIR_NAME).join(CLI_CONFIG_FILE_NAME),
-        })
-    }
-
-    #[cfg(test)]
-    pub fn at(path: PathBuf) -> Self {
-        Self { path }
-    }
-
-    pub fn load(&self) -> Result<CliConfig, String> {
-        if !self.path.exists() {
-            return Ok(CliConfig::default());
-        }
-        let raw = fs::read_to_string(&self.path)
-            .map_err(|e| format!("Failed to read CLI config '{}': {e}", self.path.display()))?;
-        serde_json::from_str::<CliConfig>(&raw)
-            .map_err(|e| format!("Failed to parse CLI config '{}': {e}", self.path.display()))
-    }
-
-    pub fn save(&self, config: &CliConfig) -> Result<(), String> {
-        if let Some(parent) = self.path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                format!(
-                    "Failed to create CLI config directory '{}': {e}",
-                    parent.display()
-                )
-            })?;
-        }
-        let content = serde_json::to_string_pretty(config)
-            .map_err(|e| format!("Failed to serialize CLI config: {e}"))?;
-        fs::write(&self.path, content)
-            .map_err(|e| format!("Failed to write CLI config '{}': {e}", self.path.display()))
-    }
-}
+/// Store managing the shared desktop + CLI workspace registry.
+pub type CliConfigStore = WorkspaceStateStore;
 
 /// Outcome of `settled workspace use`.
 #[derive(Debug, Clone)]
@@ -83,7 +20,7 @@ pub struct RemoveWorkspaceOutcome {
     pub was_current: bool,
 }
 
-/// Registers (if needed) and activates a workspace in `cli.json`.
+/// Registers (if needed), promotes, and activates a workspace in the shared state store.
 pub fn use_workspace(
     store: &CliConfigStore,
     raw_path: &Path,
@@ -125,17 +62,7 @@ pub fn use_workspace(
 
     let canonical = canonicalize_if_possible(&abs);
     let canonical_str = canonical.to_string_lossy().into_owned();
-
-    let mut config = store.load()?;
-    if !config
-        .workspaces
-        .iter()
-        .any(|existing| paths_equal(existing, &canonical_str))
-    {
-        config.workspaces.push(canonical_str.clone());
-    }
-    config.current_workspace = Some(canonical_str.clone());
-    store.save(&config)?;
+    store.record_active_workspace(&canonical_str)?;
 
     Ok(UseWorkspaceOutcome {
         path: canonical_str,
@@ -143,7 +70,7 @@ pub fn use_workspace(
     })
 }
 
-/// Removes a registered workspace from `cli.json` (clearing `current_workspace` if matched).
+/// Removes a registered workspace from the shared state store (clearing `current_workspace` if matched).
 pub fn remove_workspace(
     store: &CliConfigStore,
     raw_path: &Path,
@@ -190,7 +117,7 @@ pub fn remove_workspace(
 
 /// Resolves the target workspace path along with any non-fatal CLI warnings:
 /// 1. Explicit `-w/--workspace` or `SETTLED_WORKSPACE`
-/// 2. Global `current_workspace` from `cli.json` (warns if missing on disk and falls through)
+/// 2. Shared `current_workspace` from `workspaces.json` (warns if missing on disk and falls through)
 /// 3. Current working directory `cwd` itself if it contains `settled-items/` (never walks parents)
 pub fn resolve_workspace_with_warnings(
     explicit: Option<PathBuf>,
@@ -231,91 +158,4 @@ pub fn resolve_workspace_with_warnings(
     Err(format!(
         "No active workspace found. Pass -w <path>, run inside a directory containing '{ITEMS_DIR_NAME}/', or run 'settled workspace use <path>'."
     ))
-}
-
-/// Joins relative paths with `cwd` and resolves `.` / `..` segments cleanly without touching disk.
-pub fn normalize_against(path: &Path, cwd: &Path) -> PathBuf {
-    let joined = if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        cwd.join(path)
-    };
-
-    let mut out = PathBuf::new();
-    for component in joined.components() {
-        match component {
-            Component::Prefix(p) => out.push(p.as_os_str()),
-            Component::RootDir => out.push(component.as_os_str()),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if matches!(out.components().next_back(), Some(Component::Normal(_))) {
-                    out.pop();
-                }
-            }
-            Component::Normal(s) => out.push(s),
-        }
-    }
-    out
-}
-
-pub fn canonicalize_if_possible(path: &Path) -> PathBuf {
-    if let Ok(canon) = fs::canonicalize(path) {
-        return strip_windows_verbatim(canon);
-    }
-
-    // When `path` itself no longer exists on disk (e.g. `workspace remove` on a deleted folder),
-    // canonicalize its nearest existing ancestor so symlinked prefixes (`/var` -> `/private/var`)
-    // and Windows 8.3 short paths (`RUNNER~1` -> `runneradmin`) still match registered paths.
-    let mut missing_tail = Vec::new();
-    let mut cur = path;
-    while let Some(parent) = cur.parent() {
-        if let Some(name) = cur.file_name() {
-            missing_tail.push(name.to_os_string());
-        }
-        if let Ok(mut base) = fs::canonicalize(parent).map(strip_windows_verbatim) {
-            for seg in missing_tail.into_iter().rev() {
-                base.push(seg);
-            }
-            return base;
-        }
-        cur = parent;
-    }
-
-    path.to_path_buf()
-}
-
-fn strip_windows_verbatim(path: PathBuf) -> PathBuf {
-    #[cfg(windows)]
-    {
-        let raw = path.to_string_lossy();
-        if let Some(stripped) = raw.strip_prefix(r"\\?\UNC\") {
-            return PathBuf::from(format!(r"\\{stripped}"));
-        }
-        if let Some(stripped) = raw.strip_prefix(r"\\?\") {
-            return PathBuf::from(stripped);
-        }
-    }
-    path
-}
-
-pub fn paths_equal(a: &str, b: &str) -> bool {
-    fn norm(s: &str) -> String {
-        #[cfg(windows)]
-        {
-            let mut win = s.replace('/', "\\");
-            while win.len() > 3 && win.ends_with('\\') {
-                win.pop();
-            }
-            win.to_ascii_lowercase()
-        }
-        #[cfg(not(windows))]
-        {
-            let mut unix = s.to_string();
-            while unix.len() > 1 && unix.ends_with('/') {
-                unix.pop();
-            }
-            unix
-        }
-    }
-    norm(a) == norm(b)
 }

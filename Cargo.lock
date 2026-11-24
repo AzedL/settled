@@ -3619,6 +3619,7 @@ dependencies = [
 name = "settled-core"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "encoding_rs",
  "serde",
  "serde_json",
@@ -3632,6 +3633,7 @@ dependencies = [
 name = "settled-desktop"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "notify",
  "notify-debouncer-mini",
  "serde",
@@ -3645,6 +3647,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "which",
+ "winreg",
 ]
 
 [[package]]

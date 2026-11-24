@@ -14,8 +14,10 @@
 - **跨平台范围与条目上下文定位**
   - 支持在「当前设备」与「全部平台」视图间切换：非本机适用的条目与命令在全部平台视图下清晰置灰并禁用执行。
   - 详情区提供「在 VS Code 中打开」「在文件管理器中定位」与「复制条目上下文」（输出仅含工作区/条目路径、平台与 `scripts` 分组名的精简定位锚点，便于交由本地 AI Coding Agent 按需读取文件并按用户指令操作）。
-- **无头 CLI 与 Agent Skill**
-  - 提供独立 CLI 工具 `settled`（覆盖工作区管理、结构化列表、`new` 脚手架、`lint` 契约校验及 `check`/`fix`/`run` 执行引擎）与配套 Agent Skill（[skills/settled/SKILL.md](skills/settled/SKILL.md)）。
+- **桌面端与 CLI 一体化捆绑发布、独立运行**
+  - 桌面端与 `settled` CLI 通过同一安装包捆绑交付并保持版本一致，运行时相互独立（终端/AI Agent 调用 `settled` 无需开启桌面端），两者共享同一份工作区状态（`<app-data>/dev.settled.app/workspaces.json`）。
+  - Windows 提供 NSIS `.exe` 安装器（自动注册/清理用户 `PATH`）；macOS 提供 `.dmg`（桌面端启动检测并在权限允许时静默注册 `/usr/local/bin/settled`，需授权时通过细提示条一键授权）；Linux 提供 `.deb` / `.rpm`（自动安装 `/usr/bin/settled`）与 `.AppImage`。
+  - 提供配套 Agent Skill（[skills/settled/SKILL.md](skills/settled/SKILL.md)）。
 
 ## 仓库结构
 
@@ -54,19 +56,22 @@ settled/
 # 安装前端依赖
 npm install
 
-# 启动 Tauri 桌面端热更新开发
+# 启动 Tauri 桌面端热更新开发（自动编译并暂存调试版 settled CLI sidecar）
 npm run tauri dev
 
 # 前端 TypeScript 类型检查与 Vite 生产构建
 npm run build
 
-# 打包桌面应用安装包
+# 打包捆绑桌面端 + settled CLI 的平台安装包
 npm run tauri build
 ```
 
-全量测试与代码质量检查：
+全量测试与代码质量检查（首次运行前需先暂存 CLI sidecar）：
 
 ```bash
+# 暂存内置 settled CLI sidecar（src-tauri/binaries/）
+npm run prepare:cli
+
 # 前端 Vitest 单元测试与 V8 覆盖率统计
 npm test
 npm run test:coverage
@@ -77,6 +82,8 @@ cargo test --workspace
 # 全工作区严格静态检查（零警告）
 cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+发布新版本：推送 `v*` 标签（如 `git tag v0.1.0 && git push origin v0.1.0`）将自动触发 [.github/workflows/release.yml](.github/workflows/release.yml)，构建 Windows（NSIS `.exe`）、macOS（Apple Silicon / Intel `.dmg`）与 Linux（`.deb` / `.rpm` / `.AppImage`）捆绑安装包并发布至 GitHub Releases。
 
 仓库内置了覆盖前端极限态、后端单测与 CLI 矩阵的中文示例工作区 [examples/workspace](examples/workspace/README.md)，可直接用桌面端打开或通过下方 CLI 命令本地试跑。
 

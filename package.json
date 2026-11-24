@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "prepare:cli": "node scripts/prepare-cli-sidecar.mjs",
     "tauri": "tauri",
     "prepare": "husky"
   },

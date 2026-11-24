@@ -74,6 +74,18 @@ export interface InitialAppState {
   hostPlatform: Platform;
 }
 
+export type CliPathStatus =
+  | "ready"
+  | "not_in_path"
+  | "needs_applications_move"
+  | "unavailable";
+
+export interface CliRegistrationInfo {
+  status: CliPathStatus;
+  bundledPath: string | null;
+  manualCommand: string | null;
+}
+
 export type RunEvent =
   | {
       kind: "started";

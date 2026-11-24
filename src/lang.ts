@@ -106,4 +106,14 @@ export const lang = {
     confirmBtn: "确认执行",
     cancelBtn: "取消",
   },
+
+  cliBanner: {
+    notInPath: "Settled CLI 未注册到 PATH",
+    registerBtn: "注册到 PATH",
+    registeringBtn: "注册中...",
+    copyCmdBtn: "复制命令",
+    copiedCmdBtn: "已复制",
+    needsApplicationsMove: "请将 Settled 拖入「应用程序」并注册 CLI",
+    dismissAria: "关闭提示",
+  },
 } as const;

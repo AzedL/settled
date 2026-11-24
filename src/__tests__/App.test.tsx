@@ -6,6 +6,9 @@ import type { RunEvent } from "../types";
 
 const apiMocks = vi.hoisted(() => ({
   getInitialState: vi.fn(),
+  getWorkspacePrefs: vi.fn(),
+  getCliStatus: vi.fn(),
+  registerCli: vi.fn(),
   openWorkspace: vi.fn(),
   reloadWorkspace: vi.fn(),
   pickWorkspaceFolder: vi.fn(),
@@ -107,6 +110,20 @@ describe("App integration", () => {
         recentWorkspaces: ["D:\\ws-main"],
       },
       hostPlatform: "windows",
+    });
+    apiMocks.getWorkspacePrefs.mockResolvedValue({
+      lastWorkspace: "D:\\ws-main",
+      recentWorkspaces: ["D:\\ws-main"],
+    });
+    apiMocks.getCliStatus.mockResolvedValue({
+      status: "ready",
+      bundledPath: null,
+      manualCommand: null,
+    });
+    apiMocks.registerCli.mockResolvedValue({
+      status: "ready",
+      bundledPath: null,
+      manualCommand: null,
     });
     apiMocks.openWorkspace.mockResolvedValue(snapshot);
   });
@@ -834,5 +851,78 @@ describe("App integration", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryAllByLabelText(lang.status.label("fail"))).toHaveLength(0);
     expect(screen.getAllByLabelText(lang.status.label("idle")).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows CLI registration banner only when needed, supports registering/copying/dismissing, and refreshes shared recent workspaces", async () => {
+    apiMocks.getCliStatus.mockResolvedValueOnce({
+      status: "not_in_path",
+      bundledPath: "/Applications/Settled.app/Contents/MacOS/settled",
+      manualCommand:
+        "sudo mkdir -p /usr/local/bin && sudo ln -sf '/Applications/Settled.app/Contents/MacOS/settled' /usr/local/bin/settled",
+    });
+    apiMocks.getWorkspacePrefs.mockResolvedValueOnce({
+      lastWorkspace: "D:\\ws-cli-added",
+      recentWorkspaces: ["D:\\ws-cli-added", "D:\\ws-main"],
+    });
+
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText(lang.cliBanner.notInPath)).toBeInTheDocument();
+    });
+
+    // Copy command writes the manual command to clipboard
+    await act(async () => {
+      fireEvent.click(screen.getByText(lang.cliBanner.copyCmdBtn));
+    });
+    expect(apiMocks.copyTextToClipboard).toHaveBeenCalledWith(
+      "sudo mkdir -p /usr/local/bin && sudo ln -sf '/Applications/Settled.app/Contents/MacOS/settled' /usr/local/bin/settled"
+    );
+
+    // Registering CLI updates status to ready and removes banner automatically
+    apiMocks.registerCli.mockResolvedValueOnce({
+      status: "ready",
+      bundledPath: "/Applications/Settled.app/Contents/MacOS/settled",
+      manualCommand: null,
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText(lang.cliBanner.registerBtn));
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(lang.cliBanner.notInPath)).not.toBeInTheDocument();
+    });
+
+    // Opening Recent Workspaces dropdown refreshes list from shared workspaces.json
+    // without disrupting the currently displayed workspace.
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText(lang.header.recentWorkspacesAria));
+    });
+    await waitFor(() => {
+      expect(screen.getByTitle("D:\\ws-cli-added")).toBeInTheDocument();
+    });
+    expect(screen.getByTitle("D:\\ws-main")).toHaveAttribute(
+      "data-active",
+      "true"
+    );
+  });
+
+  it("shows Applications move guidance on macOS ephemeral mounts without register button", async () => {
+    apiMocks.getCliStatus.mockResolvedValueOnce({
+      status: "needs_applications_move",
+      bundledPath: "/Volumes/Settled/Settled.app/Contents/MacOS/settled",
+      manualCommand: null,
+    });
+
+    render(<App />);
+    await waitFor(() => {
+      expect(
+        screen.getByText(lang.cliBanner.needsApplicationsMove)
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(lang.cliBanner.registerBtn)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(lang.cliBanner.dismissAria));
+    expect(
+      screen.queryByText(lang.cliBanner.needsApplicationsMove)
+    ).not.toBeInTheDocument();
   });
 });

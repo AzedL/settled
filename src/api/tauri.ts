@@ -4,6 +4,8 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type {
+  AppPrefs,
+  CliRegistrationInfo,
   CommandResult,
   CommandSelector,
   InitialAppState,
@@ -36,6 +38,18 @@ export async function syncWindowTheme(
 
 export async function getInitialState(): Promise<InitialAppState> {
   return invoke<InitialAppState>("get_initial_state");
+}
+
+export async function getWorkspacePrefs(): Promise<AppPrefs> {
+  return invoke<AppPrefs>("get_workspace_prefs");
+}
+
+export async function getCliStatus(): Promise<CliRegistrationInfo> {
+  return invoke<CliRegistrationInfo>("get_cli_status");
+}
+
+export async function registerCli(): Promise<CliRegistrationInfo> {
+  return invoke<CliRegistrationInfo>("register_cli");
 }
 
 export async function openWorkspace(path: string): Promise<WorkspaceSnapshot> {

@@ -22,6 +22,7 @@ interface HeaderBarProps {
   onChangeThemeMode: (mode: ThemeMode) => void;
   onOpenWorkspace: () => void;
   onOpenRecent: (path: string) => void;
+  onOpenRecentMenu?: () => void;
   onReload: () => void;
   onRunChecks: () => void;
   onStopChecks: () => void;
@@ -50,6 +51,7 @@ export function HeaderBar({
   onChangeThemeMode,
   onOpenWorkspace,
   onOpenRecent,
+  onOpenRecentMenu,
   onReload,
   onRunChecks,
   onStopChecks,
@@ -157,7 +159,13 @@ export function HeaderBar({
 
             <button
               type="button"
-              onClick={() => setRecentMenuOpen((prev) => !prev)}
+              onClick={() => {
+                const next = !recentMenuOpen;
+                setRecentMenuOpen(next);
+                if (next) {
+                  onOpenRecentMenu?.();
+                }
+              }}
               aria-expanded={recentMenuOpen}
               aria-haspopup="menu"
               aria-label={lang.header.recentWorkspacesAria}

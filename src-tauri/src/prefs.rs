@@ -1,12 +1,14 @@
 use serde::{Deserialize, Serialize};
+use settled_core::{
+    WORKSPACES_STATE_FILE_NAME, WorkspaceState, WorkspaceStateStore, strip_windows_verbatim,
+};
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 use tauri::{AppHandle, Manager};
 
-const PREFS_FILE_NAME: &str = "prefs.json";
 const MAX_RECENT_WORKSPACES: usize = 8;
 
-/// Persisted desktop application preferences (stored strictly in OS app data, never inside workspace).
+/// Desktop view over the shared workspace state persisted in OS app data (`workspaces.json`).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppPrefs {
@@ -15,80 +17,57 @@ pub struct AppPrefs {
     pub recent_workspaces: Vec<String>,
 }
 
-fn prefs_path(app: &AppHandle) -> Result<PathBuf, String> {
+impl From<WorkspaceState> for AppPrefs {
+    fn from(state: WorkspaceState) -> Self {
+        Self {
+            last_workspace: state.current_workspace,
+            recent_workspaces: state
+                .workspaces
+                .into_iter()
+                .take(MAX_RECENT_WORKSPACES)
+                .collect(),
+        }
+    }
+}
+
+fn state_store(app: &AppHandle) -> Result<WorkspaceStateStore, String> {
     let dir = app
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to resolve app data dir: {e}"))?;
     fs::create_dir_all(&dir).map_err(|e| format!("Failed to create app data dir: {e}"))?;
-    Ok(dir.join(PREFS_FILE_NAME))
+    Ok(WorkspaceStateStore::at(
+        dir.join(WORKSPACES_STATE_FILE_NAME),
+    ))
 }
 
-/// Loads desktop preferences, returning defaults when no file exists yet.
+/// Loads shared workspace preferences, migrating legacy files and returning defaults on error.
 pub fn load_prefs(app: &AppHandle) -> AppPrefs {
-    let Ok(path) = prefs_path(app) else {
+    let Ok(store) = state_store(app) else {
         return AppPrefs::default();
     };
-    load_prefs_from_path(&path)
+    AppPrefs::from(store.load_lenient())
 }
 
-pub fn load_prefs_from_path(path: &PathBuf) -> AppPrefs {
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|raw| serde_json::from_str::<AppPrefs>(&raw).ok())
-        .unwrap_or_default()
-}
-
-pub fn save_prefs_to_path(path: &PathBuf, prefs: &AppPrefs) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create app data dir: {e}"))?;
-    }
-    let content = serde_json::to_string_pretty(prefs)
-        .map_err(|e| format!("Failed to serialize prefs: {e}"))?;
-    fs::write(path, content).map_err(|e| format!("Failed to write prefs: {e}"))
-}
-
-/// Records an opened workspace path as `last_workspace` and pushes it to the top of `recent_workspaces`.
+/// Records an opened workspace path into the shared desktop + CLI state store.
 pub fn record_workspace(app: &AppHandle, workspace_path: &str) -> Result<AppPrefs, String> {
-    let path = prefs_path(app)?;
-    record_workspace_at_path(&path, workspace_path)
+    let store = state_store(app)?;
+    record_workspace_at_path(store.path(), workspace_path)
 }
 
-fn normalize_path_for_compare(s: &str) -> String {
-    #[cfg(windows)]
-    {
-        let mut win = s.replace('/', "\\");
-        while win.len() > 3 && win.ends_with('\\') {
-            win.pop();
-        }
-        win.to_ascii_lowercase()
-    }
-    #[cfg(not(windows))]
-    {
-        let mut unix = s.to_string();
-        while unix.len() > 1 && unix.ends_with('/') {
-            unix.pop();
-        }
-        unix
-    }
+#[cfg(test)]
+pub fn load_prefs_from_path(path: &Path) -> AppPrefs {
+    AppPrefs::from(WorkspaceStateStore::at(path.to_path_buf()).load_lenient())
 }
 
-fn paths_equal(a: &str, b: &str) -> bool {
-    normalize_path_for_compare(a) == normalize_path_for_compare(b)
-}
-
-pub fn record_workspace_at_path(path: &PathBuf, workspace_path: &str) -> Result<AppPrefs, String> {
-    let mut prefs = load_prefs_from_path(path);
-    prefs.last_workspace = Some(workspace_path.to_string());
-    prefs
-        .recent_workspaces
-        .retain(|existing| !paths_equal(existing, workspace_path));
-    prefs
-        .recent_workspaces
-        .insert(0, workspace_path.to_string());
-    prefs.recent_workspaces.truncate(MAX_RECENT_WORKSPACES);
-    save_prefs_to_path(path, &prefs)?;
-    Ok(prefs)
+pub fn record_workspace_at_path(path: &Path, workspace_path: &str) -> Result<AppPrefs, String> {
+    let normalized = fs::canonicalize(workspace_path)
+        .map(strip_windows_verbatim)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| workspace_path.to_string());
+    let store = WorkspaceStateStore::at(path.to_path_buf());
+    let state = store.record_active_workspace_lenient(&normalized)?;
+    Ok(AppPrefs::from(state))
 }
 
 #[cfg(test)]
@@ -99,37 +78,41 @@ mod tests {
     #[test]
     fn loads_defaults_on_missing_or_corrupt_prefs_and_caps_recent_workspaces() {
         let tmp = TempDir::new().unwrap();
-        let prefs_file = tmp.path().join(PREFS_FILE_NAME);
+        let state_file = tmp.path().join(WORKSPACES_STATE_FILE_NAME);
 
         // Missing file -> empty defaults
-        let initial = load_prefs_from_path(&prefs_file);
+        let initial = load_prefs_from_path(&state_file);
         assert_eq!(initial.last_workspace, None);
         assert!(initial.recent_workspaces.is_empty());
 
         // Malformed file -> falls back cleanly to defaults
-        fs::write(&prefs_file, "{ bad json").unwrap();
-        assert_eq!(load_prefs_from_path(&prefs_file).last_workspace, None);
+        fs::write(&state_file, "{ bad json").unwrap();
+        assert_eq!(load_prefs_from_path(&state_file).last_workspace, None);
 
-        // Recording workspaces deduplicates, moves active to front, and caps at 8
+        // Recording workspaces deduplicates, moves active to front, and caps desktop view at 8
+        // while keeping the full shared list intact for CLI.
         for i in 0..10 {
             let ws = format!("/ws/project-{i}");
-            record_workspace_at_path(&prefs_file, &ws).unwrap();
+            record_workspace_at_path(&state_file, &ws).unwrap();
         }
-        let reloaded = load_prefs_from_path(&prefs_file);
+        let reloaded = load_prefs_from_path(&state_file);
         assert_eq!(reloaded.last_workspace.as_deref(), Some("/ws/project-9"));
         assert_eq!(reloaded.recent_workspaces.len(), MAX_RECENT_WORKSPACES);
         assert_eq!(reloaded.recent_workspaces[0], "/ws/project-9");
         assert_eq!(reloaded.recent_workspaces[7], "/ws/project-2");
 
+        let full_shared = WorkspaceStateStore::at(state_file.clone()).load().unwrap();
+        assert_eq!(full_shared.workspaces.len(), 10);
+
         // Re-opening an older entry promotes it without duplicating
-        let promoted = record_workspace_at_path(&prefs_file, "/ws/project-4").unwrap();
+        let promoted = record_workspace_at_path(&state_file, "/ws/project-4").unwrap();
         assert_eq!(promoted.last_workspace.as_deref(), Some("/ws/project-4"));
         assert_eq!(promoted.recent_workspaces.len(), MAX_RECENT_WORKSPACES);
         assert_eq!(promoted.recent_workspaces[0], "/ws/project-4");
         assert_eq!(promoted.recent_workspaces[1], "/ws/project-9");
 
         // Trailing slashes (and case differences on Windows) deduplicate cleanly
-        let trailing = record_workspace_at_path(&prefs_file, "/ws/project-4/").unwrap();
+        let trailing = record_workspace_at_path(&state_file, "/ws/project-4/").unwrap();
         assert_eq!(trailing.recent_workspaces.len(), MAX_RECENT_WORKSPACES);
         assert_eq!(trailing.recent_workspaces[0], "/ws/project-4/");
         assert_eq!(trailing.recent_workspaces[1], "/ws/project-9");

@@ -1,6 +1,8 @@
+mod cli_install;
 mod prefs;
 mod watcher;
 
+use cli_install::{CliRegistrationInfo, inspect_or_auto_register_cli, register_cli_in_path};
 use prefs::{AppPrefs, load_prefs, record_workspace};
 use serde::{Deserialize, Serialize};
 use settled_core::{
@@ -237,6 +239,29 @@ fn get_initial_state(app: AppHandle) -> InitialAppState {
         prefs: load_prefs(&app),
         host_platform: Platform::current(),
     }
+}
+
+#[tauri::command]
+fn get_workspace_prefs(app: AppHandle) -> AppPrefs {
+    load_prefs(&app)
+}
+
+#[tauri::command]
+async fn get_cli_status() -> CliRegistrationInfo {
+    tokio::task::spawn_blocking(inspect_or_auto_register_cli)
+        .await
+        .unwrap_or(CliRegistrationInfo {
+            status: cli_install::CliPathStatus::Unavailable,
+            bundled_path: None,
+            manual_command: None,
+        })
+}
+
+#[tauri::command]
+async fn register_cli() -> Result<CliRegistrationInfo, String> {
+    tokio::task::spawn_blocking(register_cli_in_path)
+        .await
+        .map_err(|e| format!("Failed to join CLI registration task: {e}"))?
 }
 
 #[tauri::command]
@@ -602,6 +627,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_initial_state,
+            get_workspace_prefs,
+            get_cli_status,
+            register_cli,
             show_main_window,
             sync_window_theme,
             open_workspace,

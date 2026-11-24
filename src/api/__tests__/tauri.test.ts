@@ -47,11 +47,14 @@ import {
   buildAiContext,
   cancelRun,
   copyTextToClipboard,
+  getCliStatus,
   getInitialState,
+  getWorkspacePrefs,
   openExternalUrl,
   openInVscode,
   openWorkspace,
   pickWorkspaceFolder,
+  registerCli,
   reloadWorkspace,
   revealPathInExplorer,
   runCommands,
@@ -87,6 +90,9 @@ describe("tauri api wrappers", () => {
 
   it("delegates workspace and command invocations accurately", async () => {
     await getInitialState();
+    await getWorkspacePrefs();
+    await getCliStatus();
+    await registerCli();
     await openWorkspace("D:\\ws");
     await reloadWorkspace();
     await reloadWorkspace(2);
@@ -96,6 +102,9 @@ describe("tauri api wrappers", () => {
     await openInVscode("D:\\ws\\item");
 
     expect(invokeMock).toHaveBeenCalledWith("get_initial_state");
+    expect(invokeMock).toHaveBeenCalledWith("get_workspace_prefs");
+    expect(invokeMock).toHaveBeenCalledWith("get_cli_status");
+    expect(invokeMock).toHaveBeenCalledWith("register_cli");
     expect(invokeMock).toHaveBeenCalledWith("open_workspace", { path: "D:\\ws" });
     expect(invokeMock).toHaveBeenCalledWith("reload_workspace");
     expect(invokeMock).toHaveBeenCalledWith("reload_workspace", {

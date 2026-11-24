@@ -3,10 +3,13 @@ import {
   buildAiContext,
   cancelRun,
   copyTextToClipboard,
+  getCliStatus,
   getInitialState,
+  getWorkspacePrefs,
   openInVscode,
   openWorkspace,
   pickWorkspaceFolder,
+  registerCli,
   reloadWorkspace,
   revealPathInExplorer,
   runCommands,
@@ -15,6 +18,7 @@ import {
   subscribeWorkspaceChanges,
   syncWindowTheme,
 } from "./api/tauri";
+import { CliStatusBanner } from "./components/CliStatusBanner";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { DetailPanel } from "./components/DetailPanel";
 import { HeaderBar } from "./components/HeaderBar";
@@ -22,6 +26,7 @@ import { Sidebar } from "./components/Sidebar";
 import { lang } from "./lang";
 import type {
   ActiveRunAction,
+  CliRegistrationInfo,
   CommandRuntimeState,
   CommandSelector,
   InitialAppState,
@@ -118,6 +123,10 @@ export default function App() {
   );
   const [pendingConfirm, setPendingConfirm] =
     useState<PendingConfirmState | null>(null);
+  const [cliInfo, setCliInfo] = useState<CliRegistrationInfo | null>(null);
+  const [cliBannerDismissed, setCliBannerDismissed] = useState(false);
+  const [isRegisteringCli, setIsRegisteringCli] = useState(false);
+  const [cliError, setCliError] = useState<string | null>(null);
 
   const workspaceRef = useRef<WorkspaceSnapshot | null>(null);
   workspaceRef.current = workspace;
@@ -530,6 +539,15 @@ export default function App() {
           setIsBootstrapping(false);
         }
       }
+
+      try {
+        const cliStatus = await getCliStatus();
+        if (active) {
+          setCliInfo(cliStatus);
+        }
+      } catch {
+        // Ignore CLI status errors outside Tauri.
+      }
     })();
 
     return () => {
@@ -893,6 +911,37 @@ export default function App() {
     await copyTextToClipboard(markdown);
   };
 
+  const handleRefreshWorkspacePrefs = useCallback(async () => {
+    try {
+      const prefs = await getWorkspacePrefs();
+      setInitialState((prev) => (prev ? { ...prev, prefs } : prev));
+    } catch {
+      // Ignore refresh errors outside Tauri.
+    }
+  }, []);
+
+  const handleRegisterCli = useCallback(async () => {
+    if (isRegisteringCli) {
+      return;
+    }
+    setIsRegisteringCli(true);
+    setCliError(null);
+    try {
+      const updated = await registerCli();
+      setCliInfo(updated);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : String(err || "CLI registration failed");
+      setCliError(message);
+    } finally {
+      setIsRegisteringCli(false);
+    }
+  }, [isRegisteringCli]);
+
+  const handleCopyCliCommand = useCallback(async (command: string) => {
+    await copyTextToClipboard(command);
+  }, []);
+
   const selectedItem = useMemo(
     () => workspace?.items.find((item) => item.id === selectedItemId) ?? null,
     [workspace, selectedItemId]
@@ -914,10 +963,22 @@ export default function App() {
         onChangeThemeMode={setThemeMode}
         onOpenWorkspace={handleOpenWorkspaceDialog}
         onOpenRecent={(path) => void loadWorkspaceAtPath(path)}
+        onOpenRecentMenu={() => void handleRefreshWorkspacePrefs()}
         onReload={() => void handleReloadWorkspace()}
         onRunChecks={handleRunHeaderChecks}
         onStopChecks={() => void handleStopActiveAction()}
       />
+
+      {!cliBannerDismissed && cliInfo && (
+        <CliStatusBanner
+          info={cliInfo}
+          isRegistering={isRegisteringCli}
+          errorMessage={cliError}
+          onRegister={() => void handleRegisterCli()}
+          onCopyCommand={handleCopyCliCommand}
+          onDismiss={() => setCliBannerDismissed(true)}
+        />
+      )}
 
       {isBootstrapping && !workspace ? (
         <div className="flex-1 min-h-0" />
